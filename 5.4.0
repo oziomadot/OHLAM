@@ -1,0 +1,15 @@
+› Installing 1 SDK 54.0.0 compatible native module and 1 other package using npm
+› Using ~3.0.8 instead of ~3.0.8 for expo-status-bar because this version was explicitly provided. Packages excluded from dependency validation should be listed in expo.install.exclude in package.json. Learn more: https://docs.expo.dev/more/expo-cli/#configuring-dependency-validation
+> npm install
+
+changed 1 package, and audited 998 packages in 5s
+
+80 packages are looking for funding
+  run `npm fund` for details
+
+5 high severity vulnerabilities
+
+To address all issues, run:
+  npm audit fix --force
+
+Run `npm audit` for details.
