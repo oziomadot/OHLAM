@@ -62,7 +62,7 @@
     "react-native-svg": "^15.14.0",
     "react-native-web": "^0.21.0",
     "react-native-wheel-of-fortune": "^1.5.4",
-    "react-native-worklets": "^0.5.2",
+    "react-native-worklets": "^0.6.1",
     "typescript": "~5.9.2",
     "yup": "^1.7.0"
   },
