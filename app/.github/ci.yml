@@ -7,70 +7,20 @@ on:
     branches: [ main ]
 
 jobs:
-  backend-tests:
-    name: Backend tests (Laravel)
-    runs-on: ubuntu-latest
-    services:
-      mysql:
-        image: mysql:8
-        env:
-          MYSQL_ROOT_PASSWORD: root
-          MYSQL_DATABASE: test
-        ports:
-          - 3306:3306
-        options: >-
-          --health-cmd "mysqladmin ping --silent"
-          --health-interval 10s
-          --health-timeout 5s
-          --health-retries 3
-    steps:
-      - uses: actions/checkout@v4
-
-      - name: Setup PHP
-        uses: shivammathur/setup-php@v4
-        with:
-          php-version: '8.2'
-          extensions: mbstring, pdo_mysql
-          ini-values: post_max_size=256M, upload_max_filesize=256M
-          coverage: none
-
-      - name: Install composer dependencies
-        run: composer install -q --no-progress --prefer-dist
-
-      - name: Copy env
-        run: |
-          cp .env.example .env
-          php -r "file_exists('.env') || copy('.env.example', '.env');"
-          php artisan key:generate
-
-      - name: Configure DB
-        run: |
-          php artisan config:clear
-          php artisan migrate --seed --force
-
-      - name: Run tests
-        env:
-          DB_CONNECTION: mysql
-          DB_HOST: 127.0.0.1
-          DB_PORT: 3306
-          DB_DATABASE: test
-          DB_USERNAME: root
-          DB_PASSWORD: root
-        run: vendor/bin/phpunit --testsuite=Feature
-
-  frontend-tests:
-    name: Frontend tests (Expo)
+  test:
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
+      - name: Checkout
+        uses: actions/checkout@v4
 
-      - name: Setup Node
+      - name: Use Node.js
         uses: actions/setup-node@v4
         with:
-          node-version: 20
+          node-version: '20'
+          cache: 'npm'
 
-      - name: Install deps
+      - name: Install dependencies
         run: npm ci
 
-      - name: Run jest
-        run: npm test --if-present
+      - name: Run tests
+        run: npm test -- --ci

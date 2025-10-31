@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useRef } from 'react';
 import { KeyboardAvoidingView, ScrollView, View, Image, Text, Platform,
    StyleSheet, TouchableOpacity, Linking  } from 'react-native';
 import { TextInput, Button } from 'react-native-paper';
@@ -7,8 +7,14 @@ import * as Yup from 'yup';
 import { FontAwesome } from "@expo/vector-icons";
 import API from '@/config/index';
 import { useAuth } from '@/context/AuthContext';
+import { useRouter} from "expo-router";
+import Navbar from 'components/Navbar';
+import CustomAlert from 'components/CustomAlert';
+import * as SecureStore from "expo-secure-store"; 
+import { useRouteHandler } from '@/hooks/seRouteHandler';
 
-type LoginScreenProps = { navigation: any };
+ 
+
 
 
 const LoginSchema = Yup.object().shape({
@@ -18,32 +24,106 @@ const LoginSchema = Yup.object().shape({
     .required('Password is required'),
 });
 
-const LoginScreen: React.FC<LoginScreenProps> = ({ navigation }) => {
+const LoginScreen = () => {
   const [isLoading, setIsLoading] = useState(false);
   // TODO: Replace with your real auth hook, e.g. useAuth()
   const { login } = useAuth();
   const isWeb = Platform.OS === "web";
+  const router = useRouter();
 
-  const handleLogin = async (values: { email: string; password: string }) => {
-    try {
-      setIsLoading(true);
+  const [alertVisible, setAlertVisible] = useState(false);
+const [alertMessage, setAlertMessage] = useState("");
+const [alertTitle, setAlertTitle] = useState("");
+const [error, setError] = useState("");
+const { handleResponse } = useRouteHandler();
+const showAlertCallback = useRef<(() => void) | null>(null);
+
+
+function showAlert(title: string, message: string, onClose?: () => void) {
+  setAlertTitle(title);
+  setAlertMessage(message);
+  setAlertVisible(true);
+  // Store the callback to run when alert is closed
+  showAlertCallback.current = onClose;
+}
+
+
+
+   // Cross-platform storage helper (avoid expo-secure-store on web)
+    const setItemSafe = async (key: string, value: string) => {
+      try {
+        if (Platform.OS === "web") {
+          window?.localStorage?.setItem(key, value);
+          return;
+        }
+        await SecureStore.setItemAsync(key, value);
+      } catch (e) {
+        console.warn("Failed to persist value", key, e);
+      }
+    };
   
-      console.log("Logging in...");
-      const response = await API.post(`/login`, {
-        email: values.email,
-        password: values.password,
-      });
-  
-      const { token } = response.data;
-      await login(token); // saves in AsyncStorage
-  
-      console.log("Logged in!");
-    } catch (error: any) {
-      console.error("Login error:", error.response?.data || error.message);
-    } finally {
-      setIsLoading(false);
-    }
-  };
+ 
+
+    const handleLogin = async (values: { email: string; password: string }) => {
+      try {
+        setIsLoading(true);
+        setError(""); // clear old errors
+    
+        const response = await API.post(`/login`, {
+          email: values.email,
+          password: values.password,
+        });
+          
+
+        if (response.status === 200 && response.data.status === 200)
+          {
+          const user_id = response.data.user_id;
+          const user = response.data.user
+          
+          const { token } = response.data;
+
+          console.log(response.data);
+
+          await login(token, user); // save in AsyncStorage
+          await setItemSafe("token", token);
+          await setItemSafe("user_id", user_id);
+          showAlert("Success", response.data.successMessage, () => {
+            handleResponse(response, {
+              successRoute: response.data.successRoute,
+              errorMessage: response.data.errorMessage,
+              successMessage: response.data.successMessage,
+            });
+          });
+        } else {
+          // Handle non-200 responses (like 422 validation errors)
+          const data = response.data;
+          const msg =
+            Object.values(data?.errors || {})[0]?.[0] ||  // Try to extract Laravel validation message first
+            data?.errorMessage ||                              // fallback to generic message
+            "Login failed. Please check your credentials.";  // fallback to generic message
+
+          showAlert("Error", data.errorMessage || msg, () => {
+            handleResponse(response, {
+              successRoute: data.successRoute,
+              errorRoute: data.errorRoute || "/auth/LoginScreen",
+              errorMessage: data.errorMessage,
+              successMessage: data.successMessage,
+            });
+          });
+        }
+      } catch (error) {
+        const data = error.response?.data;
+        const msg =
+          Object.values(data?.errors || {})[0]?.[0] ||  // Try to extract Laravel validation message first
+          data?.errorMessage ||                              // fallback to generic message
+          "Login failed. Please try again.";            // final fallback
+
+        showAlert("Error", msg);
+      } finally {
+        setIsLoading(false);
+      }
+    };
+    
   
 
   return (
@@ -52,17 +132,18 @@ const LoginScreen: React.FC<LoginScreenProps> = ({ navigation }) => {
       style={styles.container}
     >
       <ScrollView contentContainerStyle={styles.scrollContainer}>
+        <Navbar/>
+        <View style={{flex: 1, alignItems: "center", justifyContent: "center", 
+          padding: 20}}>
+        <View style={{ width: isWeb ? "40%" : "100%"}}>
         <View style={styles.logoContainer}>
-          <Image
-            source={require("../../../assets/logo.png")}
-            style={styles.logo}
-            resizeMode="contain"
-          />
-          <Text style={styles.title}>We are OPAM family, we are here to deliver</Text>
+         
+          <Text style={styles.title}>We are OPAM family</Text> 
+          <Text style={styles.title}>we are here to deliver</Text>
           <Text style={styles.subtitle}>Sign in to continue</Text>
-        </View>
-<View style={{flex: 1, alignItems: "center", justifyContent: "center"}}>
-<View style={{ width: isWeb ? "30%" : "100%"}}>
+        
+
+
         {/* Facebook */}
       <TouchableOpacity
         style={[styles.button, { backgroundColor: "#4c6ef5" }]}
@@ -107,6 +188,7 @@ const LoginScreen: React.FC<LoginScreenProps> = ({ navigation }) => {
         keyboardType="email-address"
         autoCapitalize="none"
         error={touched.email && !!errors.email}
+        testID="login_email_input"
       />
       {touched.email && errors.email && (
         <Text style={styles.errorText}>{errors.email}</Text>
@@ -122,6 +204,7 @@ const LoginScreen: React.FC<LoginScreenProps> = ({ navigation }) => {
         onBlur={handleBlur('password')}
         secureTextEntry
         error={touched.password && !!errors.password}
+        testID="login_password_input"
       />
       {touched.password && errors.password && (
         <Text style={styles.errorText}>{errors.password}</Text>
@@ -129,7 +212,7 @@ const LoginScreen: React.FC<LoginScreenProps> = ({ navigation }) => {
 
       <TouchableOpacity
         style={styles.forgotPassword}
-        onPress={() => navigation.navigate('ForgotPassword')}
+        onPress={() => router.push('/auth/ForgotPasswordScreen')}
       >
         <Text style={styles.forgotPasswordText}>Forgot Password?</Text>
       </TouchableOpacity>
@@ -141,13 +224,14 @@ const LoginScreen: React.FC<LoginScreenProps> = ({ navigation }) => {
         disabled={isLoading}
         style={styles.button1}
         labelStyle={styles.buttonLabel}
+        testID="login_submit_button"
       >
         Sign In
       </Button>
 
       <View style={styles.footer}>
         <Text style={styles.footerText}>Don't have an account? </Text>
-        <TouchableOpacity onPress={() => navigation.navigate('Register')}>
+        <TouchableOpacity onPress={() => router.push('/auth/RegisterScreen')}>
           <Text style={styles.footerLink}>Sign Up</Text>
         </TouchableOpacity>
       </View>
@@ -157,7 +241,23 @@ const LoginScreen: React.FC<LoginScreenProps> = ({ navigation }) => {
 
         </View>
         </View>
+        </View>
       </ScrollView>
+
+       {/* 🔔 Global Alert (always available) */}
+    <CustomAlert
+      visible={alertVisible}
+      title={alertTitle}
+      message={alertMessage}
+      onClose={() => {
+        setAlertVisible(false);
+        // Run the callback if provided
+        if (showAlertCallback.current) {
+          showAlertCallback.current();
+          showAlertCallback.current = null;
+        }
+      }}
+    />
     </KeyboardAvoidingView>
   );
 };
@@ -175,6 +275,21 @@ const styles = StyleSheet.create({
   logoContainer: {
     alignItems: 'center',
     marginBottom: 40,
+    backgroundColor: '#E8E8E8',
+    padding: 30,
+    borderRadius: 10, 
+    shadowColor: '#147799',
+    shadowOffset: { width: 0, height: 8 },
+    shadowOpacity: 0.1,
+    shadowRadius: 10,
+    elevation: 6,
+     // Web shadow
+     ...Platform.select({
+      web: {
+        boxShadow: '0 25px 50px -12px rgba(14, 77, 9, 0.11)',
+        transition: 'transform 0.2s ease, box-shadow 0.2s ease',
+      },
+    }),
   },
   logo: {
     width: 120,

@@ -7,9 +7,13 @@ import {
   TouchableOpacity, 
   View, 
   SafeAreaView,
-  Dimensions
+  Dimensions,
+  KeyboardAvoidingView,
+  ScrollView,
+  Platform,
 } from "react-native";
 import { MaterialIcons } from "@expo/vector-icons";
+import Navbar from "components/Navbar"; 
 
 type Game = {
   id: string;
@@ -36,10 +40,19 @@ const games: Game[] = [
     icon: "help-outline",
     color: "#2196F3"
   },
+
+   { 
+    id: "", 
+    title: "Spin to win", 
+    route: "/(tabs)/games/spin", 
+    icon: "help-outline",
+    color: "#2196F3"
+  },
 ];
 
 export default function GameHub() {
   const router = useRouter();
+  const isWeb = Platform.OS === "web";
 
   const renderGameCard = ({ item }: { item: Game }) => (
     <TouchableOpacity
@@ -56,6 +69,15 @@ export default function GameHub() {
 
   return (
     <SafeAreaView style={styles.safeArea}>
+      
+      <KeyboardAvoidingView
+                        behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
+                        style={styles.container}
+                      >
+                          <ScrollView contentContainerStyle={styles.scrollContainer}>
+                              <Navbar/>
+                      <View style={{flex: 1, alignItems: "center", justifyContent: "center"}}>
+                      <View style={{ width: isWeb ? "30%" : "100%" }}>
       <Text style={styles.title}>Oramex Games</Text>
       <Text style={styles.subtitle}>Select a game to start playing</Text>
 
@@ -66,14 +88,34 @@ export default function GameHub() {
         contentContainerStyle={styles.listContainer}
         showsVerticalScrollIndicator={false}
       />
+      </View>
+      </View>
+      </ScrollView>
+      </KeyboardAvoidingView>
     </SafeAreaView>
   );
 }
 
 const styles = StyleSheet.create({
   safeArea: { flex: 1, padding: 16 },
-  title: { fontSize: 24, fontWeight: "bold", marginBottom: 8 },
-  subtitle: { fontSize: 16, marginBottom: 16, color: "#555" },
+  title: { 
+    fontSize: 24, 
+    fontWeight: "bold", 
+    marginBottom: 8,
+    fontFamily: 'Poppins_400Regular, Arial, sans-serif',
+    justifyContent: 'center',
+    alignItems: 'center',
+    textAlign: 'center', 
+  },
+  subtitle: { 
+    fontSize: 16, 
+    marginBottom: 16, 
+    color: "#555",
+    fontFamily: 'Poppins_400Regular, Arial, sans-serif',
+    justifyContent: 'center',
+    alignItems: 'center',
+    textAlign: 'center',
+   },
   listContainer: { paddingBottom: 20 },
   gameCard: {
     flexDirection: "row",
@@ -84,4 +126,13 @@ const styles = StyleSheet.create({
   },
   gameIcon: { marginRight: 12 },
   gameTitle: { fontSize: 18, color: "#fff", fontWeight: "bold" },
+  container:{
+    flex: 1,
+    backgroundColor: '#fff', 
+},
+scrollContainer: {
+    flexGrow: 1,
+    padding: 20,
+    justifyContent: 'center',
+  },
 });

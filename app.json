@@ -13,21 +13,46 @@
       "backgroundColor": "#ffffff"
     },
     "ios": {
-      "supportsTablet": true
+      "supportsTablet": true,
+      "runtimeVersion": {
+        "policy": "appVersion"
+      }
     },
     "android": {
       "adaptiveIcon": {
         "foregroundImage": "./assets/adaptive-icon.png",
         "backgroundColor": "#ffffff"
-      }
+      },
+      "package": "com.oramexglobals.OHLAM",
+      "versionCode": 1,
+      "permissions": [
+        "android.permission.RECORD_AUDIO",
+        "android.permission.RECORD_AUDIO"
+      ],
+      "runtimeVersion": "1.0.0"
+    },
+    "updates": {
+      "fallbackToCacheTimeout": 0,
+      "url": "https://u.expo.dev/373c6f7b-8b66-40dc-b4ea-0e5c57846ab9"
     },
     "web": {
-      "favicon": "./assets/favicon.png"
+      "favicon": "./assets/favicon.png",
+      "bundler": "metro"
     },
     "plugins": [
-      "expo-secure-store"
+      "expo-secure-store",
+      [
+        "expo-image-picker",
+        {
+          "photosPermission": "The app accesses your photos to let you share them with your friends."
+        }
+      ]
     ],
-    "extra": 
-    { "EXPO_PUBLIC_API_URL": "https://3d509572576c.ngrok-free.app/api" }
+    "extra": {
+      "EXPO_PUBLIC_API_URL": "https://3d509572576c.ngrok-free.app/api",
+      "eas": {
+        "projectId": "373c6f7b-8b66-40dc-b4ea-0e5c57846ab9"
+      }
+    }
   }
 }

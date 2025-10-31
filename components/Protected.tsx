@@ -15,7 +15,7 @@ export default function Protected({ children }: { children: React.ReactNode }) {
   }
 
   if (!isAuthenticated) {
-    return <Redirect href="/auth/login-screen" />;
+    return <Redirect href="/auth/LoginScreen" />;
   }
 
   return <>{children}</>;

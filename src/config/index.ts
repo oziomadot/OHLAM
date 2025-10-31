@@ -32,11 +32,16 @@ const Storage = {
 };
 
 // Base URL is configurable via env. Example: EXPO_PUBLIC_API_URL=https://xxxx.ngrok-free.app/api
-export const API_BASE_URL = process.env.EXPO_PUBLIC_API_URL ||  'https://3d509572576c.ngrok-free.app/api';
+export const API_BASE_URL = process.env.EXPO_PUBLIC_API_URL ||  'https://opaam.onrender.com/api';
+
 
 const API = axios.create({
   baseURL: API_BASE_URL,
-  headers: { Accept: 'application/json' },
+  withCredentials: true,
+  headers: { 
+    "Content-Type": "application/json",
+    "Accept": 'application/json' 
+  },
   timeout: 10000,
 });
 
