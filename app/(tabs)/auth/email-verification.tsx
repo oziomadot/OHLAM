@@ -178,6 +178,7 @@ function showAlert(title: string, message: string, onClose?: () => void) {
       console.log("Response data status:", res.data.status);
 
       if (res.status === 200 && res.data.status === 200) {
+         await setItemSafe("user_id", res.data.user.id);
         showAlert("Sent", res.data.successMessage || "A new code has been sent to your email.");
         handleResponse(res, {
           successRoute: res.data.successRoute,
@@ -210,6 +211,7 @@ function showAlert(title: string, message: string, onClose?: () => void) {
 
       });
 
+       await setItemSafe("user_id", res.data.user.id);
        handleResponse(res, {
               successRoute: res.data.successRoute,
               errorMessage: res.data.errorMessage,

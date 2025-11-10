@@ -1,18 +1,40 @@
 import { Stack } from "expo-router";
 import { AuthProvider } from "@/context/AuthContext";
+import { View, ActivityIndicator } from "react-native";
+import { useEffect, useState } from "react";
+import { OramexBanner } from "../components/OramexBanner";
 
 export default function RootLayout() {
+  const [isReady, setIsReady] = useState(false);
+
+  // Add a small delay to ensure the layout is mounted before any navigation occurs
+  useEffect(() => {
+    const timer = setTimeout(() => {
+      setIsReady(true);
+    }, 100);
+    return () => clearTimeout(timer);
+  }, []);
+
+  if (!isReady) {
+    return (
+      <View style={{ flex: 1, justifyContent: 'center', alignItems: 'center' }}>
+        <ActivityIndicator size="large" />
+      </View>
+    );
+  }
+
   return (
     <AuthProvider>
       <Stack
         screenOptions={{
           headerShown: false,
-          tabBarShown: false,
-          tabBarShowLabel: false,
-          tabBarStyle: { display: 'none' },
-          style: { padding: 20 },
+          contentStyle: { padding: 20 },
         }}
-      />
+      >
+        <OramexBanner />
+        <Stack.Screen name="(tabs)" />
+        <Stack.Screen name="auth" />
+      </Stack>
     </AuthProvider>
   );
 }

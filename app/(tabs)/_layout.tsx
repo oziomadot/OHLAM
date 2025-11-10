@@ -24,7 +24,7 @@ export default function TabLayout() {
     >
       {/* Only include tabs that actually exist under app/(tabs)/ */}
       <Tabs.Screen
-        name="home"
+        name="home/index"
         options={{
           title: "Home",
           tabBarIcon: ({ color, size }) => (
@@ -34,7 +34,7 @@ export default function TabLayout() {
       />
 
       <Tabs.Screen
-        name="games"
+        name="games/index"
         options={{
           title: "Games",
           tabBarIcon: ({ color, size }) => (
@@ -52,6 +52,7 @@ export default function TabLayout() {
           ),
         }}
       />
+   
     </Tabs>
   );
 }

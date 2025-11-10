@@ -1,81 +1,55 @@
 // src/config/index.ts
 import axios from 'axios';
-import * as SecureStore from 'expo-secure-store';
 import { Platform } from 'react-native';
+import { Storage } from './storage'; // ✅ import your reusable helper
 
 /**
- * Cross-platform storage helper
+ * API base configuration
  */
-const Storage = {
-  async getItem(key: string): Promise<string | null> {
-    if (Platform.OS === 'web') {
-      return localStorage.getItem(key);
-    }
-    return await SecureStore.getItemAsync(key);
-  },
-
-  async setItem(key: string, value: string) {
-    if (Platform.OS === 'web') {
-      localStorage.setItem(key, value);
-    } else {
-      await SecureStore.setItemAsync(key, value);
-    }
-  },
-
-  async removeItem(key: string) {
-    if (Platform.OS === 'web') {
-      localStorage.removeItem(key);
-    } else {
-      await SecureStore.deleteItemAsync(key);
-    }
-  },
-};
-
-// Base URL is configurable via env. Example: EXPO_PUBLIC_API_URL=https://xxxx.ngrok-free.app/api
-export const API_BASE_URL = process.env.EXPO_PUBLIC_API_URL ||  'https://opaam.onrender.com/api';
-
+export const API_BASE_URL =
+  process.env.EXPO_PUBLIC_API_URL || 'https://3110f6bee8ca.ngrok-free.app/api';
 
 const API = axios.create({
   baseURL: API_BASE_URL,
   withCredentials: true,
-  headers: { 
-    "Content-Type": "application/json",
-    "Accept": 'application/json' 
+  headers: {
+    'Content-Type': 'application/json',
+    Accept: 'application/json',
   },
   timeout: 10000,
 });
 
-// Attach token automatically if exists
+/**
+ * Attach token automatically to every request
+ */
 API.interceptors.request.use(async (config) => {
-  const token = await Storage.getItem('authToken');
+  const token = await Storage.get('authToken', true); // ✅ secure retrieval
   if (token) {
     config.headers.Authorization = `Bearer ${token}`;
   }
   return config;
 });
 
-export default API;
-
 /**
- * API functions
+ * API Functions
  */
 export const login = async (email: string, password: string) => {
   const res = await API.post('/login', { email, password });
   const { token } = res.data;
 
   if (token) {
-    await Storage.setItem('authToken', token);
+    await Storage.set('authToken', token, true); // ✅ store securely
   }
 
   return res.data;
 };
 
 export const logout = async () => {
-  await Storage.removeItem('authToken');
+  await Storage.remove('authToken', true); // ✅ unified removal
 };
 
 export const sendLocation = async (latitude: number, longitude: number) => {
-  const token = await Storage.getItem('authToken');
+  const token = await Storage.get('authToken', true);
   if (!token) throw new Error('No auth token found');
 
   const res = await API.post(
@@ -89,23 +63,32 @@ export const sendLocation = async (latitude: number, longitude: number) => {
   return res.data;
 };
 
-// Response interceptor: detect HTML/ngrok error pages and surface a clear error
+/**
+ * Response interceptor: detect HTML/ngrok issues
+ */
 API.interceptors.response.use(
   (response) => {
-    const ct = response.headers?.['content-type'] as string | undefined;
+    const ct = response.headers?.['content-type'];
     const body = response.data;
-    if ((typeof body === 'string' && /<\s*html/i.test(body)) || (ct && ct.includes('text/html'))) {
+    if (
+      (typeof body === 'string' && /<\s*html/i.test(body)) ||
+      (ct && ct.includes('text/html'))
+    ) {
       return Promise.reject({
-        message: 'Received HTML from API. Your tunnel/back-end may be down or misconfigured.',
+        message:
+          'Received HTML from API. Your tunnel/back-end may be down or misconfigured.',
         response,
       });
     }
     return response;
   },
-  (error) => {
-    return Promise.reject(error);
-  }
+  (error) => Promise.reject(error)
 );
 
-export const APP_NAME = "OHLAM";
-export const APP_VERSION = "1.0.0";
+/**
+ * App Metadata
+ */
+export const APP_NAME = 'OHLAM';
+export const APP_VERSION = '1.0.0';
+
+export default API;

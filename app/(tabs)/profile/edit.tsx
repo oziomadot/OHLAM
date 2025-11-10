@@ -9,6 +9,7 @@ import { View,
     TextInput,
     Image,
     TouchableOpacity,
+    Alert,
  } from "react-native";
 import Navbar from "components/Navbar";
 import { useForm, Controller, useWatch} from "react-hook-form";
@@ -22,191 +23,231 @@ import Dashboard from "components/Dashboard";
 import { API_BASE_URL } from "@/config";
 import { useRouter } from "expo-router";
 import { useFocusEffect } from '@react-navigation/native';
+import Storage from "@/config/storage";
 
+import CustomAlert from "components/CustomAlert";
+
+
+
+import * as mime from "mime"; // Install this: npm i mime
 
 const EditProfileScreen = () => {
+  const [loading, setLoading] = useState(false);
+  const { user, logout } = useAuth();
+  const [form, setForm] = useState({});
+  const [alertVisible, setAlertVisible] = useState(false);
+   const [alertTitle, setAlertTitle] = useState("");
+   const [alertMessage, setAlertMessage] = useState("");
+  const [selectedImage, setSelectedImage] = useState<string | null>(null);
+ const BASE_URL = API_BASE_URL.replace("/api", "");
+ const [formData, setFormData] = useState<Record<string, any>>({});
+ const [selectedImageFile, setSelectedImageFile] = useState<any>(null);
+  
+  const { control, handleSubmit, formState: { dirtyFields }, getValues, reset, watch } = useForm({
+  defaultValues: {
+    userId: user?.id ?? "",
+    surname: user?.surname ?? "",
+    firstname: user?.firstname ?? "",
+    othernames: user?.othernames ?? "",
+    email: user?.email ?? "",
+    phonenumber: user?.phonenumber ?? "",
+    whatsapp: user?.whatsapp ?? "",
+    profile_picture: "",
+    registration_status_id: user?.registration_status?.id?.toString() ?? "",
+   
+    dob: user?.dob ?? "",
+    referral_id: user?.referral_id ?? "",
+    workPhoneNumber: user?.workPhoneNumber ?? "",
+    instagram: user?.instagram ?? "",
+    linkedln: user?.linkedln ?? "",
+    linkedlntwitter: user?.linkedlntwitter ?? "",
+    philosophy: user?.philosophy ?? ""
+  },
+});
 
-    const [ loading, setLoading] = useState(false);
-    const [ error, setError] = useState("");
-    const [image, setImage] = useState(null);
-    const BASE_URL = API_BASE_URL.replace("/api", "");
-    const router = useRouter();
+const watchedRegistrationStatus = watch("registration_status_id");
+const [profileData, setProfileData] = useState(null); // used to re-render 
+const [registrationStatuses, setRegistrationStatuses] = useState([]);
 
-    const { reset } = useForm();
+const router = useRouter();
+const [originalData, setOriginalData] = useState<Record<string, any>>({});
 
-    const { user, logout } = useAuth();
-    const [form, setForm] = useState({});
-
-    const { control, handleSubmit, setValue, watch } = useForm({
-    defaultValues: {
-      surname: user?.surname || "",
-      firstname: user?.firstname || "",
-      othernames: user?.othernames || "",
-      email: user?.email || "",
-      phonenumber: user?.phonenumber || "",
-      whatsapp: user?.whatsapp || "",
-      profile_picture: user?.profile_picture || "",
-      registration_status_id: user?.registration_status_id || "",
-      dob: user?.dob || "",
-      referral_id: user?.referral_id || "",
-      workPhoneNumber: user?.workPhoneNumber || "",
-      instagram:user?.instagram || "",
-      linkedln: user?.linkedln || "",
-      linkedlntwitter: user?.linkedlntwitter || "", 
-      philosophy: user?.philosophy || "",
-    },
-  });
+   const showAlert = (title: string, message: string) => {
+    setAlertTitle(title);
+    setAlertMessage(message);
+    setAlertVisible(true);
+  };
 
 
-  const [profileData, setProfileData] = useState(null); // used to re-render
-
-  const [registrationStatuses, setRegistrationStatuses] = useState([]);
-
-  const { width } = useWindowDimensions();
-  const isWeb = Platform.OS === "web" || width > 768;
-
-   // ✅ Fetch registration statuses from Laravel
-  useEffect(() => {
-    const loadRegistrationStatus = async () => {
+  // ✅ Fetch registration statuses from Laravel 
+  useEffect(() => { 
+    console.log("user", user);
+    const loadRegistrationStatus = async () => { 
       setLoading(true);
-      try {
-        const response = await API.get("/registrationStatus");
-        setRegistrationStatuses(response.data.registrationStatus || []);
+       setProfileData(user); 
+       try { 
+        const response = await API.get("/registrationStatus"); 
+        setRegistrationStatuses(response.data.registrationStatus || []); 
       } catch (err) {
-        console.error("Error fetching registration statuses", err);
-        setError("Failed to load registration statuses");
-      } finally {
-        setLoading(false);
-      }
-    };
-    loadRegistrationStatus();
-  }, []);
+         console.error("Error fetching registration statuses", err); 
+         showAlert("Error", "Failed to load registration statuses"); 
+        } finally { 
+          setLoading(false); 
+        } 
+      }; 
+      loadRegistrationStatus(); 
+    }, []);
 
+  useEffect(() => {
+    if (user) {
+     const init = {
+        userId: user.id,
+        surname: user.surname || "",
+        firstname: user.firstname || "",
+        othernames: user.othernames || "",
+        email: user.email || "",
+        phonenumber: user.phonenumber || "",
+        whatsapp: user.whatsapp || "",
+        profile_picture: user.profile_picture || "",
+        registration_status_id: user.registration_status?.id?.toString() || "",
+        linkedlntwitter: user.linkedlntwitter || "",
+        philosophy: user.philosophy || ""
+      }
+
+      setFormData(init);
+    setOriginalData(init);
+    }
+  }, [user]);
+
+ 
+  // ✅ Image Picker (works for both web and mobile)
+  const handleImagePick = async () => {
+    try {
+      const result = await ImagePicker.launchImageLibraryAsync({
+        mediaTypes: ImagePicker.MediaTypeOptions.Images,
+        allowsEditing: true,
+        aspect: [1, 1],
+        quality: 0.8,
+      });
+
+      if (!result.canceled && result.assets?.length > 0) {
+        const asset = result.assets[0];
+        const uri = asset.uri;
+
+        // 👇 For Web, use fetch+blob; for native, direct file reference
+        let imageToUpload: any;
+
+        if (Platform.OS === "web") {
+          const response = await fetch(uri);
+          const blob = await response.blob();
+          imageToUpload = new File([blob], "profile_picture.jpg", {
+            type: blob.type || "image/jpeg",
+          });
+        } else {
+          imageToUpload = {
+            uri,
+            name: uri.split("/").pop() || "profile_picture.jpg",
+            type: mime.getType(uri) || "image/jpeg",
+          };
+        }
+
+        setSelectedImage(uri);
+setSelectedImageFile(imageToUpload);
+
+      //   setFormData((prev) => ({
+      //     ...prev,
+      //     profile_picture: imageToUpload,
+      //   }));
+      }
+    } catch (error) {
+      console.error("Error picking image:", error);
+      Alert.alert("Error", "Failed to pick image");
+    }
+  };
+
+  // ✅ Submit profile update
+  // const onSubmit = async () => {
+  //   if (!user) return;
+  //   setLoading(true);
+
+  //   try {
+  //     const formDataToSend = new FormData();
+
+  //     // ---- 1. Only changed text fields ----
+  //   Object.entries(formData).forEach(([key, value]) => {
+  //     if (key === "profile_picture") return; // handled separately
+
+  //     const original = originalData[key];
+  //     // send only if value changed OR if it is a required field you *must* send
+  //     if (value !== original && value !== null && value !== undefined) {
+  //       formDataToSend.append(key, value as any);
+  //     }
+  //   });
+
+  //   // ---- 2. Profile picture (always send if a new file is selected) ----
+  //   if (selectedImage && formData.profile_picture) {
+  //     formDataToSend.append("profile_picture", formData.profile_picture);
+  //   }
+
+  //   // ---- 3. Always send userId (required by backend) ----
+  //   formDataToSend.append("userId", user.id.toString());
     
-  const handleImageUpload = async () => {
-  const result = await ImagePicker.launchImageLibraryAsync({
-    mediaTypes: ImagePicker.MediaTypeOptions.Images,
-    allowsEditing: true,
-    aspect: [1, 1],
-    quality: 0.8,
+
+  //     const response = await API.post("/profile/update", formDataToSend, {
+  //       headers: {
+  //         "Content-Type": "multipart/form-data",
+  //         Authorization: `Bearer ${user.token}`,
+  //       },
+  //     });
+
+  //     if (response.data.status === 200) {
+  //       showAlert("Success", "Profile updated successfully!");
+  //       router.push("/home");
+  //     }
+  //   } catch (error) {
+  //     console.error("Profile update failed:", error);
+  //     showAlert("Error", "Failed to update profile");
+  //   } finally {
+  //     setLoading(false);
+  //   }
+  // };
+
+
+  const onSubmit = async (data: any) => {
+  setLoading(true);
+  const payload = new FormData();
+
+  // Always send userId
+  payload.append("userId", user.id.toString());
+
+  // Send only changed fields
+  Object.keys(dirtyFields).forEach((key) => {
+    if (key !== "profile_picture") {
+      payload.append(key, data[key]);
+    }
   });
 
-  if (!result.canceled) {
-    const imageUri = result.assets[0].uri;
-    setValue("profile_picture", imageUri);
+  // Send new image if selected
+  if (selectedImage && formData.profile_picture) {
+    payload.append("profile_picture", formData.profile_picture);
   }
-};
 
-
-
-
-
- // ✅ define it outside
-  const fetchProfileData = useCallback(async () => {
-    const token = await AsyncStorage.getItem("token");
-    try {
-      const res = await API.get("/profile", {
-        headers: { Authorization: `Bearer ${token}` },
-      });
-     console.log(res.data);
-      console.log(res);
-      reset(res.data); // resets form with fresh data
-      setProfileData(res.data);
-    } catch (err) {
-      console.error("Failed to fetch profile:", err);
-    }
-  }, [reset]);
-
-  // ✅ then call it here
-  useFocusEffect(
-    useCallback(() => {
-      fetchProfileData();
-    }, [fetchProfileData])
-  );
-
-
-  const watchedRegistrationStatus = watch("registration_status_id");
-
-  const fields = [
-    { label: "Surname", name: "surname" },
-    { label: "Firstname", name: "firstname" },
-    { label: "Othernames", name: "othernames" },
-    { label: "Email", name: "email" },
-    { label: "Phone Number", name: "phonenumber" },
-    { label: "WhatsApp Number", name: "whatsapp" },
-    { label: "Date of birth", name: "dob"},
-    { label: "Registration Status", name: "registration_status_id"},
-    ...(watchedRegistrationStatus === "2" ? [{ label: "Referral ID", name: "referral_id" }] : []),
-    ... (watchedRegistrationStatus === "3" ? [{ label: "Work Phone Number", name: "workPhoneNumber"},
-                                            { label: "Instagram Account Name", name: "instagram"},
-                                            { label: "Linkedln Account Name", name: "linkedln"},
-                                            { label: "Twitter Account Name", name: "twitter"}, 
-                                            { label: "Guiding Principle", name: "philosophy"} 
-    ] : []),
-    { label: "Profile Picture", name: "profile_picture"},
-  ];
-
- const handleUpdate = async (form) => {
-  setLoading(true);
-  setError(null);
-  const token = await AsyncStorage.getItem("token");
-
-  const formData = new FormData();
-  for (const key in form) {
-    if (form[key]) {
-      if (key === "profile_picture") {
-        try {
-          if (Platform.OS === "web") {
-            const response = await fetch(form[key]);
-            const blob = await response.blob();
-            formData.append("profile_picture", blob, "profile.jpg");
-          } else {
-            formData.append("profile_picture", {
-              uri: form[key],
-              name: "profile.jpg",
-              type: "image/jpeg",
-            });
-          }
-        } catch (error) {
-          console.error("Error converting image to blob:", error);
-          setError("Failed to process image for upload");
-          setLoading(false);
-          return;
-        }
-      } else {
-        formData.append(key, form[key]);
-      }
-    }
-  }
+  if (selectedImageFile) {
+  payload.append("profile_picture", selectedImageFile);
+}
 
   try {
-    const res = await API.post("/profile/update", formData, {
+    const res = await API.post("/profile/update", payload, {
       headers: {
-        Authorization: `Bearer ${token}`,
         "Content-Type": "multipart/form-data",
+        Authorization: `Bearer ${user.token}`,
       },
     });
 
-    if (res.data.status === 200) {
-
-
-      alert("Profile updated successfully!");
-      if(res.data.UserAuth === "Staff"){
-      // Log out the user
-      await AsyncStorage.removeItem("token");  // Clear the token
-      if (logout) {
-        logout();  // Call logout from AuthContext if available
-      }
-      router.replace("/(tabs)/home");
-      } 
-
-      await fetchProfileData();  // ✅ trigger re-render with fresh data (optional if logging out)
-    } else {
-      alert("Unexpected response from server.");
-    }
-  } catch (error) {
-    console.error(error.response?.data || error.message);
-    alert("Update failed.");
+    showAlert("Success", "Profile updated!");
+    router.push("/home");
+  } catch (err: any) {
+    showAlert("Error", err.response?.data?.message || "Update failed");
   } finally {
     setLoading(false);
   }
@@ -214,208 +255,214 @@ const EditProfileScreen = () => {
 
 
 
+const fields = [
+  { label: "Surname", name: "surname" },
+  { label: "Firstname", name: "firstname" },
+  { label: "Othernames", name: "othernames" },
+  { label: "Email", name: "email" },
+  { label: "Phone Number", name: "phonenumber" },
+  { label: "WhatsApp Number", name: "whatsapp" },
+  { label: "Date of Birth", name: "dob" },
+  { label: "Registration Status", name: "registration_status_id" },
+  ...(watchedRegistrationStatus === "2"
+    ? [{ label: "Referral ID", name: "referral_id" }]
+    : []),
+  ...(watchedRegistrationStatus === "3"
+    ? [
+        { label: "Work Phone Number", name: "workPhoneNumber" },
+        { label: "Instagram Account", name: "instagram" },
+        { label: "LinkedIn Account", name: "linkedln" },
+        { label: "Twitter Account", name: "linkedlntwitter" },
+        { label: "Guiding Principle", name: "philosophy" },
+      ]
+    : []),
+  { label: "Profile Picture", name: "profile_picture" },
+];
 
-    return (
-        <Protected>
-            <View style={styles.pageContainer}>
-           
-            <KeyboardAvoidingView behavior="padding" style={styles.keyboardContainer}>
-       <ScrollView contentContainerStyle={styles.scrollContainer} style={styles.scrollView}>
-         <Navbar/>
-            <Dashboard/>
-      <Text style={styles.title}>Edit Profile</Text>
+  // ✅ In your render section for web:
+  return (
+    <Protected>
+  <KeyboardAvoidingView
+    behavior={Platform.OS === "ios" ? "padding" : "height"}
+    style={styles.keyboardContainer}
+  >
+    <Navbar />
+    <ScrollView contentContainerStyle={styles.scrollContainer}>
+      <View style={styles.pageContainer}>
+        <Text style={styles.title}>Edit Profile</Text>
 
-      <View style={styles.tableContainer}>
-
-      {/* 🖥️ WEB VIEW (3 Columns) */}
-      {isWeb ? (
         <View style={styles.table}>
+          {/* Header Row */}
           <View style={[styles.row, styles.headerRow]}>
             <Text style={[styles.cell, styles.header]}>Field</Text>
             <Text style={[styles.cell, styles.header]}>Current Data</Text>
             <Text style={[styles.cell, styles.header]}>New Input</Text>
           </View>
-{fields.map((field) => (
-  <View key={field.name} style={styles.row}>
-    {/* Column 1: Field Label */}
-    <Text style={styles.cell}>{field.label}</Text>
 
-    {/* Column 2: Current User Data */}
-   
-<View style={styles.cell}>
-  {(() => {
-    switch (field.name) {
-      case "registration_status_id":
-        return (
-          <Text>
-            {user?.registration_status?.name || (
-              <Text style={{ color: "red" }}>Not Available</Text>
-            )}
-          </Text>
-        );
+          {/* Dynamic Form Fields */}
+          {fields.map((field) => (
+            <View key={field.name} style={styles.row}>
+              {/* Column 1: Field Label */}
+              <Text style={styles.cell}>{field.label}</Text>
 
-      case "profile_picture":
-        return user?.profile_picture ? (
-          <Image
-            source={{ uri: `${BASE_URL}/storage/${user.profile_picture}` }}
-            style={styles.profileImage}
-          />
-        ) : (
-          <Text style={{ color: "red" }}>Not Available</Text>
-        );
-        case "referral_id":
-            return (
-                <Text></Text>
-            );
-
-      default:
-        return (
-          <Text>
-            {user?.[field.name] || (
-              <Text style={{ color: "red" }}>Not Available</Text>
-            )}
-          </Text>
-        );
-    }
-  })()}
-</View>
-
-    {/* Column 3: Input / Picker / Image */}
-    <View style={[styles.cell, { flex: 1 }]}>
-      <Controller
-        control={control}
-        name={field.name as any}
-        render={({ field: { onChange, value } }) => {
-          // You can safely use switch/if here
-          switch (field.name) {
-            case "registration_status_id":
-              return (
-                <Picker
-                  selectedValue={value}
-                  onValueChange={onChange}
-                  style={styles.input}
-                  testID="reg_picker"
-                >
-                  <Picker.Item
-                    label="Select registration status"
-                    value=""
-                    color="#999"
-                  />
-                  {registrationStatuses.map((s) => (
-                    <Picker.Item key={s.id} label={s.name} value={s.id} />
-                  ))}
-                </Picker>
-              );
-
-            case "profile_picture":
-              return (
-                <TouchableOpacity
-                  style={styles.uploadButton}
-                  onPress={handleImageUpload} // ← define this function
-                >
-                  {value ? (
+              {/* Column 2: Current User Data */}
+              <View style={styles.cell}>
+                {field.name === "registration_status_id" ? (
+                  <Text>
+                    {user?.registration_status?.name || (
+                      <Text style={{ color: "red" }}>Not Available</Text>
+                    )}
+                  </Text>
+                ) : field.name === "profile_picture" ? (
+                  user?.profile_picture ? (
                     <Image
-                      source={{ uri: value }}
+                      source={{ uri: `${BASE_URL}/storage/${user.profile_picture}` }}
                       style={styles.profileImage}
                     />
                   ) : (
-                    <Text>Upload Image</Text>
-                  )}
-                </TouchableOpacity>
-              );
+                    <Text>—</Text>
+                  )
+                ) : (
+                  <Text>{user?.[field.name] || "—"}</Text>
+                )}
+              </View>
 
-            default:
-              return (
-                <TextInput
-                  style={styles.input}
-                  value={value}
-                  onChangeText={onChange}
-                  placeholder={`Enter new ${field.label.toLowerCase()}`}
-                />
-              );
-          }
-        }}
-      />
-    </View>
-  </View>
-))}
+              
 
+{/* Column 3: Input / Picker / Image */} 
+<View style={[styles.cell, { flex: 1 }]}> {field.name === "email" ? ( <TextInput style={[styles.input, styles.disabledInput]} value={formData.email} editable={false} selectTextOnFocus={false} placeholder="Email" keyboardType="email-address" autoCapitalize="none" /> ) 
+: 
+( 
+<Controller control={control} name={field.name as any} 
+render={({ field: { onChange, value } }) => 
+  { 
+    // You can safely use switch/if here 
+    switch (field.name) 
+    { case "registration_status_id": 
+      return ( 
+      
+      <View style={styles.pickerContainer}> 
+
+      <Controller
+  control={control}
+  name="registration_status_id"
+  render={({ field: { onChange, value } }) => (
+      <Picker selectedValue={value} onValueChange={onChange} style={styles.picker} > 
+        <Picker.Item label="Select registration status" value="" color="#999" /> 
+        {registrationStatuses.map((s) => 
+        ( <Picker.Item key={s.id} label={s.name} value={s.id}
+           /> 
+          ))} 
+          </Picker>
+          
+          )}
+/>
+          </View>
+           ); 
+           case "profile_picture": 
+           return ( <TouchableOpacity style={styles.avatarContainer} 
+            onPress={handleImagePick}         // ← define this function 
+            > 
+            {selectedImage ? 
+            ( <Image source={{ uri: selectedImage }} style={styles.profileImage} /> 
+
+            ) : 
+            ( <Text>Upload Image</Text> )} 
+            </TouchableOpacity> );
+             default: 
+             return ( 
+             <TextInput style={styles.input} value={value} 
+             onChangeText={onChange} 
+             placeholder={`Enter new ${field.label.toLowerCase()}`} />
+              ); 
+              } 
+              }} /> 
+              )} 
+              </View> 
+              </View> 
+            ))}
+
+
+
+
+
+
+{/* 
+            </View>
+          ))} */}
+
+          {/* Submit Button */}
+          <View style={styles.buttonContainer}>
+            <TouchableOpacity
+              style={styles.submitButton}
+              onPress={handleSubmit(onSubmit)}
+              disabled={loading}
+            >
+              <Text style={styles.submitText}>
+                {loading ? "Updating..." : "Save Changes"}
+              </Text>
+            </TouchableOpacity>
+          </View>
         </View>
-      ) : (
-        <>
-          {/* 📱 MOBILE VIEW: Current Data Table */}
-          <View style={styles.table}>
-            <View style={[styles.row, styles.headerRow]}>
-              <Text style={[styles.cell, styles.header]}>Field</Text>
-              <Text style={[styles.cell, styles.header]}>Current Data</Text>
-            </View>
-
-            {fields.map((field) => (
-              <View key={field.name} style={styles.row}>
-                <Text style={styles.cell}>{field.label}</Text>
-                <Text style={styles.cell}>{user?.[field.name] || "—"}</Text>
-              </View>
-            ))}
-          </View>
-
-          {/* 📱 MOBILE VIEW: New Input Table */}
-          <View style={[styles.table, { marginTop: 20 }]}>
-            <View style={[styles.row, styles.headerRow]}>
-              <Text style={[styles.cell, styles.header]}>Field</Text>
-              <Text style={[styles.cell, styles.header]}>New Input</Text>
-            </View>
-
-            {fields.map((field) => (
-              <View key={field.name} style={styles.row}>
-                <Text style={styles.cell}>{field.label}</Text>
-                <View style={styles.cell}>
-                  <Controller
-                    control={control}
-                    name={field.name as any}
-                    render={({ field: { onChange, value } }) => (
-                      <TextInput
-                        style={styles.input}
-                        value={value}
-                        onChangeText={onChange}
-                        placeholder={`Enter ${field.label.toLowerCase()}`}
-                      />
-                    )}
-                  />
-                </View>
-              </View>
-            ))}
-          </View>
-        </>
-      )}
-
-      <View style={styles.buttonContainer}>
-        <Text style={styles.submitButton} onPress={handleSubmit(handleUpdate)}>
-          Save Changes
-        </Text>
-      </View>
       </View>
     </ScrollView>
-    </KeyboardAvoidingView>
-        </View>
-        </Protected>
-    )
-}
+      {/* Alert Modal */}
+            <CustomAlert visible={alertVisible} title={alertTitle} message={alertMessage} onClose={() => setAlertVisible(false)} />
+  </KeyboardAvoidingView>
+  </Protected>
+);
+
+};
+
 
 const styles = StyleSheet.create({
   container: {
+    flex: 1,
     padding: 20,
-    paddingBottom: 60,
+    backgroundColor: '#fff',
+  },
+  pickerContainer: {
+    borderWidth: 1,
+    borderColor: '#ddd',
+    borderRadius: 8,
+    marginBottom: 15,
+    overflow: 'hidden',
+    backgroundColor: '#fff',
+  },
+  picker: {
+    height: 50,
+    width: '100%',
+  },
+  disabledInput: {
+    backgroundColor: '#f5f5f5',
+    color: '#666',
+  },
+  avatarContainer: {
+    width: 150,
+    height: 150,
+    borderRadius: 75,
+    backgroundColor: '#f0f0f0',
+    justifyContent: 'center',
+    alignItems: 'center',
+    marginBottom: 20,
+    overflow: 'hidden',
+    alignSelf: 'center',
+    borderWidth: 3,
+    borderColor: '#007bff',
+  },
+  profileImage: {
+    width: '100%',
+    height: '100%',
   },
   pageContainer: {
     flex: 1,
-    
-    
   },
   keyboardContainer: {
     flex: 1,
   },
   scrollView: {
     flex: 1,
+    zIndex: -1,
   },
   scrollContainer: {
     padding: 20,
@@ -434,10 +481,6 @@ const styles = StyleSheet.create({
     borderRadius: 8,
     overflow: "hidden",
     width: Platform.OS === "web" ? "40%" : "100%",
-    
-   
-
-  
   },
   row: {
     flexDirection: "row",
@@ -458,11 +501,14 @@ const styles = StyleSheet.create({
     fontWeight: "bold",
   },
   input: {
+    height: 50,
     borderWidth: 1,
-    borderColor: "#ccc",
-    borderRadius: 6,
-    paddingHorizontal: 8,
-    paddingVertical: 5,
+    borderColor: '#ddd',
+    borderRadius: 8,
+    paddingHorizontal: 15,
+    marginBottom: 15,
+    fontSize: 16,
+    backgroundColor: '#fff',
   },
   buttonContainer: {
     marginTop: 30,
@@ -491,13 +537,25 @@ const styles = StyleSheet.create({
     fontWeight: "bold",
 
   },
-  profileImage:{
+  profileImage: {
     width: 100,
     height: 100,
     borderRadius: 50,
     overflow: "hidden",
     marginBottom: 16,
-
+  },
+  imagePicker: {
+    padding: 10,
+    backgroundColor: '#f0f0f0',
+    borderRadius: 8,
+    alignItems: 'center',
+    justifyContent: 'center',
+    minHeight: 50,
+  },
+  submitText: {
+    color: '#fff',
+    fontWeight: 'bold',
+    textAlign: 'center',
   }
 
 });

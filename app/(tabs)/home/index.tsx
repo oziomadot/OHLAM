@@ -9,6 +9,7 @@ import {
   Image,
   View,
   Platform,
+  KeyboardAvoidingView
 } from "react-native";
 import API from "../../../src/config";
 import Navbar from "components/Navbar";
@@ -128,9 +129,15 @@ const IndexScreen = () => {
   }
 
   return (
-    <ScrollView contentContainerStyle={{ paddingBottom: 60 }}>
-      <Navbar />
-      {isAuthenticated && <Dashboard />}
+    <KeyboardAvoidingView behavior={Platform.OS === "ios" ? "padding" : "height"} 
+  style={{flex: 1}}>
+      
+ <Navbar />
+  
+    <ScrollView contentContainerStyle={{ paddingBottom: 60}} style={styles.ScrollView}>
+      <View>
+     
+     
 
       <View style={styles.header}>
         <Text style={styles.headerTitle}>Find Houses & Land to Buy or Rent</Text>
@@ -205,12 +212,18 @@ const IndexScreen = () => {
     </View>
   );
 })}
-
+</View>
+ 
     </ScrollView>
+    </KeyboardAvoidingView>
   );
 };
 
 const styles = StyleSheet.create({
+  ScrollView: {
+    flex: 1,
+    zIndex: -1,
+  },
   loadingContainer: {
     flex: 1,
     alignItems: "center",
@@ -221,11 +234,14 @@ const styles = StyleSheet.create({
     paddingHorizontal: 15,
     justifyContent: "center",
     flex: 1,
+    zIndex: 0,
   },
   headerTitle: {
     fontSize: 24,
     fontWeight: "bold",
     color: "#1e293b",
+    zIndex: 1,
+  
   },
   subtitle: { marginTop: 5, fontSize: 18, color: "#624F15" },
   section: { marginBottom: 20, alignItems: "center" },

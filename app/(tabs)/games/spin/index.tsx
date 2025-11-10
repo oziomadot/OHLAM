@@ -12,15 +12,17 @@ import {
   Dimensions,
 } from "react-native";
 
-import AsyncStorage from "@react-native-async-storage/async-storage";
+import {useAuth} from "@/context/AuthContext";
 import API from "@/config";
 import Protected from "components/Protected";
 import Navbar from "components/Navbar";
 import { Platform } from "react-native";
-import Dashboard from "components/Dashboard";
+import { Storage } from "@/config/storage";
+
 
 export default function SpinScreen() {
 
+  const {user} = useAuth();
   const [totalCoins, setTotalCoins] = useState(0);
   const segments = [
      { label: "0", color: "#AA6347" },
@@ -36,15 +38,24 @@ export default function SpinScreen() {
   useEffect(() =>{
     const fetchTotalCoins = async () => {
       try{
-        const token = await AsyncStorage.getItem("token");
-        const res = await API.get("/getCoin",
-          {
-            headers: {
-              Authorization: `Bearer ${token}`,
-              Accept: "application/json", 
-            }
+
+ 
+
+        
+        const token = await Storage.get("authToken");
+        console.log(user?.id);
+        const userId = user?.id;  
+        
+
+// console.log(response.data);
+        console.log("Token:", token); // ← Add this!
+        const res = await API.get("/getCoin", {
+          headers: {
+            Authorization: `Bearer ${token}`,
+            Accept: "application/json",
+            'Content-Type': 'application/json', 
           }
-        );
+        });
 
         setTotalCoins(res.data.total_coins);
         console.log(res.data);
@@ -59,9 +70,10 @@ export default function SpinScreen() {
   return (
      <Protected>      
         <KeyboardAvoidingView behavior="padding" style={styles.keyboardContainer}>
-            <ScrollView>
-                <Navbar />
-                <Dashboard/>
+          <Navbar />
+            <ScrollView style={styles.scrollView}>
+                
+               
                 <View>
           <Text style={styles.totalCoinsText}>Total Coins Wallet: {totalCoins}</Text>
           </View> 
@@ -89,6 +101,7 @@ const styles = StyleSheet.create({
   },
   scrollView: {
     flex: 1,
+    zIndex: Platform.OS === "web" ? -1 : 0,
   },
   scrollContainer: {
     padding: 20,

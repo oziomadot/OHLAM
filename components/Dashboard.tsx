@@ -11,7 +11,11 @@ import {
 import { useRouter } from "expo-router";
 import { useAuth } from "context/AuthContext";
 import Protected from "components/Protected";
-import { API_BASE_URL } from "@/config";
+import { API_BASE_URL,  } from "@/config";
+import * as Sharing from "expo-sharing";
+import * as Clipboard from "expo-clipboard";
+
+
 
 const Dashboard = () => {
   const { user, logout } = useAuth();
@@ -23,6 +27,15 @@ const Dashboard = () => {
   const BASE_URL = API_BASE_URL.replace("/api", "");
   const role = user?.registration_status?.name;
   const roleName = user?.staff?.role?.name;
+
+
+ const shareReferral = async (code) => {
+  const link = `https://play.google.com/store/apps/details?id=com.yourapp&referrer=referral_code%3D${code}`;
+  
+  await Clipboard.setStringAsync(link);
+  await Sharing.shareAsync(link);
+};
+
 
   /** Navigation helper */
   const goTo = (path: string) => {
@@ -62,12 +75,12 @@ const Dashboard = () => {
             <Text>Profile</Text>
           </TouchableOpacity>
 
-          <TouchableOpacity
-            onPress={() => goTo("/components/ReferralLink")}
-            style={styles.dropdownItem}
-          >
-            <Text>Referral Link</Text>
-          </TouchableOpacity>
+            <TouchableOpacity
+              onPress={() => shareReferral(user.referral_code)} 
+              style={styles.dropdownItem}
+            >
+              <Text>Referral Link</Text>
+            </TouchableOpacity>
 
           <TouchableOpacity onPress={logout} style={styles.dropdownItem}>
             <View style={styles.logoutBox}>

@@ -170,11 +170,15 @@ useEffect(() => {
 
 //   /** 🔹 Load areas based on state */
  const fetchAreas = debounce(async (stateId) => {
+
+  console.log(stateId);
   try {
     if (!stateId) return;
 
     const header = await getAuthHeader();
-    const res = await API.get(`/property/areas?state_id=${stateId}`, header);
+    const res = await API.get(`/property/area?state_id=${stateId}`, header);
+
+    // const res = await API.get(`/property/area?state_id=${stateId}`, header);
     setAreas(res.data.data);
   } catch (error) {
     console.log(error);

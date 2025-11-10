@@ -15,6 +15,7 @@ import { useRouter, useLocalSearchParams } from "expo-router";
 import API from "@/src/config"; // your axios instance
 import { format as formatMoney } from "currency-formatter"; // optional: install if you want nice money formatting
 import { logger } from "react-native-logs";
+import Navbar from "components/Navbar";
 
 const log = logger.createLogger();
 
@@ -98,7 +99,7 @@ export default function PropertyDetailScreen() {
     try {
       setLoading(true);
       // adjust endpoint if needed
-      const res = await API.get(`/property/${id}`);
+      const res = await API.get(`/public/property/${id}`);
       // If your backend returns { property: { ... } } or just the property, adapt:
       const p = res.data?.property ?? res.data ?? null;
       setProperty(p);
@@ -187,6 +188,7 @@ console.log("Building type", buildingType);
 
   return (
     <ScrollView contentContainerStyle={styles.container}>
+      <Navbar />
       <View style={styles.header}>
         <Text style={styles.title}>
           {isRent ? "APARTMENT DETAILS" : isHouseSale ? "HOUSE FOR SALE DETAILS" : "LAND FOR SALE DETAILS"}

@@ -1,392 +1,360 @@
-import React, { useState } from "react";
+import React, { useEffect, useState } from "react";
 import {
-  Dimensions,
-  Image,
-  Modal,
-  Platform,
-  ScrollView,
-  StyleSheet,
+  View,
   Text,
   TouchableOpacity,
-  View, Alert,
+  Modal,
+  ScrollView,
+  Image,
+  StyleSheet,
+  Platform,
+  Alert,
+  Vibration,
 } from "react-native";
 import { Ionicons } from "@expo/vector-icons";
 import { useRouter } from "expo-router";
+import * as Clipboard from "expo-clipboard";
+import * as Sharing from "expo-sharing";
+import * as Audio from "expo-audio";
 import { useAuth } from "context/AuthContext";
+import API, { API_BASE_URL } from "@/config";
+import { ROUTES } from "@/utils/routes";
 
 
 
 export default function Navbar() {
   const router = useRouter();
-  const [mobileMenuVisible, setMobileMenuVisible] = useState(false);
-  const [profileMenuVisible, setProfileMenuVisible] = useState(false);
-  const { isAuthenticated, loading, user } = useAuth(); // assuming user info is in context
-  const role = user?.registration_status?.name;
-  const roleName = user?.staff?.role?.name;
+  const { user, isAuthenticated, logout } = useAuth();
 
-  const [showUploadMenu, setShowUploadMenu] = useState(false);
+  const [menuVisible, setMenuVisible] = useState(false);
+  const [showMenu, setShowMenu] = useState(false);
+  const [showAppointmentSubmenu, setShowAppointmentSubmenu] = useState(false);
+  const [showProfileSubmenu, setShowProfileSubmenu] = useState(false);
+  const [notifications, setNotifications] = useState<any[]>([]);
+
   const isWeb = Platform.OS === "web";
-  const { width } = Dimensions.get("window");
+  const BASE_URL = API_BASE_URL.replace("/api", "");
+  const role = user?.registration_status?.name;
 
-  type ValidRoute =
-    | "/"
-    | "/home"
-    | "/games"
-    | "/dashboard"
-    | "/upload"
-    | "/upload/property"
-    | "/upload/property/create"   
-    | "/auth/LoginScreen"
-    | "/auth/RegisterScreen"
-    
-
-    console.log("role", role);
-    console.log('role name', roleName);
-   
-
-  const baseItems: { label: string; path: ValidRoute }[] = [
-    { label: "Home", path: "/" },
-    { label: "Upload", path: "/upload" },
-    { label: "Games", path: "/games" },
-   
-    
-    
-  ];
-
-
- const handleMenuClick = (path: ValidRoute) => {
-  
-    if (path === "/upload") {
-      // 🔒 Step 1: check authentication
-      console.log("it is upload");
-      if (!isAuthenticated) {
-        router.push("/auth/LoginScreen");
-        return;
-      }
-
-      // 🔒 Step 2: check user type
-      if (role == "Customer") {
-        Alert.alert(
-          "Access Denied",
-          "You need to register or change your account type to agent or landlord to upload properties."
-        );
-        return;
-      }
-      console.log("showing submenu");
-
-      // ✅ Step 3: show submenu
-      setShowUploadMenu((prev) => !prev);
-      return;
-    }
-
-    // Default navigation
-    router.push(path);
+  // ✅ Fix route mapping for (tabs)
+  const ROUTES: Record<string, string> = {
+    "/": "/(tabs)/home",
+    "/games": "/(tabs)/games",
+    "/about": "/(tabs)/about",
+    "/contact": "/(tabs)/contact",
+    "/appointment": "/(tabs)/appointment",
+    "/appointment/view": "/(tabs)/appointment/view",
+    "/appointment/create": "/(tabs)/appointment/create",
+    "/profile": "/(tabs)/profile",
+    "/upload": "/(tabs)/upload",
+    "/agents": "/(tabs)/agents",
+    "/auth/LoginScreen": "/auth/LoginScreen",
+    "/auth/RegisterScreen": "/auth/RegisterScreen",
   };
 
- 
-   const uploadSubmenu = [
-    { label: "Upload Property", path: "/upload/property/create" },
-    { label: "View My Properties", path: "/upload/property" },
-  ];
-
-  const navigateTo = (path: ValidRoute) => {
-    const nativePath = path === "/" ? "/(tabs)/home" : `/(tabs)${path}`;
-    const target = isWeb ? path : (nativePath as any);
-    router.push(target);
-    setMobileMenuVisible(false);
-  };
-
-  const navigateProfileOption = (route: ValidRoute) => {
-    setProfileMenuVisible(false);
+  const goTo = (path: string) => {
+    setShowMenu(false);
+    setShowAppointmentSubmenu(false);
+    setShowProfileSubmenu(false);
+    const route = ROUTES[path] || path;
     router.push(route);
   };
 
-  
-  const authItems: { label: string; path: ValidRoute }[] = !isAuthenticated ? [
-    { label: "Login", path: "/auth/LoginScreen" },
-    { label: "Register", path: "/auth/RegisterScreen" },
-  ]:[];
+  // 🔔 Load notifications
+  const loadNotifications = async () => {
+    // if (!isAuthenticated) return;
+    // try {
+    //   const res = await API.get("/notification", {
+    //     headers: { Authorization: `Bearer ${user?.token}` },
+    //   });
+    //   setNotifications(res.data.notifications || []);
+    // } catch (err) {
+    //   console.error("Failed to load notifications:", err);
+    // }
+  };
 
-const menuItems = [...baseItems, ...authItems];
+  // 🔊 Notification sound
+  const playNotificationSound = async () => {
+    // try {
+    //   const { sound } = await Audio.Sound.createAsync(
+    //     require("../assets/notification.mp3")
+    //   );
+    //   await sound.playAsync();
+    //   Vibration.vibrate(300);
+    // } catch (err) {
+    //   console.error("Error playing sound:", err);
+    // }
+  };
 
- const renderDesktopMenu = () => (
-  <View style={styles.menu}>
-    {menuItems.map((item) => (
-      <View key={item.path} style={styles.menuItemContainer}>
-        <TouchableOpacity onPress={() => handleMenuClick(item.path)}>
-          <Text style={styles.menuItem}>{item.label}</Text>
+  useEffect(() => {
+    if (isAuthenticated) {
+      loadNotifications();
+      playNotificationSound();
+    }
+  }, [isAuthenticated]);
+
+  // 📤 Share referral link
+  const shareReferral = async (code: string) => {
+    try {
+      const link = `https://play.google.com/store/apps/details?id=com.oramexapp&referrer=referral_code%3D${code}`;
+      await Clipboard.setStringAsync(link);
+      await Sharing.shareAsync(link);
+    } catch {
+      Alert.alert("Error", "Unable to share referral link");
+    }
+  };
+
+  // 👇 Menus
+  const generalMenu = [
+    { label: "Home", path: "/" },
+    { label: "Games", path: "/games" },
+    { label: "About", path: "/about" },
+    { label: "Contact Us", path: "/contact" },
+  ];
+
+  const authMenu = [
+    { label: "Appointment", path: "/appointment" },
+    { label: "Profile", path: "/profile" },
+  ];
+
+  const agentMenu = [
+    { label: "Upload", path: "/upload" },
+    { label: "Appointment", path: "/appointment" },
+    { label: "Profile", path: "/profile" },
+  ];
+
+  const staffMenu = [{ label: "Agents", path: "/agents" }, ...agentMenu];
+
+  let activeMenu = generalMenu;
+  if (isAuthenticated) {
+    if (role === "Staff") activeMenu = [...generalMenu, ...staffMenu];
+    else if (role === "Agent") activeMenu = [...generalMenu, ...agentMenu];
+    else activeMenu = [...generalMenu, ...authMenu];
+  }
+
+  // 🔔 Notification Icon
+  const NotificationIcon = () => (
+    <TouchableOpacity
+      onPress={() => goTo("/notifications")}
+      style={{ marginLeft: 16, position: "relative" }}
+    >
+      <Ionicons name="notifications-outline" size={28} color="#2563eb" />
+      {notifications.some((n) => !n.read_at) && (
+        <View
+          style={{
+            position: "absolute",
+            top: 0,
+            right: 0,
+            backgroundColor: "red",
+            borderRadius: 10,
+            width: 10,
+            height: 10,
+          }}
+        />
+      )}
+    </TouchableOpacity>
+  );
+
+  // 👤 Profile Submenu
+  const ProfileSubmenu = () =>
+    showProfileSubmenu && (
+      <View style={styles.submenu}>
+        <TouchableOpacity onPress={() => goTo("/profile")}>
+          <Text style={styles.submenuItem}>View Profile</Text>
         </TouchableOpacity>
+        <TouchableOpacity onPress={() => shareReferral(user?.referral_code)}>
+          <Text style={[styles.submenuItem, { color: "#007bff" }]}>
+            Referral Link
+          </Text>
+        </TouchableOpacity>
+        <TouchableOpacity onPress={logout}>
+          <Text style={[styles.submenuItem, { color: "red" }]}>Logout</Text>
+        </TouchableOpacity>
+      </View>
+    );
 
-        {/* 🔽 Show submenu directly below the Upload Apartment item */}
-        {item.path === "/upload" && showUploadMenu && (
-          <View style={{ marginTop: 4, padding: 4, backgroundColor: "#f5f5f5" }}>
-            {uploadSubmenu.map((sub) => (
-              <TouchableOpacity
-                key={sub.path}
-                onPress={() => {
-                  setShowUploadMenu(false);
-                  router.push(sub.path);
-                }}
-              >
-                <Text style={{ color: "#007bff", paddingVertical: 4 }}>
-                  → {sub.label}
-                </Text>
-              </TouchableOpacity>
-            ))}
-          </View>
+  // 📅 Appointment Submenu
+  const AppointmentSubmenu = () =>
+    showAppointmentSubmenu && (
+      <View style={styles.submenu}>
+        <TouchableOpacity onPress={() => goTo("/appointment/view")}>
+          <Text style={styles.submenuItem}>View Appointments</Text>
+        </TouchableOpacity>
+        {role === "Agent" && (
+          <TouchableOpacity onPress={() => goTo("/appointment/create")}>
+            <Text style={styles.submenuItem}>Create Appointment</Text>
+          </TouchableOpacity>
         )}
       </View>
-    ))}
-  </View>
-);
+    );
 
-
-  const renderMobileMenu = () => (
-    <View style={styles.mobileMenuContainer}>
-      <TouchableOpacity
-        onPress={() => setMobileMenuVisible(true)}
-        style={styles.menuButton}
-      >
-        <Ionicons name="menu" size={32} color="#3b82f6" />
-      </TouchableOpacity>
-
-      <Modal
-        animationType="slide"
-        transparent={true}
-        visible={mobileMenuVisible}
-        onRequestClose={() => setMobileMenuVisible(false)}
-      >
-        <View style={styles.modalOverlay}>
-          <View style={styles.mobileMenu}>
-            <View style={styles.mobileMenuHeader}>
-              <Text style={styles.mobileMenuTitle}>Menu</Text>
-              <TouchableOpacity
-                onPress={() => setMobileMenuVisible(false)}
-                style={styles.closeButton}
-              >
-                <Ionicons name="close" size={28} color="#3b82f6" />
-              </TouchableOpacity>
-            </View>
-
-            <ScrollView style={styles.mobileMenuItems}>
-              {menuItems.map((item) => (
-                <TouchableOpacity
-                  key={item.path}
-                  onPress={() => handleMenuClick(item.path)}
-                  style={styles.mobileMenuItem}
-                >
-                  <Text style={styles.mobileMenuItemText}>{item.label}</Text>
-                </TouchableOpacity>
-              ))}
-
-              {/* 🔽 Submenu for upload (only visible if user is agent/landlord) */}
-      {showUploadMenu &&
-        uploadSubmenu.map((sub) => (
+  // 🧭 Web Menu
+  const WebMenu = () => (
+    <View style={styles.menu}>
+      {activeMenu.map((item) => (
+        <View key={item.path} style={{ position: "relative" }}>
           <TouchableOpacity
-            key={sub.path}
             onPress={() => {
-              setShowUploadMenu(false);
-              router.push(sub.path);
+              if (item.label === "Profile")
+                return setShowProfileSubmenu((p) => !p);
+              if (item.label === "Appointment")
+                return setShowAppointmentSubmenu((p) => !p);
+              goTo(item.path);
             }}
-            style={{ marginLeft: 20 }}
           >
-            <Text style={{ color: "#007bff", paddingVertical: 4 }}>→ {sub.label}</Text>
+            <Text style={styles.menuItem}>{item.label}</Text>
           </TouchableOpacity>
-        ))}
 
-              {isAuthenticated && (
-                <View style={{ marginTop: 20 }}>
-                  <TouchableOpacity
-                    onPress={() => navigateProfileOption("/profile")}
-                    style={styles.mobileMenuItem}
-                  >
-                    <Text style={styles.mobileMenuItemText}>👤 View Profile</Text>
-                  </TouchableOpacity>
-                  <TouchableOpacity>            
-                    <Text style={styles.mobileMenuItemText}>🔗 Referral Link</Text>
-                  </TouchableOpacity>
-                </View>
-              )}
-            </ScrollView>
-          </View>
+          {item.label === "Profile" && <ProfileSubmenu />}
+          {item.label === "Appointment" && <AppointmentSubmenu />}
         </View>
-      </Modal>
+      ))}
+
+      {isAuthenticated && <NotificationIcon />}
+
+      {!isAuthenticated && (
+        <>
+          <TouchableOpacity onPress={() => goTo("/auth/LoginScreen")}>
+            <Text style={styles.menuItem}>Login</Text>
+          </TouchableOpacity>
+          <TouchableOpacity onPress={() => goTo("/auth/RegisterScreen")}>
+            <Text style={styles.menuItem}>Register</Text>
+          </TouchableOpacity>
+        </>
+      )}
     </View>
   );
 
-  return (
-    <View style={{ width: "100%" }}>
-      <View style={styles.branding}>
-        <View>
-          <Image
-            source={require("../assets/logo.png")}
-            style={styles.logo}
-            resizeMode="contain"
-          />
-        </View>
-        <View style={styles.appName}>
-          {isWeb && width > 768 ? (
-            <View>
-              <Text
-                style={{
-                  fontSize: 24,
-                  fontWeight: "bold",
-                  marginTop: 5,
-                  textAlign: "center",
-                  color: "green",
+  // 📱 Mobile Menu
+  const MobileMenu = () => (
+    <Modal visible={showMenu} animationType="slide" transparent>
+      <View style={styles.modalOverlay}>
+        <View style={styles.mobileMenuContainer}>
+          <View style={styles.mobileMenuHeader}>
+            <Text style={styles.mobileMenuTitle}>Menu</Text>
+            <TouchableOpacity onPress={() => setShowMenu(false)}>
+              <Text style={styles.closeButton}>✕</Text>
+            </TouchableOpacity>
+          </View>
+
+          <ScrollView style={styles.mobileMenuContent}>
+            {activeMenu.map((item) => (
+              <TouchableOpacity
+                key={item.path}
+                onPress={() => {
+                  if (item.label === "Profile")
+                    return setShowProfileSubmenu((p) => !p);
+                  if (item.label === "Appointment")
+                    return setShowAppointmentSubmenu((p) => !p);
+                  goTo(item.path);
                 }}
               >
-                Oramex House and Land Agency Management
-              </Text>
-              {renderDesktopMenu()}
-            </View>
-          ) : (
-            <View style={{ flexDirection: "row" }}>
-              <View style={{ width: "80%" }}>
-                <Text
-                  style={{
-                    fontSize: 18,
-                    fontWeight: "bold",
-                    marginTop: 5,
-                    textAlign: "left",
-                    color: "green",
-                  }}
-                >
-                  Oramex House and Land Agency Management
-                </Text>
-              </View>
-              <View style={{ width: "20%" }}>{renderMobileMenu()}</View>
-            </View>
-          )}
+                <Text style={styles.mobileItem}>{item.label}</Text>
+              </TouchableOpacity>
+            ))}
+
+            {showProfileSubmenu && <ProfileSubmenu />}
+            {showAppointmentSubmenu && <AppointmentSubmenu />}
+
+            {!isAuthenticated && (
+              <>
+                <TouchableOpacity onPress={() => goTo("/auth/LoginScreen")}>
+                  <Text style={styles.mobileItem}>Login</Text>
+                </TouchableOpacity>
+                <TouchableOpacity onPress={() => goTo("/auth/RegisterScreen")}>
+                  <Text style={styles.mobileItem}>Register</Text>
+                </TouchableOpacity>
+              </>
+            )}
+          </ScrollView>
         </View>
       </View>
+    </Modal>
+  );
+
+  return (
+    <View style={styles.container}>
+      <View style={styles.header}>
+        <Image source={require("../assets/logo.png")} style={styles.logo} />
+        <Text style={styles.title}>Oramex House & Land Agency</Text>
+
+        {!isWeb && (
+          <TouchableOpacity onPress={() => setShowMenu(true)}>
+            <Ionicons name="menu" size={32} color="#2563eb" />
+          </TouchableOpacity>
+        )}
+      </View>
+
+      {isWeb ? <WebMenu /> : <MobileMenu />}
     </View>
   );
 }
 
-
 const styles = StyleSheet.create({
-  navbar: {
+  container: { backgroundColor: "#fff", elevation: 4 },
+  header: {
     flexDirection: "row",
-    flexWrap: "wrap",
-    justifyContent: "center",
+    alignItems: "center",
+    justifyContent: "space-between",
+    paddingHorizontal: 16,
     paddingVertical: 10,
-    backgroundColor: "#1E40AF", // blue
   },
-  navItem: {
-    marginHorizontal: 8,
-    marginVertical: 5,
-  },
-  navText: {
-    color: "white",
+  logo: { width: 45, height: 45, resizeMode: "contain" },
+  title: {
+    flex: 1,
+    fontSize: 18,
     fontWeight: "bold",
-    fontSize: 16,
-  },
-  branding: { 
-    alignItems: "center", 
-    marginTop: 10,
-    paddingHorizontal: 16
-  },
-  logo: { 
-    width: 70, 
-    height: 70, 
-    resizeMode: "contain" 
-  },
-  appName: { 
-    alignItems: 'center'
+    textAlign: "center",
+    color: "green",
   },
   menu: {
     flexDirection: "row",
-    flexWrap: 'wrap',
     justifyContent: "center",
-    marginVertical: 10,
-    borderBottomWidth: 1,
-    borderColor: "#e5e7eb",
-    paddingBottom: 5,
-    paddingHorizontal: 16
+    alignItems: "center",
+    paddingBottom: 10,
+    flexWrap: "wrap",
   },
-  menuItemContainer: {
-    paddingHorizontal: 12,
-    paddingVertical: 8,
-    margin: 4,
-    borderRadius: 8,
-  },
-  menuItem: { 
-    fontSize: 14, 
-    fontWeight: "600", 
-    color: "#3b82f6" 
-  },
-  mobileMenuContainer: {
-    paddingHorizontal: 16,
-    alignItems: 'flex-end'
-  },
-  menuButton: {
-    padding: 8,
-    borderRadius: 8,
-    backgroundColor: '#f1f5f9'
-  },
-  modalOverlay: {
-    flex: 1,
-    backgroundColor: 'rgba(0,0,0,0.5)',
-    justifyContent: 'flex-start',
-  },
-  mobileMenu: {
-    backgroundColor: 'white',
-    width: '80%',
-    maxWidth: 300,
-    height: '100%',
-    padding: 16,
-  },
-  mobileMenuHeader: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-    borderBottomWidth: 1,
-    borderColor: '#e5e7eb',
-    paddingBottom: 12,
-    marginBottom: 12
-  },
-  mobileMenuTitle: {
-    fontSize: 20,
-    fontWeight: 'bold',
-    color: '#1e293b'
-  },
-  closeButton: {
-    padding: 4
-  },
-  mobileMenuItems: {
-    flex: 1
-  },
-  mobileMenuItem: {
-    paddingVertical: 14,
-    borderBottomWidth: 1,
-    borderColor: '#f1f5f9',
-    paddingHorizontal: 8
-  },
-  mobileMenuItemText: {
+  menuItem: {
+    color: "#2563eb",
+    marginHorizontal: 10,
     fontSize: 16,
-    color: '#334155'
+    fontWeight: "500",
   },
-  profileContainer: { marginLeft: 20, position: "relative" },
-  profileButton: { alignItems: "center" },
-  profileImage: { width: 40, height: 40, borderRadius: 20 },
-  profileLabel: { fontSize: 12, color: "#333", marginTop: 4 },
-  profileDropdown: {
+  submenu: {
+    backgroundColor: "#fff",
     position: "absolute",
-    top: 60,
+    top: 28,
     right: 0,
-    backgroundColor: "white",
     borderRadius: 8,
+    padding: 8,
+    elevation: 10,
     shadowColor: "#000",
-    shadowOffset: { width: 0, height: 2 },
     shadowOpacity: 0.2,
     shadowRadius: 4,
-    elevation: 3,
-    paddingVertical: 5,
-    minWidth: 160,
+    zIndex: 999,
   },
-  profileDropdownItem: {
-    paddingVertical: 8,
-    paddingHorizontal: 15,
+  submenuItem: { paddingVertical: 4, color: "#333", fontSize: 15 },
+  submenuHeader: { fontWeight: "bold", marginTop: 10, fontSize: 16 },
+  modalOverlay: {
+    flex: 1,
+    backgroundColor: "rgba(0,0,0,0.5)",
+    justifyContent: "flex-end",
   },
+  mobileMenuContainer: {
+    backgroundColor: "#fff",
+    borderTopLeftRadius: 20,
+    borderTopRightRadius: 20,
+    maxHeight: "80%",
+  },
+  mobileMenuHeader: {
+    flexDirection: "row",
+    justifyContent: "space-between",
+    padding: 20,
+    borderBottomWidth: 1,
+    borderColor: "#ddd",
+  },
+  mobileMenuTitle: { fontSize: 18, fontWeight: "bold", color: "#2563eb" },
+  closeButton: { fontSize: 22, color: "red" },
+  mobileMenuContent: { padding: 20 },
+  mobileItem: { fontSize: 18, color: "#2563eb", marginVertical: 10 },
 });

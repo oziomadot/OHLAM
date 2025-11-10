@@ -20,6 +20,10 @@ import Navbar from "components/Navbar";
 import DOBPicker from "components/dateOfBirth";
 import CustomAlert from "components/CustomAlert";
 
+import { Storage } from '@/config/storage';
+
+
+
 const RegistrationScreen = () => {
   const router = useRouter();
   const [loading, setLoading] = useState(false);
@@ -33,6 +37,9 @@ const RegistrationScreen = () => {
     setValue,
     formState: { errors },
   } = useForm();
+
+
+
 
   const regStatus = watch("registration_status_id");
   const password = watch("password", "");
@@ -83,6 +90,9 @@ function showAlert(title: string, message: string) {
     setLoading(true);
     try {
       const payload = { ...data };
+const storedRef = await Storage.get('referral_code');
+  if (storedRef) payload.ref = storedRef;
+
 
       if (payload.dob instanceof Date) {
         payload.dob = payload.dob.toISOString().split("T")[0];
@@ -90,15 +100,17 @@ function showAlert(title: string, message: string) {
 
       const res = await API.post("/register", payload);
       const { verification_required, token, user } = res.data;
+    
+
 
       if (verification_required) {
-        await setItemSafe("pending_user_id", user.id);
+        await setItemSafe("user_id", user.id);
         router.push("/auth/email-verification");
         return;
       }
 
       if (token) {
-        await setItemSafe("api_token", token);
+        await setItemSafe("authToken", token);
         showAlert("Success", "Registered! Token saved securely.");
       }
     } catch (err: any) {

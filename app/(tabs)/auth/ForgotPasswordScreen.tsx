@@ -4,6 +4,11 @@ import React, { useState } from 'react';
 import { Image, KeyboardAvoidingView, Platform, ScrollView, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
 import { Button, TextInput } from 'react-native-paper';
 import * as Yup from 'yup';
+import { useAuth } from 'context/AuthContext';
+import { RootStackParamList } from '@/types';
+import Navbar from 'components/Navbar';
+import API from '@/config';
+import { Alert } from 'react-native';
 
 type ForgotPasswordScreenProps = NativeStackScreenProps<RootStackParamList, 'ForgotPassword'>;
 
@@ -16,13 +21,24 @@ const ForgotPasswordScreen: React.FC<ForgotPasswordScreenProps> = ({ navigation 
   const [emailSent, setEmailSent] = useState(false);
   const { forgotPassword } = useAuth();
 
+  const showAlert = (title: string, message: string) => {
+    Alert.alert(title, message);
+  };
+
   const handleSubmit = async (values: { email: string }) => {
     try {
       setIsLoading(true);
+
       await forgotPassword(values.email);
-      setEmailSent(true);
+      const response = await API.post('forgot-password', values);
+      if (response.data.success) {
+        setEmailSent(true);
+
+        showAlert("Success", "Password reset link sent successfully!");
+      }
     } catch (error) {
       console.error('Forgot password error:', error);
+        showAlert("Error", error ||"Failed to send password reset link");
     } finally {
       setIsLoading(false);
     }
@@ -32,11 +48,7 @@ const ForgotPasswordScreen: React.FC<ForgotPasswordScreenProps> = ({ navigation 
     return (
       <View style={styles.container}>
         <View style={styles.content}>
-          <Image
-            source={{ uri: 'https://reactnative.dev/img/tiny_logo.png' }}
-            style={styles.emailImage}
-            resizeMode="contain"
-          />
+         
           <Text style={styles.title}>Check Your Email</Text>
           <Text style={styles.subtitle}>
             We've sent a password reset link to your email address. Please check your inbox and follow the instructions to reset your password.
@@ -59,13 +71,10 @@ const ForgotPasswordScreen: React.FC<ForgotPasswordScreenProps> = ({ navigation 
       behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
       style={styles.container}
     >
+      <Navbar />
       <ScrollView contentContainerStyle={styles.scrollContainer}>
         <View style={styles.logoContainer}>
-          <Image
-            source={{ uri: 'https://reactnative.dev/img/header_logo.svg' }}
-            style={styles.logo}
-            resizeMode="contain"
-          />
+          
           <Text style={styles.title}>Forgot Password</Text>
           <Text style={styles.subtitle}>
             Enter your email address and we'll send you a link to reset your password.

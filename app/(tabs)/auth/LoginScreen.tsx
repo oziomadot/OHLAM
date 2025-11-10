@@ -12,6 +12,8 @@ import Navbar from 'components/Navbar';
 import CustomAlert from 'components/CustomAlert';
 import * as SecureStore from "expo-secure-store"; 
 import { useRouteHandler } from '@/hooks/seRouteHandler';
+import { Storage } from '@/config/storage';
+
 
  
 
@@ -85,8 +87,9 @@ function showAlert(title: string, message: string, onClose?: () => void) {
           console.log(response.data);
 
           await login(token, user); // save in AsyncStorage
-          await setItemSafe("token", token);
-          await setItemSafe("user_id", user_id);
+          await Storage.set("authToken", token);
+          await Storage.set("user_id", user_id);
+          await Storage.set("user", JSON.stringify(user));
           showAlert("Success", response.data.successMessage, () => {
             handleResponse(response, {
               successRoute: response.data.successRoute,
@@ -147,7 +150,7 @@ function showAlert(title: string, message: string, onClose?: () => void) {
         {/* Facebook */}
       <TouchableOpacity
         style={[styles.button, { backgroundColor: "#4c6ef5" }]}
-        onPress={() => Linking.openURL("https://your-domain.com/redirect")}
+        onPress={() => Linking.openURL("/auth/redirect")}
       >
         <FontAwesome name="facebook-square" size={20} color="#fff" style={styles.icon} />
         <Text style={styles.text}>Login with Facebook</Text>
@@ -156,7 +159,7 @@ function showAlert(title: string, message: string, onClose?: () => void) {
       {/* Twitter / X */}
       <TouchableOpacity
         style={[styles.button, { backgroundColor: "#182025" }]}
-        onPress={() => Linking.openURL("https://your-domain.com/auth/twitter")}
+        onPress={() => Linking.openURL("/auth/twitter")}
       >
         <Text style={styles.text}>Login with Twitter (X)</Text>
       </TouchableOpacity>
@@ -164,7 +167,7 @@ function showAlert(title: string, message: string, onClose?: () => void) {
       {/* Google */}
       <TouchableOpacity
         style={[styles.button, { backgroundColor: "#075f0f" }]}
-        onPress={() => Linking.openURL("https://your-domain.com/googlelogin")}
+        onPress={() => Linking.openURL("/auth/googlelogin")}
       >
         <FontAwesome name="google" size={20} color="#fff" style={styles.icon} />
         <Text style={styles.text}>Login with Google</Text>
