@@ -12,12 +12,15 @@ import {
   Alert,
 } from "react-native";
 import { useRouter, useLocalSearchParams } from "expo-router";
-import API from "@/src/config"; // your axios instance
+import API from "@/src/services/api"; // your axios instance
 import { format as formatMoney } from "currency-formatter"; // optional: install if you want nice money formatting
 import { logger } from "react-native-logs";
 import Navbar from "components/Navbar";
 
 const log = logger.createLogger();
+
+
+
 
 
 // Helper: safe URL builder for Laravel storage files
@@ -94,6 +97,8 @@ export default function PropertyDetailScreen() {
     if (!id) return;
     fetchProperty();
   }, [id]);
+
+  
 
   const fetchProperty = async () => {
     try {

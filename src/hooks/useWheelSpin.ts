@@ -1,8 +1,8 @@
 import { useRef, useState } from "react";
 import { Animated, Easing } from "react-native";
-import API from "@/config";
+import API from "../services/api";
 import { useAuth } from "context/AuthContext";
-import { Storage } from "@/config/storage";
+import { getItem, setItem } from "../../app/utils/storage";
 
 export const useWheelSpin = (segments: Array<{ label: string; color: string }>, knobAngle = 0) => {
   const spinValue = useRef(new Animated.Value(0)).current;

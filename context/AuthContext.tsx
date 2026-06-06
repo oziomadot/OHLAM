@@ -3,8 +3,8 @@ import AsyncStorage from "@react-native-async-storage/async-storage";
 import { useRouter } from "expo-router";
 import { Linking, Platform } from 'react-native'; // ← Add Linking
 import * as LinkingExpo from 'expo-linking'; // ← For deep link parsing
-import API from "@/config/index"; 
-import { Storage } from "@/config/storage";
+import API from "@/src/services/api"; 
+import { getItem, setItem, deleteItem } from "../app/utils/storage";
 
 type AuthContextType = {
   isAuthenticated: boolean;
@@ -14,7 +14,8 @@ type AuthContextType = {
   logout: () => void;
   forgotPassword: (email: string) => Promise<void>;
   handleOramexIntegration: () => void; // ← New: Trigger deep link manually
-  showOramexBanner: boolean; // ← New: Control banner visibility
+  showOramexBanner: boolean; // ← New: Banner visibility
+  setShowOramexBanner: (show: boolean) => void; // ← New: Control banner visibility
 };
 
 const AuthContext = createContext<AuthContextType | null>(null);
@@ -41,12 +42,14 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
           // Verify OHLAM auth: Try to fetch user with token
           const verifyAuth = async () => {
             try {
-              const res = await API.get("/me", { // Assume /me endpoint returns user
+              const res = await fetch(`${API.baseURL}/me`, {
+                method: 'GET',
                 headers: { Authorization: `Bearer ${accessToken}` }
               });
-              setUser(res.data);
+              const data = await res.json();
+              setUser(data.user);
               setIsAuthenticated(true);
-              await Storage.set("authToken", accessToken, true);
+              await setItem("authToken", typeof accessToken === 'string' ? accessToken : accessToken[0]);
               router.replace("/(tabs)/home");
             } catch (error) {
               // Token invalid → Redirect to login
@@ -72,14 +75,15 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
 
   useEffect(() => {
   const checkAuth = async () => {
-    const token = await Storage.get("authToken");
+    const token = await getItem("authToken");
     console.log("Token:", token);
-    const savedUser = await Storage.get("user");
-    if (token) {
-      API.defaults.headers.common["Authorization"] = `Bearer ${token}`;
-      setIsAuthenticated(true);
-      if (savedUser) setUser(JSON.parse(savedUser));
-    }
+    const savedUser = await getItem("user");
+      if (token) {
+        // Set token for API calls
+        const tokenHeader = token ? { 'Authorization': `Bearer ${token}` } : {};
+        setIsAuthenticated(true);
+        if (savedUser) setUser(JSON.parse(savedUser));
+      }
     setLoading(false);
   };
   checkAuth();
@@ -88,21 +92,25 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
 
   const forgotPassword = async (email: string) => {
     try {
-      const response = await API.post('/forgot-password', { email });
-      return response.data;
+      const response = await API.request('/forgot-password', {
+        method: 'POST',
+        body: JSON.stringify({ email })
+      });
+      return response;
     } catch (error) {
       console.error('Forgot password error:', error);
       throw error;
     }
   };
 
-  const login = async (token: string, userData: any, refreshToken: string) => {
-  await Storage.set("authToken", token);
-  await Storage.set("user", JSON.stringify(userData));
+  const login = async (token: string, userData: any, refreshToken?: string) => {
+  await setItem("authToken", token);
+  await setItem("refreshToken", refreshToken || "");
+  await setItem("user", JSON.stringify(userData));
   
-  API.defaults.headers.common["Authorization"] = `Bearer ${token}`;
- 
-
+  // Set token for API calls
+  const tokenHeader = token ? { 'Authorization': `Bearer ${token}` } : {};
+  
   setUser(userData);
   setIsAuthenticated(true);
   
@@ -114,17 +122,14 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
 
   const logout = async () => {
     try {
-      const token = await Storage.get("authToken");
+      const token = await getItem("authToken");
       if (token) {
-        await API.post("/logout", {}, {
-          headers: { Authorization: `Bearer ${token}` },
-        });
+        await API.request("/logout", { method: "POST" });
       }
     } catch (error) {
       console.warn("Logout error:", error.response?.data || error.message);
     } finally {
-      await Storage.remove("authToken");
-      delete API.defaults.headers.common["Authorization"];
+      await deleteItem("authToken");
       setIsAuthenticated(false);
       router.replace("/auth/LoginScreen");
     }
@@ -141,7 +146,8 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
 
 // ← New: Manual trigger for Oramex integration
   const handleOramexIntegration = async () => {
-    const token = await Storage.get("authToken", true);
+    const token = await getItem("authToken");
+    const refreshToken = await getItem("refreshToken");
     if (!token) {
       router.replace("/auth/LoginScreen");
       return;

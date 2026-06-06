@@ -3,6 +3,7 @@ import { AuthProvider } from "@/context/AuthContext";
 import { View, ActivityIndicator } from "react-native";
 import { useEffect, useState } from "react";
 import { OramexBanner } from "../components/OramexBanner";
+import { SafeAreaProvider, SafeAreaView } from "react-native-safe-area-context";
 
 export default function RootLayout() {
   const [isReady, setIsReady] = useState(false);
@@ -24,17 +25,24 @@ export default function RootLayout() {
   }
 
   return (
+    <SafeAreaProvider>
     <AuthProvider>
+      <SafeAreaView style={{ flex: 1 }}>
+      <OramexBanner />
       <Stack
         screenOptions={{
           headerShown: false,
           contentStyle: { padding: 20 },
         }}
       >
-        <OramexBanner />
-        <Stack.Screen name="(tabs)" />
-        <Stack.Screen name="auth" />
+        
+        <Stack.Screen name="(tabs)" 
+        options={{ headerShown: false }}/>
+        <Stack.Screen name="auth" 
+        options={{ headerShown: false }}/>
       </Stack>
+      </SafeAreaView>
     </AuthProvider>
+    </SafeAreaProvider>
   );
 }

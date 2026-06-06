@@ -14,16 +14,17 @@ import { View,
 import Navbar from "components/Navbar";
 import { useForm, Controller, useWatch} from "react-hook-form";
 import { useAuth } from "context/AuthContext";
-import API from "@/config";
+import API from "@/src/services/api";
 import { useState, useEffect, useCallback  } from "react";
 import AsyncStorage from "@react-native-async-storage/async-storage";
 import { Picker } from "@react-native-picker/picker";
 import * as ImagePicker from "expo-image-picker";
 import Dashboard from "components/Dashboard";
-import { API_BASE_URL } from "@/config";
+// API_BASE_URL is now defined in the API service
 import { useRouter } from "expo-router";
 import { useFocusEffect } from '@react-navigation/native';
-import Storage from "@/config/storage";
+import { getItem, setItem } from "../../utils/storage";
+
 
 import CustomAlert from "components/CustomAlert";
 
@@ -39,7 +40,8 @@ const EditProfileScreen = () => {
    const [alertTitle, setAlertTitle] = useState("");
    const [alertMessage, setAlertMessage] = useState("");
   const [selectedImage, setSelectedImage] = useState<string | null>(null);
- const BASE_URL = API_BASE_URL.replace("/api", "");
+  const BASE_URL = API;
+
  const [formData, setFormData] = useState<Record<string, any>>({});
  const [selectedImageFile, setSelectedImageFile] = useState<any>(null);
   
@@ -86,7 +88,7 @@ const [originalData, setOriginalData] = useState<Record<string, any>>({});
       setLoading(true);
        setProfileData(user); 
        try { 
-        const response = await API.get("/registrationStatus"); 
+        const response = await API.getRegistrationStatus(); 
         setRegistrationStatuses(response.data.registrationStatus || []); 
       } catch (err) {
          console.error("Error fetching registration statuses", err); 
@@ -237,12 +239,7 @@ setSelectedImageFile(imageToUpload);
 }
 
   try {
-    const res = await API.post("/profile/update", payload, {
-      headers: {
-        "Content-Type": "multipart/form-data",
-        Authorization: `Bearer ${user.token}`,
-      },
-    });
+    const res = await API.updateProfile(payload);
 
     showAlert("Success", "Profile updated!");
     router.push("/home");
@@ -450,10 +447,7 @@ const styles = StyleSheet.create({
     borderWidth: 3,
     borderColor: '#007bff',
   },
-  profileImage: {
-    width: '100%',
-    height: '100%',
-  },
+
   pageContainer: {
     flex: 1,
   },

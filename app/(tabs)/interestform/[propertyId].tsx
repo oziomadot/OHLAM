@@ -3,7 +3,7 @@ import { View, Text, TextInput, TouchableOpacity, ScrollView,
   ActivityIndicator, KeyboardAvoidingView,
 StyleSheet} from "react-native";
 import { useLocalSearchParams, useRouter } from "expo-router";
-import API from "@/config";
+import API from "@/src/services/api";
 import CustomAlert from "components/CustomAlert";
 import Protected from "components/Protected";
 import { useAuth } from "context/AuthContext";

@@ -12,13 +12,21 @@ import {
   ActivityIndicator,
   
 } from "react-native";
-import * as SecureStore from "expo-secure-store";
-import API from "@/config/index";
+import { setItemSafe, getItemSafe, removeItemSafe } from "@/utils/storage";
+import  API  from "@/src/services/api";
+import ApiService from "@/src/services/api";
 import { useRouter } from "expo-router";
 import { useForm, Controller } from "react-hook-form";
 import CustomAlert from "components/CustomAlert";
 import { useAuth } from "@/context/AuthContext";
 import { useRouteHandler }  from "@/hooks/seRouteHandler";
+import ScreenWrapper from "components/ScreenWrapper";
+
+interface User {
+  id: string;
+  email: string;
+  [key: string]: any;
+}
 
 
 
@@ -30,8 +38,12 @@ const EmailVerificationScreen = () => {
   const [isVerifyWithPhoneNumber, setIsVerifyWithPhoneNumber] = useState(false);
   const { login } = useAuth();
   const { handleResponse } = useRouteHandler();
-  const [ user, setUser] = useState("");
- 
+  const [ user, setUser] = useState<User | null>(null);
+
+  const [showUpdateEmail, setShowUpdateEmail] = useState(false);
+const [newEmail, setNewEmail] = useState("");
+const [updatingEmail, setUpdatingEmail] = useState(false);
+ console.log("user", userId);
 
  const {watch, control,
   formState: { errors },
@@ -60,40 +72,26 @@ function showAlert(title: string, message: string, onClose?: () => void) {
   }
 }
 
-  // Cross-platform storage helpers to avoid SecureStore on web
-  const getItemSafe = async (key: string): Promise<string | null> => {
-    try {
-      if (Platform.OS === "web") {
-        return window?.localStorage?.getItem(key) ?? null;
-      }
-      return await SecureStore.getItemAsync(key);
-    } catch (e) {
-      console.warn("Failed to read value", key, e);
-      return null;
-    }
-  };
+  
 
-
-   // Cross-platform storage helper (avoid expo-secure-store on web)
-    const setItemSafe = async (key: string, value: string) => {
-      try {
-        if (Platform.OS === "web") {
-          window?.localStorage?.setItem(key, value);
-          return;
-        }
-        await SecureStore.setItemAsync(key, value);
-      } catch (e) {
-        console.warn("Failed to persist value", key, e);
-      }
-    };
-
+   
   
 
   useEffect(() => {
-    (async () => {
-      const storedUserId = await getItemSafe("user_id");
-      if (storedUserId) setUserId(storedUserId);
-    })();
+   const loadUserData = async () => {
+    const storedUserId = await getItemSafe("userId");
+    const storedUser = await getItemSafe("user");
+
+    if (storedUserId) {
+      setUserId(storedUserId);
+    }
+
+    if (storedUser) {
+      setUser(JSON.parse(storedUser));
+    }
+  };
+
+  loadUserData();
   }, []);
 
 
@@ -105,7 +103,7 @@ function showAlert(title: string, message: string, onClose?: () => void) {
     const user = await getItemSafe("user");
 
     setUserId(userId);
-    setUser(user);
+    setUser(user ? JSON.parse(user) : null);
 
   console.log(["code", code,  "user id", userId]);
     if (!code.trim()) {
@@ -120,33 +118,31 @@ function showAlert(title: string, message: string, onClose?: () => void) {
 
     setLoading(true);
     try {
-  const res = await API.post(`/verify-User-Otp`, {
-    user_id: userId,
+  const res = await API.verifyEmail({
+    user_id: userId,  
     code: code.trim(),
-    user: user,
   });
 
-  if (res.status === 200 && res.data.status === 200) {
-    const { token, user_id, user } = res.data;
+  console.log(res);
+ 
+  if (res.status === 200) {
+    const {user_id, user} = res;
 
-    await login(token, user);
-    await setItemSafe("token", token);
-    await setItemSafe("authToken", token);
-    await setItemSafe("user_id", user_id);
+  router.push("/auth/phoneNumberVerification");
 
-    showAlert("Verified!", res.data.successMessage, () => {
+    showAlert("Email Verified!", res.message, () => {
       handleResponse(res, {
-        successRoute: res.data.successRoute,
-        successMessage: res.data.successMessage,
+        successRoute: res.successRoute,
+        successMessage: res.successMessage,
       });
     });
   }
 } catch (error) {
-  console.log(error.response?.data || error.message);
+  console.log(error.response || error.message);
 
   // 👇 handle 422 (or any backend error message)
   const errorMessage =
-    error.response?.data?.errorMessage || "Verification failed. Please try again.";
+    error.response?.errorMessage || "Verification failed. Please try again.";
 
   showAlert("Failed", errorMessage);
 } finally {
@@ -160,40 +156,39 @@ function showAlert(title: string, message: string, onClose?: () => void) {
     console.log("Resending code to email");
     try {
       // Always fetch the latest userId from storage
-      const currentUserId = await getItemSafe("user_id");
-      console.log("Sending request with userId:", currentUserId);
+      const currentUserId = await getItemSafe("user_id") || user?.id;
+    
 
       if (!currentUserId) {
         showAlert("Error", "User ID missing. Please log in again.");
         return;
       }
 
-      const res = await API.post(`/send-Verification-Code`, {
+      const res = await API.resendEmailCode({
         user_id: currentUserId,
         method: "email"
       });
 
-      console.log("Response received:", res.data);
-      console.log("Response status:", res.status);
-      console.log("Response data status:", res.data.status);
+   
+     
 
-      if (res.status === 200 && res.data.status === 200) {
-         await setItemSafe("user_id", res.data.user.id);
-        showAlert("Sent", res.data.successMessage || "A new code has been sent to your email.");
+      if (res.status === 200) {
+         await setItemSafe("user", res.user);
+        showAlert("Sent", res.message || "A new code has been sent to your email.");
         handleResponse(res, {
-          successRoute: res.data.successRoute,
-          successMessage: res.data.successMessage,
+          successRoute: res.successRoute,
+          successMessage: res.successMessage,
         });
       } 
 
     } catch (error) {
       
 
-       console.log(error.response?.data || error.message);
+       console.log(error.response || error.message);
 
   // 👇 handle 422 (or any backend error message)
   const errorMessage =
-    error.response?.data?.errorMessage || "Unable to resend code. Please try again.";
+    error.response?.errorMessage || "Unable to resend code. Please try again.";
 
   showAlert("Error", errorMessage);
     } finally {
@@ -201,93 +196,27 @@ function showAlert(title: string, message: string, onClose?: () => void) {
     }
   };
 
+  
 
-  const sendCodeToPhoneNumber = async () =>{
-    setLoading(true);
-    try {
-      const res = await API.post(`/send-Verification-Code`, { 
-        user_id: userId,
-        method: "phone"
 
-      });
-
-       await setItemSafe("user_id", res.data.user.id);
-       handleResponse(res, {
-              successRoute: res.data.successRoute,
-              errorMessage: res.data.errorMessage,
-              successMessage: res.data.successMessage,
-            });
-      showAlert("Sent", res.data.successMessage || "A new code has been sent to your phone number.");
-    } catch (error){
-      console.log(error);
-      showAlert("Error", "Unable to send codd. Please try again.");
-    }
-    finally {
-      setLoading(false);
-    }
-    
-  };
- 
+  
 
   return (
-    <KeyboardAvoidingView
-      style={{ flex: 1, backgroundColor: "#f9f9f9" }}
-      behavior={Platform.OS === "ios" ? "padding" : undefined}
-    >
-      <ScrollView contentContainerStyle={styles.container}>
+   <ScreenWrapper>
         <View style={styles.card}>
           
-          {isVerifyWithPhoneNumber ? (
+         
 
-          <View>
-            <Text style={styles.title}>Phone Number Verification</Text>
-            <Text style={styles.subtitle}>
-            Enter the verification code we sent to your registered phone number.
-            </Text>
-            <FormField label="Verification Code" required error={errors.code}>
-            <Controller
-              control={control}
-              name="code"
-              rules={{ required: true, minLength: 6, maxLength: 6 }}
-              render={({ field: { onChange, value } }) => (
-           <TextInput
-          placeholder="Enter verification code"
-          value={value}
-          onChangeText={onChange}
-          
-          style={styles.input}
-          keyboardType="number-pad"
-          maxLength={6}
-          editable={!loading}
-          testID="verification_code_input"
-          />
-          )}
-        
-        />
-        </FormField>
-
-        <TouchableOpacity
-          onPress={handleSubmit(verifyUser)}
-          style={[styles.button, loading && { opacity: 0.6 }]}
-          disabled={loading}
-          testID="verify_button"
-        >
-          {loading ? (
-            <ActivityIndicator color="#fff" />
-          ) : (
-            <Text style={styles.buttonText}>Verify</Text>
-          )}
-        </TouchableOpacity>
-        </View>
-          
-         ) : (
-
-          /* if user is verifying with email */
+          {/* if user is verifying with email */}
           <View>
           <Text style={styles.title}>Email Verification</Text>
           <Text style={styles.subtitle}>
             Enter the verification code we sent to your registered email address.
           </Text>
+
+         <Text style={styles.emailText}>
+  {user?.email || "Loading email..."}
+</Text>
 
           <FormField label="Verification Code" required error={errors.code}>
             <Controller
@@ -323,7 +252,7 @@ function showAlert(title: string, message: string, onClose?: () => void) {
           </TouchableOpacity>
           </View>
 
-)}
+
           <View style={styles.altVerify}>
 <Text style={styles.altText}>I did not receive the code</Text>
           <TouchableOpacity onPress={resendEmailCode} disabled={loading}>
@@ -331,38 +260,67 @@ function showAlert(title: string, message: string, onClose?: () => void) {
             <Text style={styles.linkText}>Resend Code</Text>
           </TouchableOpacity>
 </View>
+
+
+{/* Update Email Address  */}
+
 <View style={styles.altVerify}>
-  <Text style={styles.altText}>
-    {isVerifyWithPhoneNumber
-      ? "Can't verify with phone?"
-      : "Can't verify with email?"}
-  </Text>
-
-  <TouchableOpacity
-    onPress={async () => {
-      if (isVerifyWithPhoneNumber) {
-        // switch to email verification
-        setIsVerifyWithPhoneNumber(false);
-        await resendEmailCode(); // 👈 call your resend email function
-      } else {
-        // switch to phone verification
-        setIsVerifyWithPhoneNumber(true);
-        await sendCodeToPhoneNumber(); // 👈 call your send phone code function
-      }
-    }}
-    disabled={loading}
-  >
-    <Text style={styles.linkText}>
-      {isVerifyWithPhoneNumber
-        ? "Send code to email instead"
-        : "Send code to phone number"}
-    </Text>
+  <Text style={styles.altText}>Want to update your email address?</Text>
+  <TouchableOpacity onPress={() => setShowUpdateEmail(!showUpdateEmail)}>
+    <Text style={styles.linkText}>Update Email Address</Text>
   </TouchableOpacity>
+
+  {showUpdateEmail && (
+    <View style={styles.updateEmailBox}>
+      <TextInput
+        placeholder="Enter new email address"
+        value={newEmail}
+        onChangeText={setNewEmail}
+        keyboardType="email-address"
+        autoCapitalize="none"
+        style={styles.input}
+      />
+
+      <TouchableOpacity
+        style={styles.updateBtn}
+        disabled={updatingEmail}
+        onPress={async () => {
+          if (!newEmail.trim()) {
+            showAlert("Error", "Please enter your new email address.");
+            return;
+          }
+
+          setUpdatingEmail(true);
+
+          try {
+            const userId = await getItemSafe("user_id");
+
+            const res = await ApiService.updateEmail({
+              user_id: userId,
+              email: newEmail.trim(),
+            });
+
+            showAlert("Success", res.message || "Email updated. Verification code sent.");
+
+            await setItemSafe("user_email", newEmail.trim());
+
+            setShowUpdateEmail(false);
+            setNewEmail("");
+          } catch (err: any) {
+            console.log("Update email error:", err);
+            showAlert("Error", err.message || "Could not update email.");
+          } finally {
+            setUpdatingEmail(false);
+          }
+        }}
+      >
+        <Text style={styles.updateBtnText}>
+          {updatingEmail ? "Updating..." : "Update Email"}
+        </Text>
+      </TouchableOpacity>
+    </View>
+  )}
 </View>
-
-
-        </View>
-      </ScrollView>
 
       {/* Custom Alert */}
       <CustomAlert
@@ -377,7 +335,8 @@ function showAlert(title: string, message: string, onClose?: () => void) {
           }
         }}
       />
-    </KeyboardAvoidingView>
+    </View>
+    </ScreenWrapper>
   );
 };
 
@@ -431,6 +390,13 @@ const styles = StyleSheet.create({
     color: "#666",
     marginBottom: 25,
   },
+  emailText: {
+    fontSize: 16,
+    textAlign: "center",
+    color: "#007bff",
+    fontWeight: "600",
+    marginBottom: 25,
+  },
   input: {
     borderWidth: 1,
     borderColor: "#ddd",
@@ -440,6 +406,7 @@ const styles = StyleSheet.create({
     marginBottom: 20,
     textAlign: "center",
     letterSpacing: 2,
+    
   },
   button: {
     backgroundColor: "#007bff",
@@ -482,6 +449,24 @@ const styles = StyleSheet.create({
       fontWeight: "500", 
       color: "#333", 
       marginBottom: 6 },
+
+      updateEmailBox: {
+  marginTop: 12,
+  width: "100%",
+},
+
+
+updateBtn: {
+  backgroundColor: "#111827",
+  padding: 12,
+  borderRadius: 8,
+  alignItems: "center",
+},
+
+updateBtnText: {
+  color: "#fff",
+  fontWeight: "600",
+},
 });
 
 export default EmailVerificationScreen;

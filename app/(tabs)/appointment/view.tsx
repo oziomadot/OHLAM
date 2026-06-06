@@ -16,7 +16,7 @@ import {
 } from "react-native";
 import * as ImagePicker from "expo-image-picker";
 import { useAuth } from "@/context/AuthContext";
-import API from "@/config";
+import API from "@/src/services/api";
 import Navbar from "components/Navbar";
 import Protected from "components/Protected";
 import { useRouter } from "expo-router";

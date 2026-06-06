@@ -17,7 +17,7 @@ import * as Clipboard from "expo-clipboard";
 import * as Sharing from "expo-sharing";
 import * as Audio from "expo-audio";
 import { useAuth } from "context/AuthContext";
-import API, { API_BASE_URL } from "@/config";
+import API from "@/src/services/api";
 import { ROUTES } from "@/utils/routes";
 
 
@@ -33,7 +33,9 @@ export default function Navbar() {
   const [notifications, setNotifications] = useState<any[]>([]);
 
   const isWeb = Platform.OS === "web";
-  const BASE_URL = API_BASE_URL.replace("/api", "");
+  const BASE_URL = __DEV__ 
+    ? 'http://192.168.1.100:8000'  // Your local IP for development
+    : 'https://api.yourdomain.com'; // Production URL
   const role = user?.registration_status?.name;
 
   // ✅ Fix route mapping for (tabs)
@@ -46,7 +48,7 @@ export default function Navbar() {
     "/appointment/view": "/(tabs)/appointment/view",
     "/appointment/create": "/(tabs)/appointment/create",
     "/profile": "/(tabs)/profile",
-    "/upload": "/(tabs)/upload",
+    "/upload": "/(tabs)/upload/property/create",
     "/agents": "/(tabs)/agents",
     "/auth/LoginScreen": "/auth/LoginScreen",
     "/auth/RegisterScreen": "/auth/RegisterScreen",
@@ -56,8 +58,25 @@ export default function Navbar() {
     setShowMenu(false);
     setShowAppointmentSubmenu(false);
     setShowProfileSubmenu(false);
+
+    
+      const protectedRoutes = [
+    "/upload",
+    "/appointment",
+    "/appointment/view",
+    "/appointment/create",
+    "/profile",
+  ];
+
+   if (protectedRoutes.includes(path) && !isAuthenticated) {
+    router.push("/auth/LoginScreen");
+    return;
+  }
+  
     const route = ROUTES[path] || path;
     router.push(route);
+
+
   };
 
   // 🔔 Load notifications
@@ -110,6 +129,7 @@ export default function Navbar() {
     { label: "Games", path: "/games" },
     { label: "About", path: "/about" },
     { label: "Contact Us", path: "/contact" },
+    { label: "Upload", path: "/upload" },
   ];
 
   const authMenu = [
@@ -118,7 +138,7 @@ export default function Navbar() {
   ];
 
   const agentMenu = [
-    { label: "Upload", path: "/upload" },
+    
     { label: "Appointment", path: "/appointment" },
     { label: "Profile", path: "/profile" },
   ];

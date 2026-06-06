@@ -7,7 +7,7 @@ import axios from 'axios';
 import Protected from "components/Protected";
 import Navbar from "components/Navbar";
 import Dashboard from "components/Dashboard";
-import API from "@/config";
+import API from "@/src/services/api";
 
 const  GenerateQuestionsScreen = () => {
   const [topic, setTopic] = useState('');

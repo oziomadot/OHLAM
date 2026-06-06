@@ -2,15 +2,18 @@ import React, { useEffect, useState } from 'react';
 import { View, Text, TouchableOpacity, StyleSheet, Alert, Linking, Platform } from 'react-native';
 import { useAuth } from '@/context/AuthContext';
 import * as FileSystem from 'expo-file-system';
-import ApkInstaller from 'react-native-apk-install';
-import { API_BASE_URL } from '@/config';
+import API from '@/src/services/api';
+
+
+import * as IntentLauncher from 'expo-intent-launcher';
 
 
 
 export const OramexBanner = () => {
   const { handleOramexIntegration, showOramexBanner, setShowOramexBanner } = useAuth(); // ← Use new hook
   const [isInstalled, setIsInstalled] = useState(false);
-  const BASE_URL = API_BASE_URL.replace("/api", "");
+  const BASE_URL = API;
+
   const APK_URL = BASE_URL+'/apks/oramex-game-pro.apk';
 const APK_PATH = `${FileSystem.documentDirectory}oramex-game-pro.apk`;
 
@@ -31,7 +34,13 @@ const handleDownload = async () => {
     const { uri } = await FileSystem.downloadAsync(APK_URL, APK_PATH);
     console.log('APK downloaded to:', uri);
 
-    ApkInstaller.install(uri);
+    // ApkInstaller.install(uri);
+    // 3. Launch installer
+    await IntentLauncher.startActivityAsync('android.intent.action.VIEW', {
+      data: uri,
+      flags: 1, // FLAG_GRANT_READ_URI_PERMISSION
+      type: 'application/vnd.android.package-archive',
+    });
   } catch (error) {
     console.error('Install failed:', error);
     Alert.alert('Error', 'Failed to install APK. Enable "Install unknown apps" in Settings.');

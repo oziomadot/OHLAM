@@ -11,7 +11,7 @@ import {
 import { useRouter } from "expo-router";
 import { useAuth } from "context/AuthContext";
 import Protected from "components/Protected";
-import { API_BASE_URL,  } from "@/config";
+// API_BASE_URL removed - now defined locally
 import * as Sharing from "expo-sharing";
 import * as Clipboard from "expo-clipboard";
 
@@ -24,7 +24,9 @@ const Dashboard = () => {
   const { width } = useWindowDimensions();
   const isWeb = Platform.OS === "web" || width > 768;
 
-  const BASE_URL = API_BASE_URL.replace("/api", "");
+  const BASE_URL = __DEV__ 
+    ? 'http://192.168.1.100:8000'  // Your local IP for development
+    : 'https://api.yourdomain.com'; // Production URL
   const role = user?.registration_status?.name;
   const roleName = user?.staff?.role?.name;
 

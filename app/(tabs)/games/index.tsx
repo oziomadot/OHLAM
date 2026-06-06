@@ -1,7 +1,6 @@
 import { useRouter } from "expo-router";
 import React from "react";
 import { 
-  FlatList, 
   StyleSheet, 
   Text, 
   TouchableOpacity, 
@@ -81,13 +80,9 @@ export default function GameHub() {
       <Text style={styles.title}>Oramex Games</Text>
       <Text style={styles.subtitle}>Select a game to start playing</Text>
 
-      <FlatList
-        data={games}
-        renderItem={renderGameCard}
-        keyExtractor={(item) => item.id}
-        contentContainerStyle={styles.listContainer}
-        showsVerticalScrollIndicator={false}
-      />
+      <View style={styles.listContainer}>
+        {games.map((game) => renderGameCard({ item: game }))}
+      </View>
       </View>
       </View>
       </ScrollView>

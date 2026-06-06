@@ -3,7 +3,7 @@ import { View, Text, ScrollView, Button, StyleSheet, KeyboardAvoidingView, Platf
   , TouchableOpacity
  } from 'react-native';
 import { Checkbox } from 'react-native-paper';
-import API from '@/config'; // adjust path as needed
+import API from '@/src/services/api'; // adjust path as needed
 import Protected from 'components/Protected'; // adjust path as needed
 import { useAuth} from '@/context/AuthContext';
 import Navbar from 'components/Navbar';
@@ -24,7 +24,7 @@ const AppointmentCreateScreen = () => {
    
     const loadAppointmentTime = async () => {
       try {
-        const res = await API.get(`/appointment/create/${userId}`, {
+        const res = await API.request(`/appointment/create/${userId}`, {
           headers: {
             Authorization: `Bearer ${user?.token}`,
           },
@@ -76,7 +76,9 @@ const AppointmentCreateScreen = () => {
     });
 
     try {
-      await API.post(`/appointment/store/${userId}`, { appointments: payload }, {
+      await API.request(`/appointment/store/${userId}`, {
+        method: 'POST',
+        body: JSON.stringify({ appointments: payload }),
         headers: {
           Authorization: `Bearer ${user?.token}`,
         },

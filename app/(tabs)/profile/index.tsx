@@ -6,19 +6,19 @@ import { useRouter } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
 import Navbar from "components/Navbar";
 import Protected from "components/Protected";
-import API, { API_BASE_URL } from "@/config";
-import {Storage} from "@/config/storage";
+import API from "@/src/services/api";
+import { getItem, setItem } from "../../utils/storage";
 export default function ProfileScreen() {
     const { user, logout } = useAuth();
     const [loading, setLoading] = useState(true);
     const [profileData, setProfileData] = useState(null);
     const router = useRouter();
-    const BASE_URL = API_BASE_URL.replace("/api", "");
+    const BASE_URL = API;
 
     useEffect(() => {
         const fetchProfile = async () => {
             try {
-              const user = await Storage.get("user");
+              const user = await getItem("user");
                 // const response = await API.get('/auth/me');
                 console.log(user);
                 setProfileData(JSON.parse(user));

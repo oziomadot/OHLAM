@@ -1,0 +1,446 @@
+import React from "react";
+import {
+  View,
+  Text,
+  Modal,
+  TouchableOpacity,
+  ScrollView,
+  StyleSheet,
+  Dimensions,
+  Platform,
+} from "react-native";
+
+interface TermsModalProps {
+  visible: boolean;
+  onClose: () => void;
+}
+
+const TermsModal: React.FC<TermsModalProps> = ({ visible, onClose }) => {
+  const termsContent = `Terms and Conditions
+Oramex House and Land Agency Management
+
+Version 1.0
+Effective Date: May 2026
+
+1. Introduction
+
+Welcome to Oramex House and Land Agency Management ("Oramex", "we", "our", or "us"). Oramex provides a smart property platform for listing, renting, leasing, inspecting, buying, and selling houses and land in Nigeria.
+
+By creating an account, browsing listings, uploading property, booking inspections, making payments, or using any part of the Oramex website or mobile application, you agree to these Terms and Conditions.
+
+2. Eligibility
+
+You must be at least 18 years old and legally capable of entering into agreements. If you register as an agent, property owner, landlord, staff member, or client, you agree to provide accurate and complete information.
+
+Oramex may refuse, suspend, or terminate accounts that provide false, misleading, incomplete, or unverifiable information.
+
+3. Identity Verification and KYC
+
+To protect users and reduce fraud, Oramex may collect and verify:
+
+Full name, date of birth, gender, address, phone number, email address
+BVN and/or NIN
+Government-issued identity card
+Passport photograph or live face recording
+Selfie, liveness check, biometric verification, or face-matching result
+Property ownership documents
+Agent registration details and referral information
+Bank, wallet, and payment details
+
+You authorize Oramex and its approved verification partners to process this information for identity verification, fraud prevention, compliance, dispute resolution, and platform safety.
+
+Nigeria's Data Protection Act 2023 recognizes lawful bases for processing personal data, including consent, contract, legal obligation, and legitimate interest. Sensitive personal data requires additional protection and appropriate lawful grounds.
+
+4. BVN, NIN, and Financial Verification
+
+Where wallet, payment, refund, payout, inspection deposit, or financial services are used, Oramex may require BVN and/or NIN verification. CBN guidance has required BVN/NIN for certain wallet and account tiers in Nigeria.
+
+BVN/NIN information is used only for verification, fraud prevention, wallet safety, account recovery, compliance, and dispute investigation. Oramex does not sell BVN, NIN, biometric, or identity verification data.
+
+5. Data We Collect
+
+Oramex may collect the following categories of data:
+
+Account Data: name, email, phone number, password/PIN status, role, referral code, registration status.
+
+Identity Data: BVN, NIN, ID card images, face recording, selfie, verification result, liveness result.
+
+Property Data: property address, images, videos, ownership proof, rent/sale price, agent fee, inspection location, facilities, availability, ownership claims.
+
+Transaction Data: wallet balance, deposits, refunds, deductions, inspection payments, payout details, payment provider references.
+
+Device and Security Data: device ID, IP address, app version, login records, fraud signals, geolocation where permitted.
+
+Usage Data: property views, interested clicks, inspection bookings, chat or support messages, listing activity.
+
+AI and Automation Data: listing quality scores, fraud-risk scores, trust scores, recommendation data, automated moderation signals, and user behavior patterns.
+
+6. How We Use Data
+
+Oramex may use collected data to:
+
+Create and manage user accounts
+Verify users, agents, clients, landlords, and property owners
+Detect fake listings, impersonation, and suspicious activity
+Display property listings and property details
+Count interest in properties
+Calculate agent trust score
+Manage wallet deposits, refunds, and deductions
+Book and track inspections
+Compensate agents when clients miss inspections
+Improve search, recommendations, and user experience
+Provide customer support
+Send service notifications
+Comply with legal, regulatory, security, and fraud-prevention obligations
+Investigate disputes and enforce these Terms
+
+7. AI Use and Automated Decision-Making
+
+Oramex may use artificial intelligence, machine learning, or automated systems to support:
+
+Identity and face verification
+Liveness detection
+BVN/NIN verification support
+Fraud detection
+Fake listing detection
+Property recommendation
+Agent trust score calculation
+Listing ranking
+Image, video, and document review
+Suspicious transaction monitoring
+Customer support assistance
+
+AI outputs may be used to assist human review but may not always be perfect. Oramex may suspend, limit, or flag an account or listing based on automated risk signals, especially where fraud, impersonation, or unsafe activity is suspected.
+
+Users may contact Oramex to request review of an automated decision.
+
+8. Data Protection and Security
+
+Oramex will use reasonable technical and organizational measures to protect user data, including encryption, access control, secure storage, audit logs, and restricted staff access.
+
+Personal and biometric data will be processed in line with the Nigeria Data Protection Act 2023 and applicable regulations. The Act includes principles around lawful processing, transparency, data minimization, consent, data subject rights, and protection of sensitive personal data.
+
+No digital platform can guarantee absolute security. Users must keep passwords, PINs, devices, and login credentials secure.
+
+9. User Consent
+
+By registering or using Oramex, you consent to the collection and processing of your data as described in these Terms and our Privacy Policy.
+
+Where required by law, Oramex will request specific consent for sensitive data, biometric verification, marketing, third-party verification, or optional services.
+
+You may withdraw consent where processing is based only on consent, but this may limit your ability to use identity-based, wallet-based, inspection-based, or agent services.
+
+10. Property Listings
+
+Users who upload property agree that:
+
+They have legal authority to list the property
+All information, images, videos, location, price, and ownership claims are accurate
+They will not upload fake, duplicated, stolen, misleading, or unavailable property
+They will not impersonate landlords, agents, caretakers, or property owners
+They will promptly update listings that are rented, sold, withdrawn, or unavailable
+
+Oramex may remove, hide, reject, flag, or investigate listings that appear suspicious, inaccurate, duplicated, fraudulent, or unsafe.
+
+11. Agent and Owner Responsibilities
+
+Agents, landlords, and property owners must:
+
+Submit valid identity information
+Submit accurate property information
+Attend scheduled inspections or arrange proper representation
+Treat clients fairly and professionally
+Avoid collecting unauthorized payments outside Oramex
+Avoid misleading users about ownership, availability, price, or location
+Cooperate with Oramex during verification or dispute review
+
+Oramex may reduce trust score, suspend listings, withhold payout, or terminate accounts for misconduct.
+
+12. Client Responsibilities
+
+Clients must:
+
+Provide accurate registration and verification information
+Attend scheduled inspections
+Avoid fake bookings or unserious inspection requests
+Use official Oramex payment and communication channels
+Perform reasonable due diligence before payment, renting, buying, or signing agreements
+Report suspicious agents, fake listings, or unsafe conduct
+
+13. Interest Button and Property Demand Count
+
+When a user clicks "I am interested", Oramex may record the interest count, device information, IP address, selected property, and user account where available.
+
+This count may be displayed publicly as low, mild, or high interest. Interest count does not guarantee property availability, price stability, or transaction success.
+
+14. Inspection Deposit
+
+Clients interested in inspecting a property may be required to deposit ₦5,000 into their Oramex wallet or payment account before inspection booking.
+
+The inspection deposit is designed to discourage fake bookings and compensate agents for wasted inspection time.
+
+15. Free Inspection Policy
+
+A client's first three inspections may be free if the client attends the scheduled inspection.
+
+If the client fails to attend a confirmed inspection without proper cancellation, Oramex may deduct ₦2,000 from the deposit to compensate the agent.
+
+16. Refund Policy
+
+Where renting, leasing, or purchase does not work out, and the client attended the inspection as scheduled, the client may be eligible for a 100% refund of the refundable inspection deposit balance.
+
+Refunds may be delayed or denied where:
+
+The client missed inspection
+The client provided false information
+The client violated these Terms
+There is an unresolved dispute
+Fraud or suspicious activity is suspected
+Payment provider reversal or compliance review is pending
+
+17. Wallet, Deposits, and Payouts
+
+Oramex may provide wallet, deposit, payout, or payment features through approved payment providers.
+
+Users agree that:
+
+Wallet balances may be shown in naira, coins, or platform credits depending on service type
+Payment provider charges may apply
+Failed, reversed, disputed, or fraudulent payments may affect account access
+Oramex may freeze wallet activity during fraud review or dispute investigation
+Refunds and payouts may require identity verification
+
+18. Communication
+
+Oramex may contact users through phone, SMS, WhatsApp, email, push notifications, in-app messages, or other official communication channels for:
+
+Verification
+Inspection scheduling
+Payment updates
+Security alerts
+Listing updates
+Customer support
+Dispute resolution
+Important platform announcements
+
+Marketing messages may require separate consent where applicable.
+
+19. Location Data
+
+Oramex may collect or request location data to:
+
+Display nearby properties
+Confirm inspection attendance
+Detect suspicious activity
+Improve property search
+Support safety and dispute resolution
+
+Location access may be disabled from device settings, but some features may not work properly.
+
+20. Third-Party Services
+
+Oramex may work with third parties such as:
+
+Identity verification providers
+BVN/NIN verification providers
+Payment processors
+Cloud storage providers
+AI and fraud detection providers
+SMS, email, and notification services
+Analytics and security providers
+
+These partners may process data only as necessary to provide services to Oramex and must follow confidentiality and data protection obligations.
+
+21. User Content License
+
+By uploading property images, videos, descriptions, documents, or other content, you grant Oramex a non-exclusive, royalty-free license to host, display, process, moderate, analyze, promote, and distribute the content for platform operation, marketing of listed properties, fraud prevention, and service improvement.
+
+You confirm that you have the right to upload such content.
+
+22. Prohibited Conduct
+
+Users must not:
+
+Upload fake property
+Use stolen ID or impersonate another person
+Use fake BVN/NIN or forged documents
+Manipulate interest counts or reviews
+Bypass Oramex payment systems
+Harass, threaten, or defraud other users
+Upload harmful, illegal, offensive, or misleading content
+Attempt to hack, scrape, reverse engineer, or disrupt the platform
+Use the platform for money laundering, illegal land sale, or fraudulent transactions
+
+23. Account Suspension and Termination
+
+Oramex may suspend, restrict, or terminate an account where:
+
+Verification fails
+Fraud is suspected
+User violates these Terms
+Fake listings are uploaded
+Payments are disputed or reversed
+User abuses agents, clients, staff, or platform systems
+Required documents are not provided
+Law enforcement or regulatory action requires it
+
+24. Disputes Between Users
+
+Oramex may assist in resolving disputes between clients, agents, landlords, owners, and buyers, but Oramex is not a court, law firm, land registry, or government authority.
+
+Users remain responsible for legal due diligence, property searches, title verification, tenancy agreements, sale agreements, and professional legal advice.
+
+25. Disclaimer
+
+Oramex makes reasonable efforts to verify users, agents, listings, and documents, but does not guarantee that every listing, user, document, price, title, ownership claim, or transaction is error-free, complete, valid, or risk-free.
+
+Users should conduct independent verification before making final payments, signing agreements, or taking possession of property.
+
+26. Limitation of Liability
+
+To the maximum extent permitted by law, Oramex shall not be liable for:
+
+User-provided false information
+Fake or disputed ownership claims
+Failed negotiations
+Price changes
+Property unavailability
+Missed inspections
+Payment provider delays
+Network or app downtime
+Loss caused by users bypassing official Oramex channels
+Indirect, incidental, special, or consequential damages
+
+27. Indemnity
+
+You agree to indemnify and hold Oramex, its directors, staff, agents, partners, and affiliates harmless from claims, losses, damages, liabilities, costs, or expenses arising from your use of the platform, uploaded content, false information, breach of these Terms, or violation of law.
+
+28. Data Retention
+
+Oramex may retain user data for as long as necessary to provide services, comply with law, prevent fraud, resolve disputes, enforce agreements, maintain financial records, and protect platform safety.
+
+Identity, transaction, fraud-prevention, and dispute records may be retained longer where required by law or legitimate business need.
+
+29. User Rights
+
+Subject to applicable law, users may request to:
+
+Access their personal data
+Correct inaccurate data
+Withdraw consent where applicable
+Request deletion where legally permitted
+Object to certain processing
+Request review of automated decisions
+Lodge complaints with Oramex or relevant data protection authorities
+
+30. Changes to These Terms
+
+Oramex may update these Terms from time to time. Updates may be posted in the app, website, or sent by email or notification.
+
+Continued use of Oramex after updates means you accept the revised Terms.
+
+31. Governing Law
+
+These Terms are governed by the laws of the Federal Republic of Nigeria.
+
+32. Contact
+
+For support, privacy requests, complaints, verification issues, or disputes, contact:
+
+Oramex House and Land Agency Management
+Email: support@oramexhouseandland.com
+Phone: 
+Address: 1 University Market Road, Nsukka, Enugu State, Nigeria.`;
+
+  return (
+    <Modal
+      visible={visible}
+      animationType="slide"
+      presentationStyle="pageSheet"
+      onRequestClose={onClose}
+    >
+      <View style={styles.container}>
+        <View style={styles.header}>
+          <Text style={styles.title}>Terms and Conditions</Text>
+          <TouchableOpacity onPress={onClose} style={styles.closeButton}>
+            <Text style={styles.closeButtonText}>✕</Text>
+          </TouchableOpacity>
+        </View>
+        
+        <ScrollView style={styles.content} showsVerticalScrollIndicator={true}>
+          <Text style={styles.termsText}>{termsContent}</Text>
+        </ScrollView>
+        
+        <View style={styles.footer}>
+          <TouchableOpacity onPress={onClose} style={styles.agreeButton}>
+            <Text style={styles.agreeButtonText}>Close</Text>
+          </TouchableOpacity>
+        </View>
+      </View>
+    </Modal>
+  );
+};
+
+const styles = StyleSheet.create({
+  container: {
+    flex: 1,
+    backgroundColor: "#fff",
+  },
+  header: {
+    flexDirection: "row",
+    justifyContent: "space-between",
+    alignItems: "center",
+    padding: 20,
+    borderBottomWidth: 1,
+    borderBottomColor: "#e0e0e0",
+    backgroundColor: "#f8f9fa",
+  },
+  title: {
+    fontSize: 20,
+    fontWeight: "600",
+    color: "#333",
+  },
+  closeButton: {
+    width: 30,
+    height: 30,
+    borderRadius: 15,
+    backgroundColor: "#e0e0e0",
+    justifyContent: "center",
+    alignItems: "center",
+  },
+  closeButtonText: {
+    fontSize: 16,
+    color: "#666",
+    fontWeight: "600",
+  },
+  content: {
+    flex: 1,
+    padding: 20,
+  },
+  termsText: {
+    fontSize: 14,
+    lineHeight: 20,
+    color: "#333",
+    fontFamily: Platform.OS === "ios" ? "Georgia" : "serif",
+  },
+  footer: {
+    padding: 20,
+    borderTopWidth: 1,
+    borderTopColor: "#e0e0e0",
+    backgroundColor: "#f8f9fa",
+  },
+  agreeButton: {
+    backgroundColor: "#007AFF",
+    paddingVertical: 12,
+    paddingHorizontal: 30,
+    borderRadius: 8,
+    alignSelf: "center",
+  },
+  agreeButtonText: {
+    color: "#fff",
+    fontSize: 16,
+    fontWeight: "600",
+  },
+});
+
+export default TermsModal;

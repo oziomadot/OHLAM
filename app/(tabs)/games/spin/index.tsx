@@ -13,11 +13,11 @@ import {
 } from "react-native";
 
 import {useAuth} from "@/context/AuthContext";
-import API from "@/config";
+import API from "@/src/services/api";
 import Protected from "components/Protected";
 import Navbar from "components/Navbar";
 import { Platform } from "react-native";
-import { Storage } from "@/config/storage";
+import { getItem, setItem } from "../../../utils/storage";
 
 
 export default function SpinScreen() {

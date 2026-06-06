@@ -11,7 +11,7 @@ import {
   Platform,
   KeyboardAvoidingView
 } from "react-native";
-import API from "../../../src/config";
+import API from "@/src/services/api";
 import Navbar from "components/Navbar";
 import Dashboard from "components/Dashboard";
 import FilterBar from "components/FilterBar";

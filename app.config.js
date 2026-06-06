@@ -7,7 +7,7 @@ module.exports = {
   icon: "./assets/icon.png",
   userInterfaceStyle: "light",
   splash: {
-    image: "./assets/splash.png",
+    image: "./assets/splash-icon.png",
     resizeMode: "contain",
     backgroundColor: "#ffffff"
   },
@@ -35,6 +35,7 @@ module.exports = {
     url: "https://u.expo.dev/373c6f7b-8b66-40dc-b4ea-0e5c57846ab9"
   },
   plugins: [
+    "expo-asset",
     "expo-router",
     "expo-secure-store",
     [

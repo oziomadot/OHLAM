@@ -1,383 +1,420 @@
-import React, { useState, useRef } from 'react';
-import { KeyboardAvoidingView, ScrollView, View, Image, Text, Platform,
-   StyleSheet, TouchableOpacity, Linking  } from 'react-native';
-import { TextInput, Button } from 'react-native-paper';
-import { Formik } from 'formik';
-import * as Yup from 'yup';
+import React, { useState, useEffect } from "react";
+import {
+  View,
+  Text,
+  StyleSheet,
+  Alert,
+  TouchableOpacity,
+} from "react-native";
+import { Button, TextInput } from "react-native-paper";
+
+import * as LocalAuthentication from "expo-local-authentication";
+import { Formik } from "formik";
+import * as Yup from "yup";
+import { Link, useRouter } from "expo-router";
+import { useAuth } from "@/context/AuthContext";
+import API from "@/src/services/api";
+import Navbar from "components/Navbar";
+import ScreenWrapper from "components/ScreenWrapper";
+import * as WebBrowser from "expo-web-browser"; // ✅ opens OAuth URLs
 import { FontAwesome } from "@expo/vector-icons";
-import API from '@/config/index';
-import { useAuth } from '@/context/AuthContext';
-import { useRouter} from "expo-router";
-import Navbar from 'components/Navbar';
-import CustomAlert from 'components/CustomAlert';
-import * as SecureStore from "expo-secure-store"; 
-import { useRouteHandler } from '@/hooks/seRouteHandler';
-import { Storage } from '@/config/storage';
+import { getItemSafe, setItemSafe } from "@/utils/storage";
+import CustomAlert from "components/CustomAlert";
 
-
- 
-
-
-
+// ✅ Validation
 const LoginSchema = Yup.object().shape({
-  email: Yup.string().email('Invalid email').required('Email is required'),
+  email: Yup.string().email("Invalid email").required("Email is required"),
   password: Yup.string()
-    .min(6, 'Password must be at least 6 characters')
-    .required('Password is required'),
+    .min(6, "Password must be at least 6 characters")
+    .required("Password is required"),
 });
 
-const LoginScreen = () => {
-  const [isLoading, setIsLoading] = useState(false);
-  // TODO: Replace with your real auth hook, e.g. useAuth()
-  const { login } = useAuth();
-  const isWeb = Platform.OS === "web";
+export default function LoginScreen() {
   const router = useRouter();
+  const { login } = useAuth();
 
-  const [alertVisible, setAlertVisible] = useState(false);
-const [alertMessage, setAlertMessage] = useState("");
-const [alertTitle, setAlertTitle] = useState("");
-const [error, setError] = useState("");
-const { handleResponse } = useRouteHandler();
-const showAlertCallback = useRef<(() => void) | null>(null);
+  const [isLoginFormVisible, setIsLoginFormVisible] = useState(true);
+  const [storedPin, setStoredPin] = useState<string | null>(null);
+  const [pin, setPin] = useState("");
+  const [isBiometricAvailable, setIsBiometricAvailable] = useState(false);
+  const [isLoading, setIsLoading] = useState(false);
 
+  const [loading, setLoading] = useState(false);
 
-function showAlert(title: string, message: string, onClose?: () => void) {
-  setAlertTitle(title);
-  setAlertMessage(message);
-  setAlertVisible(true);
-  // Store the callback to run when alert is closed
-  showAlertCallback.current = onClose;
+    const [alertVisible, setAlertVisible] = useState(false);
+    const [alertMessage, setAlertMessage] = useState("");
+    const [alertTitle, setAlertTitle] = useState("");
+  
+    function showAlert(title: string, message: string) {
+      setAlertTitle(title);
+      setAlertMessage(message);
+      setAlertVisible(true);
+    }
+
+  // ✅ On mount – check PIN & biometric compatibility
+  useEffect(() => {
+    (async () => {
+      const existingPin = await getItemSafe("user_pin");
+      setStoredPin(existingPin);
+
+      const compatible = await LocalAuthentication.hasHardwareAsync();
+      const enrolled = await LocalAuthentication.isEnrolledAsync();
+      setIsBiometricAvailable(compatible && enrolled);
+
+      if (existingPin) {
+        setIsLoginFormVisible(false);
+      }
+    })();
+  }, []);
+
+  // ✅ Social-login handlers
+  const handleGoogleLogin = async () => {
+    await WebBrowser.openBrowserAsync(`${API.baseURL}/auth/google/redirect`);
+  };
+
+  const handleTwitterLogin = async () => {
+    await WebBrowser.openBrowserAsync(`${API.baseURL}/auth/twitter/redirect`);
+  };
+
+  const handleFacebookLogin = async () => {
+    await WebBrowser.openBrowserAsync(`${API.baseURL}/auth/facebook/redirect`);
+  };
+
+  // ✅ Biometric login
+  const handleBiometricAuth = async () => {
+    try {
+      const result = await LocalAuthentication.authenticateAsync({
+        promptMessage: "Unlock your account",
+        fallbackLabel: "Use PIN",
+      });
+
+      if (result.success) {
+        const token = await getItemSafe("authToken");
+        const userData = await getItemSafe("user");
+        if (token && userData) {
+          await login(token, JSON.parse(userData));
+          router.push("/home");
+        } else {
+          Alert.alert("Session expired", "Please sign in again.");
+          setIsLoginFormVisible(true);
+        }
+      }
+    } catch (err) {
+      console.warn(err);
+      Alert.alert("Error", "Unable to authenticate with biometrics.");
+    }
+  };
+
+  // ✅ PIN-based login
+  const handlePinLogin = async () => {
+    const savedPin = await getItemSafe("user_pin");
+    const token = await getItemSafe("authToken");
+    const userData = await getItemSafe("user");
+
+    if (pin === savedPin && token && userData) {
+      await login(token, JSON.parse(userData));
+      router.push("/home");
+    } else {
+      Alert.alert("Invalid PIN", "Please try again.");
+    }
+  };
+
+  // ✅ Email/password login
+  const handleLogin = async (values: { email: string; password: string }) => {
+    try {
+      setIsLoading(true);
+      const response = await API.login(values.email, values.password);
+
+      if (response.status === 202) {
+      const setUser = await setItemSafe("user", JSON.stringify(response.user));
+      const setUser_id = await setItemSafe("user_id", response.user_id);
+  switch (response.next_step) {
+    case "email_verification":
+      router.push("/auth/email-verification");
+      break;
+    case "phone_verification":
+      router.push("/auth/phoneNumberVerification");
+      break;
+    case "face_verification":
+      router.push("/auth/faceRecord");
+      break;
+    case "bvn_nin":
+      router.push("/auth/identityNumber");
+      break;
+    case "gov_id":
+      router.push("/auth/idCardUpload");
+      break;
+   
+  }
+  return;
 }
 
 
 
-   // Cross-platform storage helper (avoid expo-secure-store on web)
-    const setItemSafe = async (key: string, value: string) => {
-      try {
-        if (Platform.OS === "web") {
-          window?.localStorage?.setItem(key, value);
-          return;
-        }
-        await SecureStore.setItemAsync(key, value);
-      } catch (e) {
-        console.warn("Failed to persist value", key, e);
-      }
-    };
-  
- 
+      if (response.status === 200) {
+        const { token, user, user_id } = response;
+        await login(token, user);
 
-    const handleLogin = async (values: { email: string; password: string }) => {
-      try {
-        setIsLoading(true);
-        setError(""); // clear old errors
-    
-        const response = await API.post(`/login`, {
-          email: values.email,
-          password: values.password,
-        });
-          
+        await setItemSafe("authToken", token);
+        await setItemSafe("user_id", user_id);
+        await setItemSafe("user", JSON.stringify(user));
 
-        if (response.status === 200 && response.data.status === 200)
-          {
-          const user_id = response.data.user_id;
-          const user = response.data.user
-          
-          const { token } = response.data;
-
-          console.log(response.data);
-
-          await login(token, user); // save in AsyncStorage
-          await Storage.set("authToken", token);
-          await Storage.set("user_id", user_id);
-          await Storage.set("user", JSON.stringify(user));
-          showAlert("Success", response.data.successMessage, () => {
-            handleResponse(response, {
-              successRoute: response.data.successRoute,
-              errorMessage: response.data.errorMessage,
-              successMessage: response.data.successMessage,
-            });
-          });
-        } else {
-          // Handle non-200 responses (like 422 validation errors)
-          const data = response.data;
-          const msg =
-            Object.values(data?.errors || {})[0]?.[0] ||  // Try to extract Laravel validation message first
-            data?.errorMessage ||                              // fallback to generic message
-            "Login failed. Please check your credentials.";  // fallback to generic message
-
-          showAlert("Error", data.errorMessage || msg, () => {
-            handleResponse(response, {
-              successRoute: data.successRoute,
-              errorRoute: data.errorRoute || "/auth/LoginScreen",
-              errorMessage: data.errorMessage,
-              successMessage: data.successMessage,
-            });
-          });
-        }
-      } catch (error) {
-        const data = error.response?.data;
+        Alert.prompt(
+          "Create PIN",
+          "Set a 4‑digit PIN for quick login next time",
+          [
+            { text: "Cancel", style: "cancel" },
+            {
+              text: "Save",
+              onPress: async (value) => {
+                if (value?.length === 4) {
+                  await setItemSafe("user_pin", value);
+                  Alert.alert("PIN saved", "You'll be able to use it next time!");
+                  router.push("/home");
+                } else {
+                  Alert.alert("Invalid PIN", "PIN must be exactly 4 digits.");
+                  router.push("/home");
+                }
+              },
+            },
+          ],
+          "plain-text"
+        );
+      } else {
+        const data = response.data;
         const msg =
-          Object.values(data?.errors || {})[0]?.[0] ||  // Try to extract Laravel validation message first
-          data?.errorMessage ||                              // fallback to generic message
-          "Login failed. Please try again.";            // final fallback
-
-        showAlert("Error", msg);
-      } finally {
-        setIsLoading(false);
+          data.errorMessage ||
+          data.message ||
+          "Login failed. Please check your credentials.";
+        Alert.alert("Error", msg);
       }
-    };
-    
-  
+    } catch (err: any) {
+  console.log("🔥 LOGIN ERROR FULL:", err);
+  console.log("🔥 LOGIN ERROR RESPONSE:", err?.response);
+  console.log("🔥 LOGIN ERROR DATA:", err?.response?.data);
 
+  const data = err?.response?.data || err?.data || err;
+
+  if (data?.errors) {
+    const message = Object.values(data.errors).flat().join("\n");
+    showAlert("Validation Error", message);
+    return;
+  }
+
+  if (data?.message) {
+    showAlert("Error", data.message);
+    return;
+  }
+
+  showAlert("Error", err?.message || "Login failed. Please try again.");
+} finally {
+  setIsLoading(false);
+}
+  }
+  // ✅ UI
   return (
-    <KeyboardAvoidingView
-      behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
-      style={styles.container}
-    >
-      <ScrollView contentContainerStyle={styles.scrollContainer}>
-        <Navbar/>
-        <View style={{flex: 1, alignItems: "center", justifyContent: "center", 
-          padding: 20}}>
-        <View style={{ width: isWeb ? "40%" : "100%"}}>
-        <View style={styles.logoContainer}>
-         
-          <Text style={styles.title}>We are OPAM family</Text> 
-          <Text style={styles.title}>we are here to deliver</Text>
-          <Text style={styles.subtitle}>Sign in to continue</Text>
-        
+    <ScreenWrapper>
+      <Navbar />
+      <View style={styles.inner}>
+        <Text style={styles.title}>
+          {isLoginFormVisible ? "Sign In" : "Quick Login"}
+        </Text>
 
+        {!isLoginFormVisible ? (
+          <View>
+            {isBiometricAvailable && (
+              <Button
+                icon="fingerprint"
+                mode="contained"
+                style={styles.button}
+                onPress={handleBiometricAuth}
+              >
+                Use Fingerprint / Face ID
+              </Button>
+            )}
 
-        {/* Facebook */}
-      <TouchableOpacity
-        style={[styles.button, { backgroundColor: "#4c6ef5" }]}
-        onPress={() => Linking.openURL("/auth/redirect")}
-      >
-        <FontAwesome name="facebook-square" size={20} color="#fff" style={styles.icon} />
-        <Text style={styles.text}>Login with Facebook</Text>
-      </TouchableOpacity>
+            <TextInput
+              label="Enter your PIN"
+              value={pin}
+              onChangeText={setPin}
+              keyboardType="numeric"
+              secureTextEntry
+              maxLength={4}
+              style={styles.input}
+            />
+            <Button mode="contained" onPress={handlePinLogin} style={styles.button}>
+              Login with PIN
+            </Button>
 
-      {/* Twitter / X */}
-      <TouchableOpacity
-        style={[styles.button, { backgroundColor: "#182025" }]}
-        onPress={() => Linking.openURL("/auth/twitter")}
-      >
-        <Text style={styles.text}>Login with Twitter (X)</Text>
-      </TouchableOpacity>
+            <Button
+              mode="text"
+              onPress={() => setIsLoginFormVisible(true)}
+              style={styles.switchButton}
+            >
+              Use Email & Password
+            </Button>
+          </View>
+        ) : (
+          <Formik
+            initialValues={{ email: "", password: "" }}
+            validationSchema={LoginSchema}
+            onSubmit={handleLogin}
+          >
+            {({
+              handleChange,
+              handleBlur,
+              handleSubmit,
+              values,
+              errors,
+              touched,
+            }) => (
+              <View>
+                <TextInput
+                  label="Email"
+                  mode="outlined"
+                  style={styles.input}
+                  keyboardType="email-address"
+                  autoCapitalize="none"
+                  value={values.email}
+                  onChangeText={handleChange("email")}
+                  onBlur={handleBlur("email")}
+                  error={touched.email && !!errors.email}
+                />
+                {touched.email && errors.email && (
+                  <Text style={styles.errorText}>{errors.email}</Text>
+                )}
 
-      {/* Google */}
-      <TouchableOpacity
-        style={[styles.button, { backgroundColor: "#075f0f" }]}
-        onPress={() => Linking.openURL("/auth/googlelogin")}
-      >
-        <FontAwesome name="google" size={20} color="#fff" style={styles.icon} />
-        <Text style={styles.text}>Login with Google</Text>
-      </TouchableOpacity>
+                <TextInput
+                  label="Password"
+                  mode="outlined"
+                  style={styles.input}
+                  secureTextEntry
+                  value={values.password}
+                  onChangeText={handleChange("password")}
+                  onBlur={handleBlur("password")}
+                  error={touched.password && !!errors.password}
+                />
+                {touched.password && errors.password && (
+                  <Text style={styles.errorText}>{errors.password}</Text>
+                )}
 
-      <Formik
-  initialValues={{ email: '', password: '' }}
-  validationSchema={LoginSchema}
-  onSubmit={handleLogin}  // ✅ values go here
->
-  {({ handleChange, handleBlur, handleSubmit, values, errors, touched }) => (
-    <View style={styles.formContainer}>
-      <TextInput
-        label="Email"
-        mode="outlined"
-        left={<TextInput.Icon icon="email" />}
-        style={styles.input}
-        value={values.email}
-        onChangeText={handleChange('email')}
-        onBlur={handleBlur('email')}
-        keyboardType="email-address"
-        autoCapitalize="none"
-        error={touched.email && !!errors.email}
-        testID="login_email_input"
-      />
-      {touched.email && errors.email && (
-        <Text style={styles.errorText}>{errors.email}</Text>
-      )}
+                <Button
+                  mode="contained"
+                  loading={isLoading}
+                  onPress={() => handleSubmit()}
+                  style={styles.button}
+                >
+                  Sign In
+                </Button>
 
-      <TextInput
-        label="Password"
-        mode="outlined"
-        left={<TextInput.Icon icon="lock" />}
-        style={styles.input}
-        value={values.password}
-        onChangeText={handleChange('password')}
-        onBlur={handleBlur('password')}
-        secureTextEntry
-        error={touched.password && !!errors.password}
-        testID="login_password_input"
-      />
-      {touched.password && errors.password && (
-        <Text style={styles.errorText}>{errors.password}</Text>
-      )}
+                <Text style={styles.forgotPassword}> <Link
+              style={{
+                color: "#107eeb",
+                fontWeight: "bold",
+                textDecorationLine: "underline",
+                textDecorationColor: "#107eeb",
+              }}
+              href="/(tabs)/auth/ForgotPasswordScreen"
+            >
+            Forgot Password?
+            </Link></Text>
+                
 
-      <TouchableOpacity
-        style={styles.forgotPassword}
-        onPress={() => router.push('/auth/ForgotPasswordScreen')}
-      >
-        <Text style={styles.forgotPasswordText}>Forgot Password?</Text>
-      </TouchableOpacity>
+                {/* --- Social Media Login Buttons --- */}
+                <View style={styles.dividerContainer}>
+                  <Text style={styles.dividerText}>OR</Text>
+                </View>
 
-      <Button
-        mode="contained"
-        onPress={handleSubmit}   // ✅ no need for arrow function
-        loading={isLoading}
-        disabled={isLoading}
-        style={styles.button1}
-        labelStyle={styles.buttonLabel}
-        testID="login_submit_button"
-      >
-        Sign In
-      </Button>
+                <TouchableOpacity
+                  style={[styles.socialButton, { backgroundColor: "#DB4437" }]}
+                  onPress={handleGoogleLogin}
+                >
+                  <FontAwesome name="google" size={20} color="#fff" />
+                  <Text style={styles.socialText}> Continue with Google</Text>
+                </TouchableOpacity>
 
-      <View style={styles.footer}>
-        <Text style={styles.footerText}>Don't have an account? </Text>
-        <TouchableOpacity onPress={() => router.push('/auth/RegisterScreen')}>
-          <Text style={styles.footerLink}>Sign Up</Text>
-        </TouchableOpacity>
+                <TouchableOpacity
+                  style={[styles.socialButton, { backgroundColor: "#1DA1F2" }]}
+                  onPress={handleTwitterLogin}
+                >
+                  <FontAwesome name="twitter" size={20} color="#fff" />
+                  <Text style={styles.socialText}> Continue with Twitter</Text>
+                </TouchableOpacity>
+
+                <TouchableOpacity
+                  style={[styles.socialButton, { backgroundColor: "#3b5998" }]}
+                  onPress={handleFacebookLogin}
+                >
+                  <FontAwesome name="facebook" size={20} color="#fff" />
+                  <Text style={styles.socialText}> Continue with Facebook</Text>
+                </TouchableOpacity>
+              </View>
+            )}
+          </Formik>
+        )}
+
+        <View style={{ alignItems: "center", marginTop: 20 }}>
+          <Text style={{ fontSize: 16 }}>
+            New member?{" "}
+            <Link
+              style={{
+                color: "#107eeb",
+                fontWeight: "bold",
+                textDecorationLine: "underline",
+                textDecorationColor: "#107eeb",
+              }}
+              href="/(tabs)/auth/RegisterScreen"
+            >
+              Register here
+            </Link>
+          </Text>
+        </View>
       </View>
-    </View>
-  )}
-</Formik>
 
-        </View>
-        </View>
-        </View>
-      </ScrollView>
-
-       {/* 🔔 Global Alert (always available) */}
-    <CustomAlert
-      visible={alertVisible}
-      title={alertTitle}
-      message={alertMessage}
-      onClose={() => {
-        setAlertVisible(false);
-        // Run the callback if provided
-        if (showAlertCallback.current) {
-          showAlertCallback.current();
-          showAlertCallback.current = null;
-        }
-      }}
-    />
-    </KeyboardAvoidingView>
+      <CustomAlert
+        visible={alertVisible}
+        title={alertTitle}
+        message={alertMessage}
+        onClose={() => setAlertVisible(false)}
+      />
+    </ScreenWrapper>
   );
-};
+}
 
 const styles = StyleSheet.create({
-  container: {
-    flex: 1,
-    backgroundColor: '#fff',
-  },
-  scrollContainer: {
-    flexGrow: 1,
-    padding: 20,
-    justifyContent: 'center',
-  },
-  logoContainer: {
-    alignItems: 'center',
-    marginBottom: 40,
-    backgroundColor: '#E8E8E8',
-    padding: 30,
-    borderRadius: 10, 
-    shadowColor: '#147799',
-    shadowOffset: { width: 0, height: 8 },
-    shadowOpacity: 0.1,
-    shadowRadius: 10,
-    elevation: 6,
-     // Web shadow
-     ...Platform.select({
-      web: {
-        boxShadow: '0 25px 50px -12px rgba(14, 77, 9, 0.11)',
-        transition: 'transform 0.2s ease, box-shadow 0.2s ease',
-      },
-    }),
-  },
-  logo: {
-    width: 120,
-    height: 120,
-    marginBottom: 16,
-  },
-  text: {
-    color: "#ffffff",
-    fontSize: 16,
+  inner: { flex: 1, justifyContent: "center", padding: 24 },
+  title: {
+    fontSize: 28,
     fontWeight: "bold",
+    color: "#003366",
+    textAlign: "center",
+    marginBottom: 30,
   },
-  icon: {
-    marginRight: 8,
-    alignItems: "center",
-    justifyContent: "center",
-  },
-  button1: {
+  input: { marginVertical: 8, backgroundColor: "#fff" },
+  button: { borderRadius: 8, marginTop: 12, paddingVertical: 5 },
+  switchButton: { marginTop: 10 },
+  errorText: { color: "red", fontSize: 12, marginLeft: 8 },
+  dividerContainer: { alignItems: "center", marginVertical: 18 },
+  dividerText: { color: "#333", fontWeight: "600" },
+  socialButton: {
     flexDirection: "row",
     alignItems: "center",
     justifyContent: "center",
-    padding: 10,
-    borderRadius: 7,
-    marginBottom: 10,
+    marginVertical: 6,
+    paddingVertical: 10,
+    borderRadius: 8,
   },
-  title: {
-    fontSize: 24,
-    fontWeight: 'bold',
-    marginBottom: 8,
-    color: '#333',
-  },
-  subtitle: {
-    fontSize: 16,
-    color: '#666',
-  },
-  formContainer: {
-    width: '100%',
-  },
-  input: {
-    marginBottom: 8,
-    backgroundColor: '#fff',
-  },
-  errorText: {
-    color: '#ff3b30',
-    fontSize: 12,
-    marginBottom: 8,
-    marginLeft: 8,
+  socialText: {
+    color: "#fff",
+    fontWeight: "600",
+    fontSize: 15,
+    marginLeft: 6,
   },
   forgotPassword: {
-    alignSelf: 'flex-end',
-    marginBottom: 20,
-  },
-  forgotPasswordText: {
-    color: '#1a73e8',
-    fontSize: 14,
-  },
-  button: {
-    marginTop: 8,
-    paddingVertical: 8,
-    borderRadius: 8,
-    backgroundColor: '#1a73e8',
-    width: "50%",
-    alignSelf: "center",
-    justifyContent: "center",
-    alignItems: "center",
-    marginVertical: 10,
-    
-  },
-  buttonLabel: {
-    fontSize: 14,
-    fontWeight: 'bold',
-    color: '#fff',
-    paddingVertical: 4,
-  },
-  footer: {
-    flexDirection: 'row',
-    justifyContent: 'center',
-    marginTop: 24,
-  },
-  footerText: {
-    color: '#666',
-  },
-  footerLink: {
-    color: '#1a73e8',
-    fontWeight: 'bold',
+    color: "#107eeb",
+    fontWeight: "bold",
+    textDecorationLine: "underline",
+    textDecorationColor: "#107eeb",
+    marginTop: 10,
   },
 });
-
-export default LoginScreen;
