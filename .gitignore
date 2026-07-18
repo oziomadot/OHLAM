@@ -37,5 +37,13 @@ yarn-error.*
 *.tsbuildinfo
 
 
-/android
-/ios
+# Native generated build files
+android/.gradle/
+android/.kotlin/
+android/build/
+android/app/build/
+android/app/.cxx/
+android/local.properties
+
+ios/Pods/
+ios/build/
