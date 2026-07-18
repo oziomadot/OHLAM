@@ -1,5 +1,4 @@
-import { AdMobBanner } from 'expo-ads-admob';
-import { getBannerAdUnitId } from '@/utils/admob';
+
 import React, { useEffect, useState } from "react";
 import { ActivityIndicator, Button, StyleSheet, Text, View, Alert, TouchableOpacity, Dimensions } from "react-native";
 import { MaterialIcons } from "@expo/vector-icons";
@@ -144,14 +143,7 @@ const NigeriaQuiz = () => {
         </View>
       )}
 
-      <View style={styles.adContainer}>
-        <AdMobBanner
-          bannerSize="smartBannerPortrait"
-          adUnitID={getBannerAdUnitId()}
-          servePersonalizedAds={true}
-          onDidFailToReceiveAdWithError={(error) => console.log(error)}
-        />
-      </View>
+
     </View>
   );
 };

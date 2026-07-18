@@ -1,4 +1,4 @@
-package com.oramexglobals.OHLAM
+package com.oramexglobal.ohlam
 
 import android.app.Application
 import android.content.res.Configuration
