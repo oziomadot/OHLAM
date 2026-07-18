@@ -31,9 +31,12 @@ export default function PropertyMediaUpload({
           <View key={key} style={styles.box}>
             <Text style={styles.label}>{label}</Text>
             <Button title="Pick Image" onPress={() => pickImage(key)} />
-            {images[key] && (
-              <Image source={{ uri: images[key].uri }} style={styles.img} />
-            )}
+            {(() => {
+              const img = images?.[key];
+              return img?.uri ? (
+                <Image source={{ uri: img.uri }} style={styles.img} />
+              ) : null;
+            })()}
           </View>
         ))}
       </>
@@ -45,13 +48,13 @@ export default function PropertyMediaUpload({
       <>
         <Text style={styles.label}>Upload Whole Building Photo</Text>
         <Button title="Pick Image" onPress={() => pickImage("wholeBuilding")} />
-        {images.wholeBuilding && (
+        {images.wholeBuilding?.uri && (
           <Image source={{ uri: images.wholeBuilding.uri }} style={styles.img} />
         )}
 
         <Text style={styles.label}>Upload Property Video</Text>
         <Button title="Pick Video" onPress={pickVideo} />
-        {video && <Text>{video.name}</Text>}
+        {video?.name ? <Text>{video.name}</Text> : null}
       </>
     );
   }

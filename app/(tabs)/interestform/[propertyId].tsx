@@ -1,66 +1,40 @@
-import React, { useState, useEffect , useMemo} from "react";
-import { View, Text, TextInput, TouchableOpacity, ScrollView, 
-  ActivityIndicator, KeyboardAvoidingView,
-StyleSheet} from "react-native";
+import React, { useEffect, useMemo, useState } from "react";
+import {
+  View,
+  Text,
+  TouchableOpacity,
+  ScrollView,
+  ActivityIndicator,
+  KeyboardAvoidingView,
+  StyleSheet,
+} from "react-native";
 import { useLocalSearchParams, useRouter } from "expo-router";
+import { Picker } from "@react-native-picker/picker";
 import API from "@/src/services/api";
 import CustomAlert from "components/CustomAlert";
 import Protected from "components/Protected";
 import { useAuth } from "context/AuthContext";
 import { useForm } from "react-hook-form";
-import { Picker } from "@react-native-picker/picker";
-import Navbar from "components/Navbar";
-
-
-
+import property from "../properties/create";
 
 const InterestFormScreen = () => {
   const { propertyId } = useLocalSearchParams();
   const router = useRouter();
-  const { user } = useAuth();
-  const [slots, setSlots] = useState([]);
+  const { user, isAuthenticated } = useAuth();
 
-
-
-  const [selectedDay, setSelectedDay] = useState("");
-  const [selectedTime, setSelectedTime] = useState("");
-  const [availableTimes, setAvailableTimes] = useState([]);
-
-  // Group slots by day name for easier lookup
-  const groupedSlots = slots.reduce((acc, slot) => {
-    const dayName = slot.day.name;
-    if (!acc[dayName]) acc[dayName] = [];
-    acc[dayName].push(slot.time_slot);
-    return acc;
-  }, {});
-
-  const handleDayChange = (dayId) => {
-  const selectedSlotGroup = slots.filter(s => s.day.id === dayId);
-  setSelectedDay(dayId);
-  setAvailableTimes(selectedSlotGroup.map(s => s.time_slot));
-  setSelectedTime("");
-};
-
-
-
+  const [checkingEscrow, setCheckingEscrow] = useState(true);
+  const [slots, setSlots] = useState<any[]>([]);
+  const [selectedDay, setSelectedDay] = useState<number | null>(null);
+  const [selectedTime, setSelectedTime] = useState<number | null>(null);
+  const [availableTimes, setAvailableTimes] = useState<any[]>([]);
   const [loading, setLoading] = useState(false);
- const { reset,  formState: { errors },
-  handleSubmit: formHandleSubmit,
-  register } = useForm({
-  defaultValues: {
-    surname: "",
-    firstname: "",
-    othernames: "",
-    dob: "",
-    phoneNumber: "",
-    whatsappNumber: "",
-    user_id: ""
-  }
-});
-    const [alertVisible, setAlertVisible] = useState(false);
+
+  const { handleSubmit: formHandleSubmit } = useForm();
+
+  const [alertVisible, setAlertVisible] = useState(false);
   const [alertMessage, setAlertMessage] = useState("");
   const [alertTitle, setAlertTitle] = useState("");
-  
+
   function showAlert(title: string, message: string) {
     setAlertTitle(title);
     setAlertMessage(message);
@@ -68,112 +42,186 @@ const InterestFormScreen = () => {
   }
 
   useEffect(() => {
-    if (user?.id) {
-      reset({ user_id: user.id }); // ✅ updates the form value when user arrives
+    checkAccessBeforeLoadingAppointment();
+  }, [propertyId, user?.id, isAuthenticated]);
+
+  const checkAccessBeforeLoadingAppointment = async () => {
+    try {
+      if (!propertyId) return;
+
+      if (!isAuthenticated || !user?.id) {
+        router.replace({
+          pathname: "/login",
+          params: {
+            redirectTo: `/interestform/${propertyId}`,
+          },
+        });
+        return;
+      }
+
+      setCheckingEscrow(true);
+
+      const res = await API.get(`/property/${propertyId}/appointment-eligibility`);
+
+      const allowed = res.data?.allowed;
+      const requiredEscrow = res.data?.required_escrow;
+      const currentBalance = res.data?.current_balance;
+      const amountNeeded = res.data?.amount_needed;
+      const message = res.data?.message;
+
+      if (!allowed) {
+        router.replace({
+          pathname: "/dashboard/escrow",
+          params: {
+            propertyId: String(propertyId),
+            requiredEscrow: String(requiredEscrow ?? 0),
+            currentBalance: String(currentBalance ?? 0),
+            amountNeeded: String(amountNeeded ?? 0),
+            message:
+              message ||
+              "Your escrow balance is too low to book an appointment for this property.",
+          },
+        });
+        return;
+      }
+
+      await fetchSlots();
+    } catch (error: any) {
+      console.log("Eligibility error:", error?.response?.data || error);
+
+      showAlert(
+        "Error",
+        error?.response?.data?.message ||
+          "Unable to check appointment eligibility."
+      );
+    } finally {
+      setCheckingEscrow(false);
     }
-  }, [user, reset]);
+  };
+
+  const fetchSlots = async () => {
+    try {
+      if (!propertyId || !user?.id) return;
+
+      const response = await API.getPropertySlots(propertyId, user.id);
+      const slotsData = response?.data?.available_slots;
+
+      router.push({
+        pathname: '/appointments/customer/create',
+        params: {
+          property_id: propertyId,
+          slotsData: JSON.stringify(slotsData),
+        },
+      });
+
+      setSlots(Array.isArray(slotsData) ? slotsData : []);
+    } catch (error) {
+      console.error("Error fetching slots:", error);
+      setSlots([]);
+    }
+  };
+
+  const uniqueDays = useMemo(() => {
+    const map = new Map();
+
+    slots.forEach((slot) => {
+      const d = slot.day;
+      if (d && !map.has(d.id)) {
+        map.set(d.id, { id: d.id, name: d.name });
+      }
+    });
+
+    return Array.from(map.values());
+  }, [slots]);
 
   useEffect(() => {
-    const fetchSlots = async () => {
-        if (!propertyId || !user?.id) return;
-
-        try {
-            const response = await API.get(`/public/property/${propertyId}/slots/${user.id}`);
-            const slotsData = response?.data?.available_slots;
-            const message = response?.data?.message;
-            console.log("slots data", slotsData);
-            showAlert('message', message);
-            setSlots(Array.isArray(slotsData) ? slotsData : []);
-        } catch (error) {
-            console.error('Error fetching slots:', error);
-            setSlots([]);
-        }
-    };
-
-    fetchSlots();
-}, [propertyId, user]);
-
- // Build unique days once when slots change
-  const uniqueDays = useMemo(() => {
-  const map = new Map();
-  slots.forEach(slot => {
-    const d = slot.day;
-    if (d && !map.has(d.id)) {
-      map.set(d.id, { id: d.id, name: d.name });
-    }
-  });
-  return Array.from(map.values());
-}, [slots]);
-
-
-    useEffect(() => {
-  if (!selectedDay) {
-    setAvailableTimes([]);
-    setSelectedTime(null);
-    return;
-  }
-
-  const times = slots
-    .filter(s => s.day && s.day.id === selectedDay)
-    .map(s => s.time_slot)
-    .filter((t, i, arr) => arr.findIndex(x => x.id === t.id) === i); // dedupe
-
-  setAvailableTimes(times);
-}, [selectedDay, slots]);
-
-
-
- const onSubmit = async (formData) => {
-    try {
-          if (!selectedDay || !selectedTime) {
-      showAlert("Error", "Please select both a day and time.");
+    if (!selectedDay) {
+      setAvailableTimes([]);
+      setSelectedTime(null);
       return;
     }
 
-    setLoading(true);
+    const times = slots
+      .filter((s) => s.day && s.day.id === selectedDay)
+      .map((s) => s.time_slot)
+      .filter((t, i, arr) => arr.findIndex((x) => x.id === t.id) === i);
+
+    setAvailableTimes(times);
+  }, [selectedDay, slots]);
+
+  const onSubmit = async () => {
+    try {
+      if (!selectedDay || !selectedTime) {
+        showAlert("Error", "Please select both a day and time.");
+        return;
+      }
+
+      setLoading(true);
+
       const payload = {
-            user_id: user?.id,
-            property_id: propertyId,
-            day_of_week_id: selectedDay,
-            time_slot_id: selectedTime,
-          };
-      const res = await API.post(`/public/submit-appointment`, payload);
-      if(res.status === 200){
-      showAlert("success", res.data.message);
-      router.push("/home");
-    } else {
-      showAlert("error", "Error submitting interest");
-    }
-    } catch (err) {
-      console.log(err);
-      showAlert("error", "Error submitting interest");
+        user_id: user?.id,
+        property_id: propertyId,
+        day_of_week_id: selectedDay,
+        time_slot_id: selectedTime,
+      };
+
+      const res = await API.submitAppointment(payload);
+
+      if (res.status === 200) {
+        showAlert("Success", res.data.message || "Appointment booked successfully.");
+        router.push("/dashboard/view-appointments");
+      } else {
+        showAlert("Error", "Error submitting appointment.");
+      }
+    } catch (err: any) {
+      console.log(err?.response?.data || err);
+
+      showAlert(
+        "Error",
+        err?.response?.data?.message || "Error submitting appointment."
+      );
     } finally {
       setLoading(false);
     }
   };
 
-  const [selectedSlot, setSelectedSlot] = useState(null);
+  if (checkingEscrow) {
+    return (
+      <Protected>
+        <View style={styles.center}>
+          <ActivityIndicator size="large" color="#2563eb" />
+          <Text style={styles.checkingText}>
+            Checking escrow eligibility...
+          </Text>
+        </View>
+      </Protected>
+    );
+  }
 
- return (
-  <Protected>
-    <KeyboardAvoidingView>
-      <ScrollView contentContainerStyle={{ padding: 20, flexGrow: 1 }}>
-        <Text
-          style={{ fontSize: 20, fontWeight: "bold", marginBottom: 10 }}
-        >
-          Property Interest Form
-        </Text>
+  return (
+    <Protected>
+      <KeyboardAvoidingView style={{ flex: 1 }}>
+        <ScrollView contentContainerStyle={styles.container}>
+          <Text style={styles.heading}>Book Property Appointment</Text>
 
-        <View>
+          <View style={styles.infoBox}>
+            <Text style={styles.infoTitle}>Escrow Protected Appointment</Text>
+            <Text style={styles.infoText}>
+              Your escrow balance qualifies you to book an appointment. Do not share
+              private contact details outside the app.
+            </Text>
+          </View>
+
           <Text style={styles.title}>Available Appointment Slots</Text>
 
           {slots.length === 0 ? (
-            <Text>No slots available</Text>
+            <View style={styles.emptyBox}>
+              <Text style={styles.emptyText}>No slots available for this property.</Text>
+            </View>
           ) : (
             <>
-              {/* Day Picker */}
-              <Text style={{ marginBottom: 6 }}>Select Day:</Text>
-              <View style={{ borderWidth: 1, borderColor: "#ccc", borderRadius: 8 }}>
+              <Text style={styles.label}>Select Day</Text>
+              <View style={styles.pickerContainer}>
                 <Picker
                   selectedValue={selectedDay}
                   onValueChange={(value) =>
@@ -181,21 +229,16 @@ const InterestFormScreen = () => {
                   }
                 >
                   <Picker.Item label="-- Select Day --" value="" />
-                  {uniqueDays.map((d) => (
+                  {uniqueDays.map((d: any) => (
                     <Picker.Item key={d.id} label={d.name} value={d.id} />
                   ))}
                 </Picker>
               </View>
 
-              {/* Time Picker */}
               {selectedDay && (
                 <>
-                  <Text style={{ marginTop: 12, marginBottom: 6 }}>
-                    Select Time:
-                  </Text>
-                  <View
-                    style={{ borderWidth: 1, borderColor: "#ccc", borderRadius: 8 }}
-                  >
+                  <Text style={styles.label}>Select Time</Text>
+                  <View style={styles.pickerContainer}>
                     <Picker
                       selectedValue={selectedTime}
                       onValueChange={(value) =>
@@ -211,69 +254,141 @@ const InterestFormScreen = () => {
                 </>
               )}
 
-              {/* Confirmation */}
               {selectedDay && selectedTime && (
-                <Text style={{ marginTop: 10, color: "green" }}>
-                  You selected{" "}
-                  {uniqueDays.find((d) => d.id === selectedDay)?.name} at{" "}
-                  {availableTimes.find((t) => t.id === selectedTime)?.name}
-                </Text>
+                <View style={styles.confirmBox}>
+                  <Text style={styles.confirmText}>
+                    You selected{" "}
+                    {uniqueDays.find((d: any) => d.id === selectedDay)?.name} at{" "}
+                    {availableTimes.find((t) => t.id === selectedTime)?.name}
+                  </Text>
+                </View>
               )}
 
-              {/* Submit Button */}
               <TouchableOpacity
                 onPress={formHandleSubmit(onSubmit)}
                 disabled={loading}
-                style={{
-                  backgroundColor: "#16a34a",
-                  padding: 14,
-                  borderRadius: 8,
-                  marginTop: 20,
-                  alignItems: "center",
-                }}
+                style={[styles.submitButton, loading && styles.disabledButton]}
               >
                 {loading ? (
                   <ActivityIndicator color="#fff" />
                 ) : (
-                  <Text style={{ color: "#fff", fontWeight: "bold" }}>
-                    Submit
-                  </Text>
+                  <Text style={styles.submitText}>Book Appointment</Text>
                 )}
               </TouchableOpacity>
             </>
           )}
-        </View>
 
-        {/* Custom Alert */}
-        <CustomAlert
-          visible={alertVisible}
-          title={alertTitle}
-          message={alertMessage}
-          onClose={() => setAlertVisible(false)}
-        />
-      </ScrollView>
-    </KeyboardAvoidingView>
-  </Protected>
-);
+          <CustomAlert
+            visible={alertVisible}
+            title={alertTitle}
+            message={alertMessage}
+            onClose={() => setAlertVisible(false)}
+          />
+        </ScrollView>
+      </KeyboardAvoidingView>
+    </Protected>
+  );
 };
 
-
 const styles = StyleSheet.create({
-  title: {
-    fontSize: 16,
+  container: {
+    padding: 20,
+    flexGrow: 1,
+    backgroundColor: "#f8fafc",
+  },
+  center: {
+    flex: 1,
+    alignItems: "center",
+    justifyContent: "center",
+    backgroundColor: "#f8fafc",
+    padding: 20,
+  },
+  checkingText: {
+    marginTop: 12,
+    color: "#64748b",
+    fontWeight: "700",
+  },
+  heading: {
+    fontSize: 24,
+    fontWeight: "900",
+    color: "#0f172a",
+    marginBottom: 16,
+  },
+  infoBox: {
+    backgroundColor: "#eff6ff",
+    borderColor: "#bfdbfe",
+    borderWidth: 1,
+    padding: 14,
+    borderRadius: 16,
+    marginBottom: 20,
+  },
+  infoTitle: {
+    color: "#1e40af",
+    fontWeight: "900",
+    fontSize: 15,
+    marginBottom: 6,
+  },
+  infoText: {
+    color: "#1e3a8a",
+    lineHeight: 20,
     fontWeight: "600",
-    marginBottom: 10,
+  },
+  title: {
+    fontSize: 17,
+    fontWeight: "800",
+    marginBottom: 12,
+    color: "#0f172a",
   },
   label: {
     fontSize: 14,
-    fontWeight: "500",
-    marginBottom: 4,
+    fontWeight: "700",
+    color: "#334155",
+    marginBottom: 6,
+    marginTop: 12,
   },
   pickerContainer: {
     borderWidth: 1,
-    borderColor: "#ccc",
-    borderRadius: 8,
-    marginBottom: 10,
+    borderColor: "#cbd5e1",
+    borderRadius: 12,
+    backgroundColor: "#ffffff",
+    overflow: "hidden",
+  },
+  emptyBox: {
+    backgroundColor: "#ffffff",
+    padding: 18,
+    borderRadius: 16,
+    borderWidth: 1,
+    borderColor: "#e2e8f0",
+  },
+  emptyText: {
+    color: "#64748b",
+    fontWeight: "700",
+  },
+  confirmBox: {
+    backgroundColor: "#dcfce7",
+    padding: 12,
+    borderRadius: 12,
+    marginTop: 14,
+  },
+  confirmText: {
+    color: "#166534",
+    fontWeight: "800",
+  },
+  submitButton: {
+    backgroundColor: "#16a34a",
+    padding: 15,
+    borderRadius: 14,
+    marginTop: 22,
+    alignItems: "center",
+  },
+  disabledButton: {
+    opacity: 0.7,
+  },
+  submitText: {
+    color: "#ffffff",
+    fontWeight: "900",
+    fontSize: 15,
   },
 });
+
 export default InterestFormScreen;

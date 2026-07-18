@@ -44,7 +44,7 @@ export default function PropertyRoleVerification({
             title="Upload C of O / Survey Plan / Deed"
             onPress={pickProofDocument}
           />
-          {proofDocument && <Text>{proofDocument.name}</Text>}
+          {proofDocument?.name ? <Text>{proofDocument.name}</Text> : null}
         </View>
       )}
 
@@ -57,7 +57,7 @@ export default function PropertyRoleVerification({
             title="Upload Optional Consent Document"
             onPress={pickProofDocument}
           />
-          {proofDocument && <Text>{proofDocument.name}</Text>}
+          {proofDocument?.name ? <Text>{proofDocument.name}</Text> : null}
         </View>
       )}
 
@@ -65,7 +65,7 @@ export default function PropertyRoleVerification({
         <View style={styles.box}>
           <Text style={styles.label}>Developer Proof is Required</Text>
           <Button title="Upload Developer Proof" onPress={pickProofDocument} />
-          {proofDocument && <Text>{proofDocument.name}</Text>}
+          {proofDocument?.name ? <Text>{proofDocument.name}</Text> : null}
         </View>
       )}
     </>

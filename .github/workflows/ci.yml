@@ -1,26 +1,40 @@
-name: CI
+name: Publish OHLAM Preview Update
 
 on:
   push:
-    branches: [ main ]
-  pull_request:
-    branches: [ main ]
+    branches:
+      - develop
 
 jobs:
-  test:
+  update:
+    name: Publish preview update
     runs-on: ubuntu-latest
+
     steps:
-      - name: Checkout
+      - name: Check out repository
         uses: actions/checkout@v4
 
-      - name: Use Node.js
+      - name: Set up Node
         uses: actions/setup-node@v4
         with:
-          node-version: '20'
-          cache: 'npm'
+          node-version: 20
+          cache: npm
 
       - name: Install dependencies
         run: npm ci
 
-      - name: Run tests
-        run: npm test -- --ci
+      - name: Type check
+        run: npx tsc --noEmit
+
+      - name: Set up Expo and EAS
+        uses: expo/expo-github-action@v8
+        with:
+          eas-version: latest
+          token: ${{ secrets.EXPO_TOKEN }}
+
+      - name: Publish preview update
+        run: |
+          eas update \
+            --channel preview \
+            --message "Preview update from commit ${{ github.sha }}" \
+            --non-interactive

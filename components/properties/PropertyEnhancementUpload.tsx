@@ -19,21 +19,24 @@ export default function PropertyEnhancementUpload({
 }: Props) {
 
   const openMatterport = async () => {
-  const appUrl = 'matterport://';
-  const storeUrl =
-    Platform.OS === 'ios'
-      ? 'https://apps.apple.com/app/matterport/id986054296'
-      : 'https://play.google.com/store/apps/details?id=com.matterport.capture';
+  try {
+    const appUrl = 'matterport://';
+    const storeUrl =
+      Platform.OS === 'ios'
+        ? 'https://apps.apple.com/app/matterport/id986054296'
+        : 'https://play.google.com/store/apps/details?id=com.matterport.capture';
 
-  const supported = await Linking.canOpenURL(appUrl);
-
-  if (supported) {
-    await Linking.openURL(appUrl);
-  } else {
-    await Linking.openURL(storeUrl);
+    const supported = await Linking.canOpenURL(appUrl);
+    if (supported) {
+      await Linking.openURL(appUrl);
+    } else {
+      await Linking.openURL(storeUrl);
+    }
+  } catch (e) {
+    // Optionally show an alert instead of letting the error crash the app
+    console.error("Failed to open Matterport:", e);
   }
 };
-
   return (
     <>
       

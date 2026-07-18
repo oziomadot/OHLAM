@@ -7,7 +7,7 @@ import {
   Alert,
   ActivityIndicator,
   Image,
-
+  ScrollView
 } from "react-native";
 import { useRouter } from "expo-router";
 import * as ImagePicker from "expo-image-picker";
@@ -18,6 +18,7 @@ import ScreenWrapper from "components/ScreenWrapper";
 import { Picker } from "@react-native-picker/picker";
 import CustomAlert from "components/CustomAlert";
 import { Controller, useForm } from "react-hook-form";
+import { getDeviceDetails } from "@/src/utils/device";
 
 type User = {
   id: number | string;
@@ -154,8 +155,11 @@ useEffect(() => {
   };
 
   const handleSubmit = async () => {
+    console.log('Started ID card upload submission');
   const userId = user?.id;
     console.log('Submitting ID card upload');
+
+    const device = await getDeviceDetails();
 
     console.log("SUBMIT VALUES:", {
   userId,
@@ -190,6 +194,13 @@ useEffect(() => {
     const formData = new FormData();
     formData.append("user_id", userId.toString());
     formData.append("id_type_id", String(idType));
+    formData.append("device_id", device.device_id || "");
+    formData.append("device_name", device.device_name || "");
+    formData.append("brand", device.brand || "");
+    formData.append("model_name", device.model_name || "");
+    formData.append("os_name", device.os_name || "");
+    formData.append("os_version", device.os_version || "");
+    formData.append("platform", device.platform || "");
     formData.append("front_image", {
       uri: frontImage,
       name: `front_${Date.now()}.jpg`,
@@ -206,15 +217,16 @@ useEffect(() => {
 
    const res = await API.verifyIdCard(formData);
 
-console.log("VERIFY ID RESPONSE:", res);
-
-if (res?.success === true) {
-  await setItemSafe("registration_step", "face-record");
+if (res?.success === true && res?.token) {
+  await API.setToken(res.token);
+  await setItemSafe("auth_token", res.token);
+  await setItemSafe("user", JSON.stringify(res.user));
+  await setItemSafe("registrationCompleted", "true");
 
   Alert.alert("Success", res?.message || "ID card verified successfully", [
     {
       text: "OK",
-      onPress: () => router.replace("/(tabs)/auth/faceRecord"),
+      onPress: () => router.replace("/(tabs)/dashboard"),
     },
   ]);
 } else {
@@ -305,9 +317,14 @@ if (res?.success === true) {
     </View>
   );
 
+  console.log("loading =", loading);
+console.log("uploading =", uploading);
+
   return (
     <ScreenWrapper>
-      <Navbar />
+      <Navbar/>
+
+      <ScrollView style={styles.scrollContainer}>
     
         <View style={styles.container}>
           <Text style={styles.title}>ID Card Upload</Text>
@@ -329,7 +346,7 @@ if (res?.success === true) {
            {/* inside your return block, before ImagePickerButton components */}
 <View style={styles.pickerBox}>
   <Text style={styles.label}>Select ID Type</Text>
-  {/* Registration Status (only customer, agent, landlord) */}
+  
         
         <Controller
           control={control}
@@ -338,7 +355,7 @@ if (res?.success === true) {
             <View style={styles.pickerWrapper}>
               <Picker
   selectedValue={idType}
-  onValueChange={(value) => setIdType(value)}
+ onValueChange={(value) => setIdType(Number(value))}
 >
   <Picker.Item label="Select ID Type" value="" />
 
@@ -374,11 +391,13 @@ if (res?.success === true) {
             </View>
 
             <TouchableOpacity
-              style={[styles.button, loading && styles.buttonDisabled]}
-              onPress={handleSubmit}
-              disabled={loading}
+              style={[styles.button, uploading && styles.buttonDisabled]}
+              onPress={()=>{
+                  console.log("BUTTON PRESSED");
+                handleSubmit()}}
+              disabled={uploading}
             >
-              {loading ? (
+              {uploading ? (
                 <ActivityIndicator color="#fff" />
               ) : (
                 <Text style={styles.buttonText}>Continue</Text>
@@ -394,15 +413,9 @@ if (res?.success === true) {
             </Text>
           </View>
         </View>
-     
+     </ScrollView>
 
-       <CustomAlert
-              visible={alertVisible}
-              title={alertTitle}
-              message={alertMessage}
-              onClose={() => setAlertVisible(false)}
-            />
-    </ScreenWrapper>
+          </ScreenWrapper>
   );
 };
 

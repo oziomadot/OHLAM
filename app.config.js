@@ -1,66 +1,52 @@
-// app.config.js
-module.exports = {
-  name: "OHLAM",
-  slug: "OHLAM",
-  version: "1.0.0",
-  orientation: "portrait",
-  icon: "./assets/icon.png",
-  userInterfaceStyle: "light",
-  splash: {
-    image: "./assets/splash-icon.png",
-    resizeMode: "contain",
-    backgroundColor: "#ffffff"
-  },
-  assetBundlePatterns: ["**/*"],
-  ios: {
-    supportsTablet: true,
-    runtimeVersion: { policy: "appVersion" }
-  },
-  android: {
-    adaptiveIcon: {
-      foregroundImage: "./assets/adaptive-icon.png",
-      backgroundColor: "#ffffff"
+export default {
+  expo: {
+    name: "OHLAM",
+    slug: "OHLAM",
+    scheme: "ohlam",
+    version: "1.0.0",
+
+    android: {
+      package: "com.oramexglobal.ohlam",
+      versionCode: 1,
+      permissions: [
+        "CAMERA",
+        "READ_MEDIA_IMAGES",
+        "ACCESS_FINE_LOCATION",
+        "ACCESS_COARSE_LOCATION",
+        "POST_NOTIFICATIONS"
+      ]
     },
-    package: "com.oramexglobals.OHLAM",
-    versionCode: 1,
-    permissions: ["android.permission.RECORD_AUDIO"],
-    runtimeVersion: "1.0.0"
-  },
-  web: {
-    favicon: "./assets/favicon.png",
-    bundler: "metro"
-  },
-  updates: {
-    fallbackToCacheTimeout: 0,
-    url: "https://u.expo.dev/373c6f7b-8b66-40dc-b4ea-0e5c57846ab9"
-  },
-  plugins: [
-    "expo-asset",
-    "expo-router",
-    "expo-secure-store",
-    [
-      "expo-image-picker",
-      {
-        photosPermission: "The app accesses your photos to let you share them with your friends."
+
+    ios: {
+      bundleIdentifier: "com.oramexglobal.ohlam",
+      buildNumber: "1.0.0",
+      supportsTablet: true,
+      infoPlist: {
+        NSCameraUsageDescription:
+          "OHLAM uses the camera for profile, property and identity verification.",
+        NSPhotoLibraryUsageDescription:
+          "OHLAM uses your photo library to upload property and verification images.",
+        NSLocationWhenInUseUsageDescription:
+          "OHLAM uses location to help identify property locations and nearby listings."
       }
+    },
+
+    plugins: [
+      "expo-router",
+      "expo-secure-store",
+      "expo-notifications"
     ],
-    "expo-audio",
-    [
-      "expo-build-properties",
-      {
-        android: {
-          compileSdkVersion: 36,
-          targetSdkVersion: 36,
-          minSdkVersion: 24,
-          gradleVersion: "8.10.2"
-        }
+
+    updates: {
+      url: "https://u.expo.dev/373c6f7b-8b66-40dc-b4ea-0e5c57846ab9"
+    },
+
+    runtimeVersion: "1.0.0",
+
+    extra: {
+      eas: {
+        projectId: "373c6f7b-8b66-40dc-b4ea-0e5c57846ab9"
       }
-    ]
-  ],
-  extra: {
-    EXPO_PUBLIC_API_URL: "https://3d509572576c.ngrok-free.app/api",
-    eas: {
-      projectId: "373c6f7b-8b66-40dc-b4ea-0e5c57846ab9"
     }
   }
 };

@@ -1,5 +1,6 @@
 import AsyncStorage from "@react-native-async-storage/async-storage";
 import API from "@/src/services/api";
+import { router } from "expo-router";
 
 type Args = {
   selectedPropertyType: number;
@@ -101,23 +102,48 @@ export function usePropertySubmit({
         }
       });
 
-      Object.entries(images).forEach(([key, file]: any) => {
-        if (!file) return;
+      // Object.entries(images).forEach(([key, file]: any) => {
+      //   if (!file) return;
 
-        data.append(key, {
-          uri: file.uri,
-          name: file.name || `${key}.jpg`,
-          type: file.type || "image/jpeg",
-        } as any);
-      });
+      //   data.append(key, {
+      //     uri: file.uri,
+      //     name: file.name || `${key}.jpg`,
+      //     type: file.type || "image/jpeg",
+      //   } as any);
+      // });
 
-      if (video) {
-        data.append("video", {
-          uri: video.uri,
-          name: video.name || "video.mp4",
-          type: video.type || "video/mp4",
-        } as any);
-      }
+      // if (video) {
+      //   data.append("video", {
+      //     uri: video.uri,
+      //     name: video.name || "video.mp4",
+      //     type: video.type || "video/mp4",
+      //   } as any);
+      // }
+
+Object.entries(images).forEach(([key, file]: any) => {
+  if (!file || !file.uri) return;
+  data.append(
+    key,
+    {
+      uri: file.uri,
+      name: file.name || `${key}.jpg`,
+      type: file.type || "image/jpeg",
+    } as any
+  );
+});
+
+if (video?.uri) {
+  data.append(
+    "video",
+    {
+      uri: video.uri,
+      name: video.name || "video.mp4",
+      type: video.type || "video/mp4",
+    } as any
+  );
+}
+
+
 
       if (proofDocument) {
         data.append("proof_document", {
@@ -148,20 +174,33 @@ export function usePropertySubmit({
       reset();
       resetFiles();
 
-      if (res.data.flagged) {
+      if (res.flagged) {
         showAlert(
           "Under Review",
           "This property has been flagged. Please contact management."
         );
+
+        //next route is dashboard
+
+        router.replace('/(tabs)/dashboard');
       } else {
-        showAlert("Success", res.data.message || "Property saved successfully");
+        showAlert("Success", res.message || "Property saved successfully");
+         router.replace('/(tabs)/dashboard');
       }
     } catch (err: any) {
-      console.error("Upload error:", err.response?.data || err.message);
+      const responseData = err.response?.data;
+      console.error("Upload error:", responseData || err.message || err);
+
+      const validationErrors = responseData?.errors;
+      const firstErrorMessage = validationErrors
+        ? Object.values(validationErrors).flat()[0]
+        : null;
 
       showAlert(
         "Error",
-        err.response?.data?.message ||
+        firstErrorMessage ||
+          responseData?.message ||
+          err.message ||
           "Something went wrong while saving property"
       );
     } finally {

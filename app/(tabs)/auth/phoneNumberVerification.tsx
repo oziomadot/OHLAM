@@ -11,7 +11,7 @@ import {
 } from "react-native";
 import { useRouter } from "expo-router";
 import { setItemSafe, getItemSafe } from "@/utils/storage";
-import { API } from "@/src/services/api";
+import API  from "@/src/services/api";
 import Navbar from "components/Navbar";
 import ScreenWrapper from "components/ScreenWrapper";
 import ApiService from "@/src/services/api";
@@ -228,10 +228,7 @@ const PhoneNumberVerification = () => {
           try {
             const userId = await getItemSafe("user_id");
 
-            const res = await ApiService.updatePhoneNumber({
-              user_id: userId,
-              PhoneNumber: newPhoneNumber.trim(),
-            });
+            const res = await API.updatePhoneNumber('payload');
 
             showAlert("Success", res.message || "PhoneNumber updated. Verification code sent.");
 

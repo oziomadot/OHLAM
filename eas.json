@@ -1,32 +1,36 @@
 {
   "cli": {
-    "version": ">= 16.17.4",
+    "version": ">= 16.0.0",
     "appVersionSource": "remote"
   },
   "build": {
     "development": {
       "developmentClient": true,
-      "distribution": "internal"
+      "distribution": "internal",
+      "channel": "development",
+      "env": {
+        "EXPO_PUBLIC_APP_ENV": "development"
+      }
     },
     "preview": {
       "distribution": "internal",
+      "channel": "preview",
       "android": {
         "buildType": "apk"
+      },
+      "env": {
+        "EXPO_PUBLIC_APP_ENV": "preview"
       }
     },
     "production": {
+      "channel": "production",
       "autoIncrement": true,
-      "releaseChannel": "production",
-      "android": {
-        "buildType": "app-bundle"
+      "env": {
+        "EXPO_PUBLIC_APP_ENV": "production"
       }
     }
   },
   "submit": {
-    "production": {
-       "android": {
-        "serviceAccountKeyPath": "./keys/google-play-service-account.json"
-      }
-    }
+    "production": {}
   }
 }

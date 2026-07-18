@@ -8,6 +8,7 @@ import {
   ViewStyle,
   StyleSheet,
 } from "react-native";
+import FloatingRagButton from "./FloatingRagButton";
 
 interface ScreenWrapperProps {
   children: React.ReactNode;
@@ -27,6 +28,7 @@ const ScreenWrapper: React.FC<ScreenWrapperProps> = ({ children, style, scrollSt
           keyboardShouldPersistTaps="handled"
         >
           {children}
+          <FloatingRagButton />
         </ScrollView>
       </TouchableWithoutFeedback>
     </KeyboardAvoidingView>

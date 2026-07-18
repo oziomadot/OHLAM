@@ -15,7 +15,7 @@ export default function HouseSaleFields({ control, errors, dropdowns, watch, set
       )} />
 
       <Text style={styles.label}>Number of Units</Text>
-      <Controller control={control} name="number_of_units" render={({ field }) => (
+      <Controller control={control} name="building_in_compound" render={({ field }) => (
         <TextInput placeholder="How many units?" keyboardType="numeric" style={styles.input} value={field.value} onChangeText={field.onChange} />
       )} />
 

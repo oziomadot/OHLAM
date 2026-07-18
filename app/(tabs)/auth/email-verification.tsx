@@ -293,12 +293,7 @@ function showAlert(title: string, message: string, onClose?: () => void) {
           setUpdatingEmail(true);
 
           try {
-            const userId = await getItemSafe("user_id");
-
-            const res = await ApiService.updateEmail({
-              user_id: userId,
-              email: newEmail.trim(),
-            });
+            const res = await API.updateEmail('payload');
 
             showAlert("Success", res.message || "Email updated. Verification code sent.");
 

@@ -82,6 +82,9 @@ export default function RentalFields({
         ["Car Parking Space", "car_parking_space"],
         ["Kitchen", "kitchen"],
         ["Kitchen Cabinet", "kitchen_cabinet"],
+        ["Wardrobe", "wardrobe"],
+        ["Wardrobe Cabinet", "wardrobe_cabinet"],
+        ["Compound Cleaner", "compound_cleaner"],
       ].map(([label, name]) => (
         <View style={styles.switch} key={name}>
           <Text style={styles.label}>{label}</Text>

@@ -11,24 +11,38 @@ type Props = {
 };
 
 export default function FormPicker({ label, items, value, onChange, error }: Props) {
+  const safeItems = Array.isArray(items) ? items : [];
+
   return (
     <>
       <Text style={styles.label}>{label}</Text>
 
+
       <Picker
         selectedValue={value}
-        onValueChange={onChange}
+        onValueChange={(itemValue) => onChange(itemValue)}
         style={[styles.input, error && styles.inputError]}
       >
         <Picker.Item label={`Select ${label}`} value="" color="#999" />
 
-        {items.map((item) => (
-          <Picker.Item
-            key={item.id}
-            label={item.display_name || item.name}
-            value={item.id}
-          />
-        ))}
+        {safeItems
+          .filter((item) => item && item.id !== undefined && item.id !== null)
+          .map((item) => {
+            const itemLabel =
+              item.display_name ||
+              item.name ||
+              item.area_name ||
+              item.title ||
+              String(item.id);
+
+            return (
+              <Picker.Item
+                key={String(item.id)}
+                label={String(itemLabel)}
+                value={String(item.id)}
+              />
+            );
+          })}
       </Picker>
 
       {error && <Text style={styles.error}>{error}</Text>}

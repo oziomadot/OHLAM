@@ -4,8 +4,10 @@ import {
   Platform
 } from "react-native";
 import { CameraView, useCameraPermissions, useMicrophonePermissions } from "expo-camera";
-import {getItemSafe} from "@/utils/storage";
-import { useRouter } from "expo-router";
+import * as ExpoDevice from 'expo-device';
+import * as Application from 'expo-application';
+import {getItemSafe, setItemSafe} from "@/utils/storage";
+import { useRouter, useLocalSearchParams } from "expo-router";
 import  API from "@/src/services/api";
 
 
@@ -19,6 +21,7 @@ const CHALLENGES = [
 
 export default function FaceLivenessScreen() {
   const router = useRouter();
+  const params = useLocalSearchParams();
   const cameraRef = useRef<CameraView>(null);
 
   const [cameraPermission, requestCameraPermission] = useCameraPermissions();
@@ -31,20 +34,51 @@ export default function FaceLivenessScreen() {
   const [loading, setLoading] = useState(false);
   
   const [user, setUser] = useState<any>(null);
+  const [deviceDetails, setDeviceDetails] = useState<any>(null);
+  const [isDeviceVerification, setIsDeviceVerification] = useState(false);
   const photoCameraRef = useRef<CameraView>(null);
   const videoCameraRef = useRef<CameraView>(null);
 
   const [captureMode, setCaptureMode] =
      useState<"selfie" | "video">("selfie");
 
+     
+
+  const getDeviceDetails = async () => {
+    try {
+      const device = {
+        device_id: Platform.OS === 'ios'
+          ? await Application.getIosIdForVendorAsync()
+          : Application.getAndroidId(),
+        device_name: ExpoDevice.deviceName,
+        brand: ExpoDevice.brand,
+        model_name: ExpoDevice.modelName,
+        os_name: ExpoDevice.osName,
+        os_version: ExpoDevice.osVersion,
+        platform: Platform.OS,
+      };
+      return device;
+    } catch (error) {
+      console.log("Error getting device details:", error);
+      return {};
+    }
+  };
+
   useEffect(() => {
     const fetchData = async () => {
-     
       const userData = await getItemSafe("user");
       setUser(userData);
+      
+      // Check if this is for device verification
+      const userId = params.user_id;
+      if (userId) {
+        setIsDeviceVerification(true);
+        const device = await getDeviceDetails();
+        setDeviceDetails(device);
+      }
     };
     fetchData();
-  }, []);
+  }, [params.user_id]);
 
   const pickChallenge = () => {
     return CHALLENGES[Math.floor(Math.random() * CHALLENGES.length)];
@@ -122,7 +156,7 @@ export default function FaceLivenessScreen() {
   const uploadLiveness = async () => {
     const User = typeof user === "string" ? JSON.parse(user) : user;
 
-    console.log("uploading video liveliness");
+    console.log("uploading face verification");
     if (!selfieUri || !videoUri || !challenge) {
       Alert.alert("Missing data", "Please complete face recording again.");
       return;
@@ -131,44 +165,80 @@ export default function FaceLivenessScreen() {
     try {
       setLoading(true);
 
-      const token = await getItemSafe("token");
-
       const formData = new FormData();
 
-      formData.append("challenge", challenge);
-      formData.append("consent_given", "1");
-      formData.append("user_id", String(User.id));
+      if (isDeviceVerification) {
+        // Device verification flow
+        formData.append("user_id", Array.isArray(params.user_id) ? params.user_id[0] : String(User.id));
+        formData.append("selfie_image", {
+          uri: selfieUri.startsWith('file://') ? selfieUri : `file://${selfieUri}`,
+          name: "selfie.jpg",
+          type: "image/jpeg",
+        } as any);
 
-      formData.append("selfie_image", {
-        uri: selfieUri.startsWith('file://') ? selfieUri : `file://${selfieUri}`,
-        name: "selfie.jpg",
-        type: "image/jpeg",
-      } as any);
+        formData.append("liveness_video", {
+          uri: videoUri,
+          name: Platform.OS === 'ios' ? 'liveness.mov' : 'liveness.mp4',
+          type: Platform.OS === 'ios' ? 'video/quicktime' : 'video/mp4',
+        } as any);
 
-      formData.append("liveness_video", {
-        uri: videoUri,
-        name: Platform.OS === 'ios' ? 'liveness.mov' : 'liveness.mp4',
-        type: Platform.OS === 'ios' ? 'video/quicktime' : 'video/mp4',
-      } as any);
+        // Add device details
+        if (deviceDetails) {
+          Object.entries(deviceDetails).forEach(([key, value]) => {
+            if (value) {
+              formData.append(key, String(value));
+            }
+          });
+        }
 
-  
-
-
-      
-      const res = await API.kycLiveness(formData);
-      console.log("Return response", res);
-      Alert.alert("Success", res.message, [
-        {
+        const res = await API.verifyFaceForNewDevice(formData);
+        console.log("Device verification response", res);
+        
+        if (res.success) {
+          // Store authentication data
+          await setItemSafe("auth_token", res.token);
+          await setItemSafe("user", JSON.stringify(res.user));
+          await setItemSafe("user_id", String(res.user_id));
           
-          text: "Continue",
-          onPress: () => router.replace("/auth/idCardUpload"),
-        },
-      ]);
+          Alert.alert("Success", res.message, [
+            {
+              text: "Continue",
+              onPress: () => router.replace("/(tabs)/dashboard"),
+            },
+          ]);
+        }
+      } else {
+        // Regular KYC flow
+        formData.append("challenge", challenge);
+        formData.append("consent_given", "1");
+        formData.append("user_id", String(User.id));
+
+        formData.append("selfie_image", {
+          uri: selfieUri.startsWith('file://') ? selfieUri : `file://${selfieUri}`,
+          name: "selfie.jpg",
+          type: "image/jpeg",
+        } as any);
+
+        formData.append("liveness_video", {
+          uri: videoUri,
+          name: Platform.OS === 'ios' ? 'liveness.mov' : 'liveness.mp4',
+          type: Platform.OS === 'ios' ? 'video/quicktime' : 'video/mp4',
+        } as any);
+
+        const res = await API.kycLiveness(formData);
+        console.log("KYC response", res);
+        Alert.alert("Success", res.message, [
+          {
+            text: "Continue",
+            onPress: () => router.replace("/auth/idCardUpload"),
+          },
+        ]);
+      }
     } catch (error: any) {
       console.log(error?.response?.data || error.message);
       Alert.alert(
-        "Liveness Failed",
-        error?.response?.data?.message || "Could not verify liveness."
+        "Verification Failed",
+        error?.response?.data?.message || "Could not verify face."
       );
     } finally {
       setLoading(false);

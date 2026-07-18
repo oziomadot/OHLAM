@@ -19,7 +19,6 @@ import { useState, useEffect, useCallback  } from "react";
 import AsyncStorage from "@react-native-async-storage/async-storage";
 import { Picker } from "@react-native-picker/picker";
 import * as ImagePicker from "expo-image-picker";
-import Dashboard from "components/Dashboard";
 // API_BASE_URL is now defined in the API service
 import { useRouter } from "expo-router";
 import { useFocusEffect } from '@react-navigation/native';
@@ -30,7 +29,7 @@ import CustomAlert from "components/CustomAlert";
 
 
 
-import * as mime from "mime"; // Install this: npm i mime
+import mime from "mime"; // Install this: npm i mime
 
 const EditProfileScreen = () => {
   const [loading, setLoading] = useState(false);
@@ -67,9 +66,8 @@ const EditProfileScreen = () => {
   },
 });
 
-const watchedRegistrationStatus = watch("registration_status_id");
-const [profileData, setProfileData] = useState(null); // used to re-render 
-const [registrationStatuses, setRegistrationStatuses] = useState([]);
+
+const [profileData, setProfileData] = useState(null); // used to re-render
 
 const router = useRouter();
 const [originalData, setOriginalData] = useState<Record<string, any>>({});
@@ -81,24 +79,7 @@ const [originalData, setOriginalData] = useState<Record<string, any>>({});
   };
 
 
-  // ✅ Fetch registration statuses from Laravel 
-  useEffect(() => { 
-    console.log("user", user);
-    const loadRegistrationStatus = async () => { 
-      setLoading(true);
-       setProfileData(user); 
-       try { 
-        const response = await API.getRegistrationStatus(); 
-        setRegistrationStatuses(response.data.registrationStatus || []); 
-      } catch (err) {
-         console.error("Error fetching registration statuses", err); 
-         showAlert("Error", "Failed to load registration statuses"); 
-        } finally { 
-          setLoading(false); 
-        } 
-      }; 
-      loadRegistrationStatus(); 
-    }, []);
+
 
   useEffect(() => {
     if (user) {
@@ -261,18 +242,7 @@ const fields = [
   { label: "WhatsApp Number", name: "whatsapp" },
   { label: "Date of Birth", name: "dob" },
   { label: "Registration Status", name: "registration_status_id" },
-  ...(watchedRegistrationStatus === "2"
-    ? [{ label: "Referral ID", name: "referral_id" }]
-    : []),
-  ...(watchedRegistrationStatus === "3"
-    ? [
-        { label: "Work Phone Number", name: "workPhoneNumber" },
-        { label: "Instagram Account", name: "instagram" },
-        { label: "LinkedIn Account", name: "linkedln" },
-        { label: "Twitter Account", name: "linkedlntwitter" },
-        { label: "Guiding Principle", name: "philosophy" },
-      ]
-    : []),
+ 
   { label: "Profile Picture", name: "profile_picture" },
 ];
 
@@ -304,13 +274,7 @@ const fields = [
 
               {/* Column 2: Current User Data */}
               <View style={styles.cell}>
-                {field.name === "registration_status_id" ? (
-                  <Text>
-                    {user?.registration_status?.name || (
-                      <Text style={{ color: "red" }}>Not Available</Text>
-                    )}
-                  </Text>
-                ) : field.name === "profile_picture" ? (
+                {field.name === "profile_picture" ? (
                   user?.profile_picture ? (
                     <Image
                       source={{ uri: `${BASE_URL}/storage/${user.profile_picture}` }}
@@ -324,69 +288,51 @@ const fields = [
                 )}
               </View>
 
-              
-
-{/* Column 3: Input / Picker / Image */} 
-<View style={[styles.cell, { flex: 1 }]}> {field.name === "email" ? ( <TextInput style={[styles.input, styles.disabledInput]} value={formData.email} editable={false} selectTextOnFocus={false} placeholder="Email" keyboardType="email-address" autoCapitalize="none" /> ) 
-: 
-( 
-<Controller control={control} name={field.name as any} 
-render={({ field: { onChange, value } }) => 
-  { 
-    // You can safely use switch/if here 
-    switch (field.name) 
-    { case "registration_status_id": 
-      return ( 
-      
-      <View style={styles.pickerContainer}> 
-
-      <Controller
-  control={control}
-  name="registration_status_id"
-  render={({ field: { onChange, value } }) => (
-      <Picker selectedValue={value} onValueChange={onChange} style={styles.picker} > 
-        <Picker.Item label="Select registration status" value="" color="#999" /> 
-        {registrationStatuses.map((s) => 
-        ( <Picker.Item key={s.id} label={s.name} value={s.id}
-           /> 
-          ))} 
-          </Picker>
-          
-          )}
-/>
-          </View>
-           ); 
-           case "profile_picture": 
-           return ( <TouchableOpacity style={styles.avatarContainer} 
-            onPress={handleImagePick}         // ← define this function 
-            > 
-            {selectedImage ? 
-            ( <Image source={{ uri: selectedImage }} style={styles.profileImage} /> 
-
-            ) : 
-            ( <Text>Upload Image</Text> )} 
-            </TouchableOpacity> );
-             default: 
-             return ( 
-             <TextInput style={styles.input} value={value} 
-             onChangeText={onChange} 
-             placeholder={`Enter new ${field.label.toLowerCase()}`} />
-              ); 
-              } 
-              }} /> 
-              )} 
-              </View> 
-              </View> 
-            ))}
-
-
-
-
-
-
-{/* 
+              {/* Column 3: Input / Picker / Image */}
+              <View style={[styles.cell, { flex: 1 }]}>
+                {field.name === "email" ? (
+                  <TextInput
+                    style={[styles.input, styles.disabledInput]}
+                    value={formData.email}
+                    editable={false}
+                    selectTextOnFocus={false}
+                    placeholder="Email"
+                    keyboardType="email-address"
+                    autoCapitalize="none"
+                  />
+                ) : (
+                  <Controller
+                    control={control}
+                    name={field.name as any}
+                    render={({ field: { onChange, value } }) => {
+                      if (field.name === "profile_picture") {
+                        return (
+                          <TouchableOpacity
+                            style={styles.avatarContainer}
+                            onPress={handleImagePick}
+                          >
+                            {selectedImage ? (
+                              <Image source={{ uri: selectedImage }} style={styles.profileImage} />
+                            ) : (
+                              <Text>Upload Image</Text>
+                            )}
+                          </TouchableOpacity>
+                        );
+                      }
+                      return (
+                        <TextInput
+                          style={styles.input}
+                          value={value}
+                          onChangeText={onChange}
+                          placeholder={`Enter new ${field.label.toLowerCase()}`}
+                        />
+                      );
+                    }}
+                  />
+                )}
+              </View>
             </View>
-          ))} */}
+          ))}
 
           {/* Submit Button */}
           <View style={styles.buttonContainer}>

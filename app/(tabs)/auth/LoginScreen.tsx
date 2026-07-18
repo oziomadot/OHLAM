@@ -20,6 +20,8 @@ import * as WebBrowser from "expo-web-browser"; // ✅ opens OAuth URLs
 import { FontAwesome } from "@expo/vector-icons";
 import { getItemSafe, setItemSafe } from "@/utils/storage";
 import CustomAlert from "components/CustomAlert";
+import { getDeviceDetails } from "@/utils/device";
+
 
 // ✅ Validation
 const LoginSchema = Yup.object().shape({
@@ -40,6 +42,7 @@ export default function LoginScreen() {
   const [isLoading, setIsLoading] = useState(false);
 
   const [loading, setLoading] = useState(false);
+  const [device, setDevice] = useState<any>(null);
 
     const [alertVisible, setAlertVisible] = useState(false);
     const [alertMessage, setAlertMessage] = useState("");
@@ -60,6 +63,10 @@ export default function LoginScreen() {
       const compatible = await LocalAuthentication.hasHardwareAsync();
       const enrolled = await LocalAuthentication.isEnrolledAsync();
       setIsBiometricAvailable(compatible && enrolled);
+
+      // Get device details
+      const deviceDetails = await getDeviceDetails();
+      setDevice(deviceDetails);
 
       if (existingPin) {
         setIsLoginFormVisible(false);
@@ -149,9 +156,7 @@ export default function LoginScreen() {
   return;
 }
 
-
-
-      if (response.status === 200) {
+if (response.status === 200) {
         const { token, user, user_id } = response;
         await login(token, user);
 
@@ -166,7 +171,7 @@ export default function LoginScreen() {
             { text: "Cancel", style: "cancel" },
             {
               text: "Save",
-              onPress: async (value) => {
+              onPress: async (value: string) => {
                 if (value?.length === 4) {
                   await setItemSafe("user_pin", value);
                   Alert.alert("PIN saved", "You'll be able to use it next time!");
@@ -198,6 +203,15 @@ export default function LoginScreen() {
   if (data?.errors) {
     const message = Object.values(data.errors).flat().join("\n");
     showAlert("Validation Error", message);
+    return;
+  }
+
+  // Handle new device detection requiring face verification
+  if (data?.requires_face_verification === true || data?.status === 428) {
+    await setItemSafe("pending_user_id", String(data.user_id));
+    await setItemSafe("pending_device", JSON.stringify(device));
+
+    router.replace("/auth/new-Device-Facerecord");
     return;
   }
 

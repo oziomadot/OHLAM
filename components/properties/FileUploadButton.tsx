@@ -13,7 +13,9 @@ export default function FileUploadButton({ label, buttonTitle, file, onPress }: 
     <View style={styles.wrapper}>
       <Text style={styles.label}>{label}</Text>
       <Button title={buttonTitle} onPress={onPress} />
-      {file && <Text style={styles.fileName}>{file.name}</Text>}
+     {file?.name ? (
+  <Text style={styles.fileName}>{file.name}</Text>
+) : null}
     </View>
   );
 }

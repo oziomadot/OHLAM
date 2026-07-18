@@ -1,84 +1,82 @@
 import React, { useEffect, useState } from "react";
 import { Redirect } from "expo-router";
 import { View, ActivityIndicator, Alert } from "react-native";
-import * as SecureStore from "expo-secure-store";
 import * as LocalAuthentication from "expo-local-authentication";
 import { useAuth } from "@/context/AuthContext";
+import { getItemSafe } from "@/utils/storage";
 
+const TOKEN_KEY = 'auth_token';   // Must match your ApiService
 
 export default function Protected({ children }: { children: React.ReactNode }) {
-  const { isAuthenticated, loading, login } = useAuth();
-  const [checkingAuth, setCheckingAuth] = useState(true);
+  const { isAuthenticated, loading: contextLoading, login } = useAuth();
+
+  const [isChecking, setIsChecking] = useState(true);
   const [shouldRedirect, setShouldRedirect] = useState(false);
 
   useEffect(() => {
-    const verifyStoredSession = async () => {
+    const checkAuth = async () => {
       try {
-        // Wait for AuthContext to finish initial loading
-        if (loading) return;
+        if (contextLoading) return;
 
-        const token = await SecureStore.getItemAsync("authToken");
-        const userJson = await SecureStore.getItemAsync("user");
-        const storedPin = await SecureStore.getItemAsync("user_pin");
-
-        // If already authenticated in context → done
+        // Already authenticated in context
         if (isAuthenticated) {
-          setCheckingAuth(false);
+          setIsChecking(false);
           return;
         }
 
-        // 🔐 Try biometric or PIN auto‑unlock
+        const token = await getItemSafe(TOKEN_KEY);
+        const userJson = await getItemSafe('user');
+        const storedPin = await getItemSafe("user_pin");
+
+        // No credentials → redirect to login
+        if (!token || !userJson) {
+          setShouldRedirect(true);
+          setIsChecking(false);
+          return;
+        }
+
+        const user = JSON.parse(userJson);
+
+        // === Biometric Authentication ===
         const hasHardware = await LocalAuthentication.hasHardwareAsync();
-        const enrolled = await LocalAuthentication.isEnrolledAsync();
-        const canBiometric = hasHardware && enrolled;
+        const isEnrolled = await LocalAuthentication.isEnrolledAsync();
 
-        if (token && userJson) {
-          const user = JSON.parse(userJson);
+        if (hasHardware && isEnrolled) {
+          const result = await LocalAuthentication.authenticateAsync({
+            promptMessage: "Verify your identity to continue",
+            fallbackLabel: "Use PIN",
+            disableDeviceFallback: false,
+          });
 
-          // Prompt biometric first if device supports it
-          if (canBiometric) {
-            const result = await LocalAuthentication.authenticateAsync({
-              promptMessage: "Verify your identity",
-              fallbackLabel: "Use your PIN",
-            });
-
-            if (result.success) {
-              await login(token, user);
-              setCheckingAuth(false);
-              return;
-            }
-          }
-
-          // If biometric not used or failed, require PIN verification
-          if (storedPin) {
-            // You could show a custom PIN modal here instead of redirect,
-            // but for simplicity we redirect to Login screen where PIN UI exists
-            setShouldRedirect(true);
-            setCheckingAuth(false);
+          if (result.success) {
+            await login(token, user);
+            setIsChecking(false);
             return;
           }
+        }
 
-          // If neither biometrics nor PIN are set but we have token/user → log in directly
-          await login(token, user);
-          setCheckingAuth(false);
+        // Biometrics failed or unavailable
+        if (storedPin) {
+          setShouldRedirect(true);        // Let LoginScreen handle PIN
+          setIsChecking(false);
           return;
         }
 
-        // No saved session → redirect to login
-        setShouldRedirect(true);
-        setCheckingAuth(false);
+        // Direct login (no extra security set)
+        await login(token, user);
+        setIsChecking(false);
       } catch (error) {
-        console.warn("Protected check error", error);
-        Alert.alert("Error", "Authentication check failed.");
+        console.error("Auth check failed:", error);
+        Alert.alert("Authentication Error", "Please log in again.");
         setShouldRedirect(true);
-        setCheckingAuth(false);
+        setIsChecking(false);
       }
     };
 
-    verifyStoredSession();
-  }, [isAuthenticated, loading]);
+    checkAuth();
+  }, [isAuthenticated, contextLoading, login]);
 
-  if (checkingAuth || loading) {
+  if (isChecking || contextLoading) {
     return (
       <View style={{ flex: 1, justifyContent: "center", alignItems: "center" }}>
         <ActivityIndicator size="large" color="#003366" />
@@ -86,7 +84,7 @@ export default function Protected({ children }: { children: React.ReactNode }) {
     );
   }
 
-  if (shouldRedirect) {
+  if (shouldRedirect || !isAuthenticated) {
     return <Redirect href="/auth/LoginScreen" />;
   }
 

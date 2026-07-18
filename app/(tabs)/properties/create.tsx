@@ -15,7 +15,6 @@ import { useForm, Controller } from "react-hook-form";
 import AsyncStorage from "@react-native-async-storage/async-storage";
 import { useRouter } from "expo-router";
 import Navbar from "components/Navbar";
-import Dashboard from "components/Dashboard";
 import CustomAlert from "components/CustomAlert";
 import { useAuth } from "@/context/AuthContext";
 import ScreenWrapper from "components/ScreenWrapper";
@@ -65,7 +64,7 @@ const CreateProperty = () => {
   if (fieldName === "amount") {
     const fee =
       selectedPropertyType === 1
-        ? Number(cleanValue) * 0.2
+        ? Number(cleanValue) * 0.11
         : Number(cleanValue) * 0.05;
 
     setValue("agent_fee", String(fee));
@@ -139,7 +138,7 @@ const CreateProperty = () => {
     pickFloorPlan,
     pickThreeSixtyVideo,
     resetFiles,
-  } = usePropertyFiles();
+  } = usePropertyFiles(showAlert);
 
   const { getCurrentLocation } = usePropertyLocation(setValue, showAlert);
 
@@ -200,10 +199,9 @@ const CreateProperty = () => {
     <ScreenWrapper>
       <Protected>
         <Navbar />
-        <Dashboard />
 
         <ImageBackground
-          source={require("../../../../assets/images/propertyregistration.jpg")}
+          source={require("../../../assets/images/propertyregistration.jpg")}
           resizeMode="cover"
           style={styles.imageBackground}
         >

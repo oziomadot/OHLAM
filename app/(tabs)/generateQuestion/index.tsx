@@ -6,7 +6,6 @@ import { Picker } from '@react-native-picker/picker';
 import axios from 'axios';
 import Protected from "components/Protected";
 import Navbar from "components/Navbar";
-import Dashboard from "components/Dashboard";
 import API from "@/src/services/api";
 
 const  GenerateQuestionsScreen = () => {
@@ -51,7 +50,6 @@ const  GenerateQuestionsScreen = () => {
             <KeyboardAvoidingView behavior="padding" style={styles.keyboardContainer}>
        <ScrollView contentContainerStyle={styles.scrollContainer} style={styles.scrollView}>
          <Navbar/>
-            <Dashboard/>
             <View style={styles.pageContainer}>
     <View style={styles.pageView}>
       <Text style={{ fontSize: 20, marginBottom: 10 }}>Generate Knowledge Base Questions</Text>

@@ -20,6 +20,10 @@ import ScreenWrapper from "components/ScreenWrapper";
 import TermsModal from "components/TermsModal";
 import { setItemSafe, getItemSafe } from "@/utils/storage";
 
+import { useLocalSearchParams } from "expo-router";
+
+
+
 const RegistrationScreen = () => {
   const router = useRouter();
   const [loading, setLoading] = useState(false);
@@ -49,6 +53,9 @@ const RegistrationScreen = () => {
     setAlertVisible(true);
   }
 
+  const { ref } = useLocalSearchParams();
+
+
   
     
   // ✅ On form submit
@@ -60,7 +67,7 @@ const RegistrationScreen = () => {
 
     setLoading(true);
     try {
-      const payload = { ...data };
+      const payload = { ...data, agree_terms: true };
 
       let storedRef: string | null = null;
       if (Platform.OS === "web") {
@@ -327,27 +334,36 @@ const RegistrationScreen = () => {
 
         {/* Terms */}
         <View style={{ flexDirection: "row", alignItems: "center", marginVertical: 12 }}>
-          <TouchableOpacity
-            onPress={() => setAgreeTerms(!agreeTerms)}
-            style={{
-              width: 20,
-              height: 20,
-              borderWidth: 1,
-              borderColor: "#333",
-              backgroundColor: agreeTerms ? "#007AFF" : "#fff",
-              marginRight: 8,
-            }}
+          <Controller
+            control={control}
+            name="agree_terms"
+            render={({ field: { onChange, value } }) => (
+              <>
+                <TouchableOpacity
+                  onPress={() => { setAgreeTerms(!agreeTerms); onChange(!agreeTerms); }}
+                  style={{
+                    width: 20,
+                    height: 20,
+                    borderWidth: 1,
+                    borderColor: "#333",
+                    backgroundColor: agreeTerms ? "#007AFF" : "#fff",
+                    marginRight: 8,
+                  }}
+                />
+                <Text style={{ flex: 1 }}>
+                  I have read and agree to the{" "}
+                  <Text
+                    style={{ color: "#007AFF", textDecorationLine: "underline" }}
+                    onPress={() => setTermsModalVisible(true)}
+                  >
+                    Terms and Conditions
+                  </Text>.
+                </Text>
+              </>
+            )}
           />
-          <Text style={{ flex: 1 }}>
-            I have read and agree to the{" "}
-            <Text
-              style={{ color: "#007AFF", textDecorationLine: "underline" }}
-              onPress={() => setTermsModalVisible(true)}
-            >
-              Terms and Conditions
-            </Text>.
-          </Text>
         </View>
+            
 
         {/* Submit */}
         <TouchableOpacity
