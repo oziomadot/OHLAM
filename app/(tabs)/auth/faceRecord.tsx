@@ -1,164 +1,141 @@
-import React, { useEffect, useRef, useState } from "react";
+import React, {
+  useEffect,
+  useRef,
+  useState,
+} from "react";
+
 import {
-  View, Text, TouchableOpacity, StyleSheet, Alert, ActivityIndicator,
-  Platform
+  ActivityIndicator,
+  Alert,
+  Image,
+  StyleSheet,
+  Text,
+  TouchableOpacity,
+  View,
 } from "react-native";
-import { CameraView, useCameraPermissions, useMicrophonePermissions } from "expo-camera";
-import * as ExpoDevice from 'expo-device';
-import * as Application from 'expo-application';
-import {getItemSafe, setItemSafe} from "@/utils/storage";
-import { useRouter, useLocalSearchParams } from "expo-router";
-import  API from "@/src/services/api";
 
+import {
+  CameraView,
+  useCameraPermissions,
+} from "expo-camera";
 
+import {
+  useLocalSearchParams,
+  useRouter,
+} from "expo-router";
 
-const CHALLENGES = [
-  "Blink twice",
-  "Turn your head left",
-  "Turn your head right",
-  "Smile",
-];
+import {
+  appendDeviceDetails,
+  getDeviceDetails,
+} from "@/src/utils/device";
+
+import {
+  getItemSafe,
+  setItemSafe,
+} from "@/utils/storage";
+
+import API from "@/src/services/api";
+
+type ScreenMode =
+  | "kyc"
+  | "device-verification";
 
 export default function FaceLivenessScreen() {
   const router = useRouter();
-  const params = useLocalSearchParams();
-  const cameraRef = useRef<CameraView>(null);
 
-  const [cameraPermission, requestCameraPermission] = useCameraPermissions();
-  const [micPermission, requestMicPermission] = useMicrophonePermissions();
+  const params = useLocalSearchParams<{
+    mode?: string;
+  }>();
 
-  const [challenge, setChallenge] = useState("");
-  const [recording, setRecording] = useState(false);
-  const [selfieUri, setSelfieUri] = useState<string | null>(null);
-  const [videoUri, setVideoUri] = useState<string | null>(null);
-  const [loading, setLoading] = useState(false);
-  
-  const [user, setUser] = useState<any>(null);
-  const [deviceDetails, setDeviceDetails] = useState<any>(null);
-  const [isDeviceVerification, setIsDeviceVerification] = useState(false);
-  const photoCameraRef = useRef<CameraView>(null);
-  const videoCameraRef = useRef<CameraView>(null);
+  const cameraRef =
+    useRef<CameraView>(null);
 
-  const [captureMode, setCaptureMode] =
-     useState<"selfie" | "video">("selfie");
+  const [
+    cameraPermission,
+    requestCameraPermission,
+  ] = useCameraPermissions();
 
-     
+  const [cameraReady, setCameraReady] =
+    useState(false);
 
-  const getDeviceDetails = async () => {
-    try {
-      const device = {
-        device_id: Platform.OS === 'ios'
-          ? await Application.getIosIdForVendorAsync()
-          : Application.getAndroidId(),
-        device_name: ExpoDevice.deviceName,
-        brand: ExpoDevice.brand,
-        model_name: ExpoDevice.modelName,
-        os_name: ExpoDevice.osName,
-        os_version: ExpoDevice.osVersion,
-        platform: Platform.OS,
-      };
-      return device;
-    } catch (error) {
-      console.log("Error getting device details:", error);
-      return {};
-    }
-  };
+  const [selfieUri, setSelfieUri] =
+    useState<string | null>(null);
+
+  const [loading, setLoading] =
+    useState(false);
+
+  const mode: ScreenMode =
+    params.mode ===
+    "device-verification"
+      ? "device-verification"
+      : "kyc";
 
   useEffect(() => {
-    const fetchData = async () => {
-      const userData = await getItemSafe("user");
-      setUser(userData);
-      
-      // Check if this is for device verification
-      const userId = params.user_id;
-      if (userId) {
-        setIsDeviceVerification(true);
-        const device = await getDeviceDetails();
-        setDeviceDetails(device);
-      }
-    };
-    fetchData();
-  }, [params.user_id]);
+    void ensurePermission();
+  }, []);
 
-  const pickChallenge = () => {
-    return CHALLENGES[Math.floor(Math.random() * CHALLENGES.length)];
-  };
-
-  const requestPermissions = async () => {
-    const camera = await requestCameraPermission();
-    const mic = await requestMicPermission();
-
-    if (!camera.granted || !mic.granted) {
-      Alert.alert("Permission required", "Camera and microphone permissions are required.");
-      return false;
+  async function ensurePermission():
+    Promise<void> {
+    if (cameraPermission?.granted) {
+      return;
     }
 
-    return true;
-  };
+    const result =
+      await requestCameraPermission();
 
-  const startLiveness = async () => {
-   const allowed = await requestPermissions();
+    if (!result.granted) {
+      Alert.alert(
+        "Camera permission required",
+        "OHLAM needs camera access to verify your live face."
+      );
+    }
+  }
 
-   await new Promise(resolve => setTimeout(resolve, 1500));
+  async function captureSelfie():
+    Promise<void> {
+    if (
+      !cameraPermission?.granted
+      || !cameraReady
+      || loading
+    ) {
+      return;
+    }
 
-   if (!allowed) return;
-
-   try {
-
-      // SELFIE STEP
-      setCaptureMode("selfie");
-
-      await new Promise(r => setTimeout(r,1000));
+    try {
+      setLoading(true);
 
       const photo =
-         await photoCameraRef.current?.takePictureAsync({
-            quality:1,
-            skipProcessing:false,
-         });
+        await cameraRef.current
+          ?.takePictureAsync({
+            quality: 0.85,
+            skipProcessing: false,
+          });
 
-      if(!photo?.uri)
-         throw new Error("Selfie failed");
+      if (!photo?.uri) {
+        throw new Error(
+          "The camera did not return an image."
+        );
+      }
 
       setSelfieUri(photo.uri);
+    } catch (error) {
+      console.error(
+        "Selfie capture failed",
+        error
+      );
 
-      // VIDEO STEP
-      setCaptureMode("video");
+      Alert.alert(
+        "Capture failed",
+        "Could not capture your selfie. Please try again."
+      );
+    } finally {
+      setLoading(false);
+    }
+  }
 
-      await new Promise(r => setTimeout(r,1000));
-
-      const selectedChallenge =
-         pickChallenge();
-
-      setChallenge(selectedChallenge);
-
-      setRecording(true);
-
-      const video =
-         await videoCameraRef.current?.recordAsync({
-            maxDuration:6
-         });
-
-      if(video?.uri)
-         setVideoUri(video.uri);
-
-   } catch(e){
-      console.log(e);
-   } finally{
-      setRecording(false);
-   }
-};
-
-  
-  const stopRecording = () => {
-    cameraRef.current?.stopRecording();
-  };
-
-  const uploadLiveness = async () => {
-    const User = typeof user === "string" ? JSON.parse(user) : user;
-
-    console.log("uploading face verification");
-    if (!selfieUri || !videoUri || !challenge) {
-      Alert.alert("Missing data", "Please complete face recording again.");
+  async function submitSelfie():
+    Promise<void> {
+    if (!selfieUri || loading) {
       return;
     }
 
@@ -167,211 +144,401 @@ export default function FaceLivenessScreen() {
 
       const formData = new FormData();
 
-      if (isDeviceVerification) {
-        // Device verification flow
-        formData.append("user_id", Array.isArray(params.user_id) ? params.user_id[0] : String(User.id));
-        formData.append("selfie_image", {
-          uri: selfieUri.startsWith('file://') ? selfieUri : `file://${selfieUri}`,
+      formData.append(
+        "consent_given",
+        "1"
+      );
+
+      formData.append(
+        "selfie_image",
+        {
+          uri: selfieUri,
           name: "selfie.jpg",
           type: "image/jpeg",
-        } as any);
+        } as any
+      );
 
-        formData.append("liveness_video", {
-          uri: videoUri,
-          name: Platform.OS === 'ios' ? 'liveness.mov' : 'liveness.mp4',
-          type: Platform.OS === 'ios' ? 'video/quicktime' : 'video/mp4',
-        } as any);
+      if (
+        mode ===
+        "device-verification"
+      ) {
+        const device =
+          await getDeviceDetails();
 
-        // Add device details
-        if (deviceDetails) {
-          Object.entries(deviceDetails).forEach(([key, value]) => {
-            if (value) {
-              formData.append(key, String(value));
-            }
-          });
+        appendDeviceDetails(
+          formData,
+          device
+        );
+
+        const response =
+          await API
+            .verifyFaceForNewDevice(
+              formData
+            );
+
+        if (!response.success) {
+          throw new Error(
+            response.message
+              ?? "Device verification failed."
+          );
         }
 
-        const res = await API.verifyFaceForNewDevice(formData);
-        console.log("Device verification response", res);
-        
-        if (res.success) {
-          // Store authentication data
-          await setItemSafe("auth_token", res.token);
-          await setItemSafe("user", JSON.stringify(res.user));
-          await setItemSafe("user_id", String(res.user_id));
-          
-          Alert.alert("Success", res.message, [
+        await setItemSafe(
+          "auth_token",
+          response.token
+        );
+
+        await setItemSafe(
+          "user",
+          JSON.stringify(
+            response.user
+          )
+        );
+
+        await setItemSafe(
+          "user_id",
+          String(response.user.id)
+        );
+
+        /*
+         * Clear restricted token.
+         */
+        await setItemSafe(
+          "pre_auth_token",
+          ""
+        );
+
+        Alert.alert(
+          "Device verified",
+          response.message,
+          [
             {
               text: "Continue",
-              onPress: () => router.replace("/(tabs)/dashboard"),
+              onPress: () =>
+                router.replace(
+                  "/(tabs)/dashboard"
+                ),
             },
-          ]);
-        }
-      } else {
-        // Regular KYC flow
-        formData.append("challenge", challenge);
-        formData.append("consent_given", "1");
-        formData.append("user_id", String(User.id));
+          ]
+        );
 
-        formData.append("selfie_image", {
-          uri: selfieUri.startsWith('file://') ? selfieUri : `file://${selfieUri}`,
-          name: "selfie.jpg",
-          type: "image/jpeg",
-        } as any);
+        return;
+      }
 
-        formData.append("liveness_video", {
-          uri: videoUri,
-          name: Platform.OS === 'ios' ? 'liveness.mov' : 'liveness.mp4',
-          type: Platform.OS === 'ios' ? 'video/quicktime' : 'video/mp4',
-        } as any);
+      /*
+       * Normal authenticated KYC.
+       */
+      const response =
+        await API.kycLiveness(
+          formData
+        );
 
-        const res = await API.kycLiveness(formData);
-        console.log("KYC response", res);
-        Alert.alert("Success", res.message, [
+      if (!response.success) {
+        throw new Error(
+          response.message
+            ?? "Face verification failed."
+        );
+      }
+
+      Alert.alert(
+        "Liveness confirmed",
+        response.message,
+        [
           {
             text: "Continue",
-            onPress: () => router.replace("/auth/idCardUpload"),
+            onPress: () =>
+              router.replace(
+                "/auth/idCardUpload"
+              ),
           },
-        ]);
-      }
+        ]
+      );
     } catch (error: any) {
-      console.log(error?.response?.data || error.message);
+      console.error(
+        "Face verification failed",
+        error?.response?.data
+          ?? error?.message
+      );
+
       Alert.alert(
-        "Verification Failed",
-        error?.response?.data?.message || "Could not verify face."
+        "Verification failed",
+        error?.response?.data
+          ?.message
+          ?? error?.message
+          ?? "Could not verify your face."
       );
     } finally {
       setLoading(false);
     }
-  };
+  }
+
+  function retake(): void {
+    if (loading) {
+      return;
+    }
+
+    setSelfieUri(null);
+  }
+
+  if (
+    !cameraPermission
+    || !cameraPermission.granted
+  ) {
+    return (
+      <View style={styles.centered}>
+        <Text style={styles.title}>
+          Camera permission required
+        </Text>
+
+        <Text style={styles.instructions}>
+          Allow camera access so OHLAM
+          can confirm that a live person
+          is present.
+        </Text>
+
+        <TouchableOpacity
+          style={styles.primaryButton}
+          onPress={() =>
+            void ensurePermission()
+          }
+        >
+          <Text
+            style={styles.primaryText}
+          >
+            Allow camera
+          </Text>
+        </TouchableOpacity>
+      </View>
+    );
+  }
+
+  if (selfieUri) {
+    return (
+      <View style={styles.review}>
+        <Text style={styles.title}>
+          Review your selfie
+        </Text>
+
+        <Image
+          source={{ uri: selfieUri }}
+          style={styles.preview}
+          resizeMode="cover"
+        />
+
+        <Text style={styles.instructions}>
+          Make sure your face is clear,
+          uncovered and well lit.
+        </Text>
+
+        <TouchableOpacity
+          style={styles.secondaryButton}
+          onPress={retake}
+          disabled={loading}
+        >
+          <Text
+            style={styles.secondaryText}
+          >
+            Retake
+          </Text>
+        </TouchableOpacity>
+
+        <TouchableOpacity
+          style={[
+            styles.primaryButton,
+            loading
+              ? styles.disabled
+              : undefined,
+          ]}
+          onPress={() =>
+            void submitSelfie()
+          }
+          disabled={loading}
+        >
+          {loading ? (
+            <ActivityIndicator
+              color="#ffffff"
+            />
+          ) : (
+            <Text
+              style={styles.primaryText}
+            >
+              Verify face
+            </Text>
+          )}
+        </TouchableOpacity>
+      </View>
+    );
+  }
 
   return (
-    <View style={{ flex: 1 }}>
-      {!videoUri ? (
-        <View style={{ flex: 1 }}>
-         <CameraView
-            ref={
-              captureMode === "selfie"
-         ? photoCameraRef
-         : videoCameraRef
-      }
-            style={{ flex:1 }}
-            facing="front"
-            mode={
-              captureMode === "selfie"
-                ? "picture"
-                : "video"
-            }
-          />
-          <View style={styles.overlay}>
-            <Text style={styles.challenge}>
-              Move closer. Keep your face inside the frame. Then {recording ? challenge : "tap Start"}
-            </Text>
+    <View style={styles.container}>
+      <CameraView
+        ref={cameraRef}
+        style={StyleSheet.absoluteFill}
+        facing="front"
+        mode="picture"
+        onCameraReady={() =>
+          setCameraReady(true)
+        }
+      />
 
-            {recording ? (
-              <TouchableOpacity onPress={stopRecording} style={styles.stopButton} />
-            ) : (
-              <TouchableOpacity 
-                onPress={startLiveness} 
-                style={styles.captureButton}
-                disabled={recording}
-              >
-                <Text style={styles.captureText}>
-                  {recording ? "Recording..." : "Start"}
-                </Text>
-              </TouchableOpacity>
-            )}
-          </View>
-        </View>
-      ) : (
-        <View style={styles.review}>
-          <Text style={styles.title}>Liveness recording complete</Text>
-          <Text style={styles.text}>Challenge: {challenge}</Text>
+      <View style={styles.overlay}>
+        <View style={styles.faceGuide} />
 
-          <TouchableOpacity
-            style={styles.secondaryButton}
-            onPress={() => {
-              setVideoUri(null);
-              setSelfieUri(null);
-              setChallenge("");
-            }}
-          >
-            <Text>Retake</Text>
-          </TouchableOpacity>
+        <Text style={styles.cameraText}>
+          Keep your face inside the
+          frame. Remove hats, masks and
+          dark glasses.
+        </Text>
 
-          <TouchableOpacity
-            style={styles.uploadButton}
-            onPress={uploadLiveness}
-            disabled={loading}
-          >
-            {loading ? <ActivityIndicator color="#fff" /> : <Text style={styles.uploadText}>Submit</Text>}
-          </TouchableOpacity>
-        </View>
-      )}
+        <TouchableOpacity
+          style={[
+            styles.captureButton,
+            !cameraReady || loading
+              ? styles.disabled
+              : undefined,
+          ]}
+          onPress={() =>
+            void captureSelfie()
+          }
+          disabled={
+            !cameraReady || loading
+          }
+        >
+          {loading ? (
+            <ActivityIndicator />
+          ) : (
+            <View
+              style={
+                styles.captureInner
+              }
+            />
+          )}
+        </TouchableOpacity>
+      </View>
     </View>
   );
 }
 
-const styles = StyleSheet.create({
-  overlay: {
-    position: "absolute",
-    top: 0,
-    left: 0,
-    right: 0,
-    bottom: 0,
-    justifyContent: "flex-end",
-    alignItems: "center",
-    padding: 30,
-  },
-  challenge: {
-    color: "#fff",
-    backgroundColor: "rgba(0,0,0,0.65)",
-    padding: 14,
-    borderRadius: 10,
-    fontSize: 20,
-    fontWeight: "700",
-    marginBottom: 25,
-    textAlign: "center",
-  },
-  captureButton: {
-    backgroundColor: "#fff",
-    padding: 18,
-    borderRadius: 50,
-    width: 90,
-    height: 90,
-    alignItems: "center",
-    justifyContent: "center",
-  },
-  captureText: { fontWeight: "700" },
-  stopButton: {
-    width: 80,
-    height: 80,
-    borderRadius: 40,
-    backgroundColor: "red",
-    borderWidth: 4,
-    borderColor: "#fff",
-  },
-  review: {
-    flex: 1,
-    justifyContent: "center",
-    padding: 25,
-  },
-  title: { fontSize: 22, fontWeight: "700", textAlign: "center", marginBottom: 10 },
-  text: { textAlign: "center", marginBottom: 20 },
-  secondaryButton: {
-    padding: 14,
-    borderRadius: 8,
-    backgroundColor: "#ddd",
-    marginBottom: 12,
-  },
-  uploadButton: {
-    padding: 14,
-    borderRadius: 8,
-    backgroundColor: "#007AFF",
-  },
-  uploadText: {
-    color: "#fff",
-    fontWeight: "700",
-    textAlign: "center",
-  },
-});
+const styles =
+  StyleSheet.create({
+    container: {
+      flex: 1,
+      backgroundColor: "#000000",
+    },
+
+    centered: {
+      flex: 1,
+      padding: 24,
+      justifyContent: "center",
+    },
+
+    overlay: {
+      ...StyleSheet.absoluteFillObject,
+      alignItems: "center",
+      justifyContent: "flex-end",
+      paddingHorizontal: 24,
+      paddingBottom: 45,
+    },
+
+    faceGuide: {
+      position: "absolute",
+      top: "20%",
+      width: 240,
+      height: 320,
+      borderWidth: 3,
+      borderColor: "#ffffff",
+      borderRadius: 120,
+    },
+
+    cameraText: {
+      color: "#ffffff",
+      backgroundColor:
+        "rgba(0,0,0,0.65)",
+      padding: 14,
+      borderRadius: 10,
+      fontSize: 17,
+      fontWeight: "600",
+      textAlign: "center",
+      marginBottom: 24,
+    },
+
+    captureButton: {
+      width: 86,
+      height: 86,
+      borderRadius: 43,
+      borderWidth: 5,
+      borderColor: "#ffffff",
+      alignItems: "center",
+      justifyContent: "center",
+    },
+
+    captureInner: {
+      width: 65,
+      height: 65,
+      borderRadius: 33,
+      backgroundColor: "#ffffff",
+    },
+
+    review: {
+      flex: 1,
+      padding: 24,
+      justifyContent: "center",
+      backgroundColor: "#ffffff",
+    },
+
+    preview: {
+      width: "100%",
+      height: 420,
+      borderRadius: 18,
+      marginVertical: 20,
+    },
+
+    title: {
+      fontSize: 23,
+      fontWeight: "700",
+      textAlign: "center",
+    },
+
+    instructions: {
+      fontSize: 16,
+      lineHeight: 23,
+      textAlign: "center",
+      marginBottom: 20,
+    },
+
+    primaryButton: {
+      minHeight: 52,
+      backgroundColor: "#007AFF",
+      borderRadius: 10,
+      alignItems: "center",
+      justifyContent: "center",
+      paddingHorizontal: 20,
+      marginTop: 10,
+    },
+
+    primaryText: {
+      color: "#ffffff",
+      fontSize: 16,
+      fontWeight: "700",
+    },
+
+    secondaryButton: {
+      minHeight: 52,
+      backgroundColor: "#e5e7eb",
+      borderRadius: 10,
+      alignItems: "center",
+      justifyContent: "center",
+      paddingHorizontal: 20,
+    },
+
+    secondaryText: {
+      color: "#111827",
+      fontSize: 16,
+      fontWeight: "600",
+    },
+
+    disabled: {
+      opacity: 0.55,
+    },
+  });

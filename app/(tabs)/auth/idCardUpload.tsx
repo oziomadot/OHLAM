@@ -18,7 +18,7 @@ import ScreenWrapper from "components/ScreenWrapper";
 import { Picker } from "@react-native-picker/picker";
 import CustomAlert from "components/CustomAlert";
 import { Controller, useForm } from "react-hook-form";
-import { getDeviceDetails } from "@/src/utils/device";
+import { appendDeviceDetails, getDeviceDetails } from "@/src/utils/device";
 
 type User = {
   id: number | string;
@@ -194,13 +194,7 @@ useEffect(() => {
     const formData = new FormData();
     formData.append("user_id", userId.toString());
     formData.append("id_type_id", String(idType));
-    formData.append("device_id", device.device_id || "");
-    formData.append("device_name", device.device_name || "");
-    formData.append("brand", device.brand || "");
-    formData.append("model_name", device.model_name || "");
-    formData.append("os_name", device.os_name || "");
-    formData.append("os_version", device.os_version || "");
-    formData.append("platform", device.platform || "");
+    appendDeviceDetails(formData, device);
     formData.append("front_image", {
       uri: frontImage,
       name: `front_${Date.now()}.jpg`,
@@ -357,13 +351,14 @@ console.log("uploading =", uploading);
   selectedValue={idType}
  onValueChange={(value) => setIdType(Number(value))}
 >
-  <Picker.Item label="Select ID Type" value="" />
+  <Picker.Item label="Select ID Type" value="" color="black" />
 
   {idCardTypes.map((item) => (
     <Picker.Item
       key={item.id}
       label={item.name}
       value={item.id}
+      color="black"
     />
   ))}
 </Picker>

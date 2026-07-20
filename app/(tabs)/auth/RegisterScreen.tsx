@@ -448,6 +448,7 @@ const styles = StyleSheet.create({
     padding: 12,
     fontSize: 16,
     backgroundColor: "#fafafa",
+    color: "#333",
   },
   pickerWrapper: {
     borderWidth: 1,

@@ -23,6 +23,7 @@ import CustomAlert from "components/CustomAlert";
 import { getDeviceDetails } from "@/utils/device";
 
 
+
 // ✅ Validation
 const LoginSchema = Yup.object().shape({
   email: Yup.string().email("Invalid email").required("Email is required"),
@@ -155,6 +156,35 @@ export default function LoginScreen() {
   }
   return;
 }
+
+
+if (
+  response.requires_device_verification
+) {
+  await setItemSafe(
+    "pre_auth_token",
+    response.pre_auth_token
+  );
+
+  router.replace({
+    pathname: "/auth/faceLiveness",
+    params: {
+      mode: "device-verification",
+    },
+  });
+
+  return;
+}
+
+await setItemSafe(
+  "auth_token",
+  response.token
+);
+
+await setItemSafe(
+  "user",
+  JSON.stringify(response.user)
+);
 
 if (response.status === 200) {
         const { token, user, user_id } = response;

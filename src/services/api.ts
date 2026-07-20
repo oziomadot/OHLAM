@@ -45,6 +45,35 @@ API.interceptors.request.use(
   (error) => Promise.reject(error)
 );
 
+
+export async function verifyNewDeviceFace(
+  formData: FormData
+) {
+  const preAuthToken =
+    await getItemSafe("pre_auth_token");
+
+  if (!preAuthToken) {
+    throw new Error(
+      "Device verification session is missing."
+    );
+  }
+
+  const response = await API.post(
+    "/auth/device/verify-face",
+    formData,
+    {
+      headers: {
+        "Content-Type": "multipart/form-data",
+        Authorization: `Bearer ${preAuthToken}`,
+      },
+    }
+  );
+
+  await removeItemSafe("pre_auth_token");
+
+  return response.data;
+}
+
 /**
  * Central API response and error handling.
  */
@@ -237,7 +266,7 @@ class ApiService {
   }
 
   async getIdCardTypes() {
-    return this.request("/id-card-types");
+    return this.request<any[]>("/id-card-types");
   }
 
   async verifyIdCard(formData: FormData) {
