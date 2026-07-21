@@ -29,26 +29,37 @@ export const API: AxiosInstance = axios.create({
  * Automatically add the authentication token to every request.
  */
 API.interceptors.request.use(
-  async (config) => {
+  async config => {
     try {
-      const token = await getItemSafe(TOKEN_KEY);
+      const existingAuthorization =
+        config.headers?.Authorization;
 
-      if (token) {
-        config.headers.Authorization = `Bearer ${token}`;
+      if (!existingAuthorization) {
+        const token =
+          await getItemSafe("auth_token");
+
+        if (token) {
+          config.headers.Authorization =
+            `Bearer ${token}`;
+        }
       }
     } catch (error) {
-      console.warn("[API] Failed to attach authentication token:", error);
+      console.warn(
+        "[API] Failed to attach authentication token:",
+        error
+      );
     }
 
     return config;
   },
-  (error) => Promise.reject(error)
+  error => Promise.reject(error)
 );
 
 
 export async function verifyNewDeviceFace(
   formData: FormData
 ) {
+  console.log("[verifyNewDeviceFace] formData", formData);
   const preAuthToken =
     await getItemSafe("pre_auth_token");
 
@@ -58,16 +69,20 @@ export async function verifyNewDeviceFace(
     );
   }
 
+  const url = `${BASE_URL}/auth/device/verify-face`;
+  console.log("[verifyNewDeviceFace] POST", url);
+
   const response = await API.post(
     "/auth/device/verify-face",
     formData,
     {
       headers: {
-        "Content-Type": "multipart/form-data",
         Authorization: `Bearer ${preAuthToken}`,
       },
     }
   );
+
+  console.log("[verifyNewDeviceFace] response status", response.status);
 
   await removeItemSafe("pre_auth_token");
 
@@ -220,6 +235,12 @@ class ApiService {
     await removeItemSafe("pre_auth_token");
   } else if (
     data?.authentication_state === "pre_auth" &&
+    data?.pre_auth_token
+  ) {
+    await setItemSafe("pre_auth_token", data.pre_auth_token);
+    await removeItemSafe("auth_token");
+  } else if (
+    data?.requires_device_verification &&
     data?.pre_auth_token
   ) {
     await setItemSafe("pre_auth_token", data.pre_auth_token);
@@ -420,6 +441,8 @@ class ApiService {
  async kycLiveness(formData: FormData) {
     const preAuthToken = await getItemSafe("pre_auth_token");
 
+    console.log("Hitting kyc liveness", preAuthToken);
+
     if (!preAuthToken) {
     throw new Error(
       "Your verification session is missing. Please log in again."
@@ -446,7 +469,6 @@ class ApiService {
       {
         headers: {
           Accept: "application/json",
-          "Content-Type": "multipart/form-data",
         },
       }
     );

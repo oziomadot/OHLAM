@@ -137,10 +137,7 @@ export default function FaceLivenessScreen() {
         } as any
       );
 
-      if (
-        mode ===
-        "device-verification"
-      ) {
+      if (mode ==="device-verification") {
         const device =
           await getDeviceDetails();
 

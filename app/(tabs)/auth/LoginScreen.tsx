@@ -167,7 +167,7 @@ if (
   );
 
   router.replace({
-    pathname: "/auth/faceLiveness",
+    pathname: "/auth/faceRecord",
     params: {
       mode: "device-verification",
     },
