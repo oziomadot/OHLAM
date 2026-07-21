@@ -82,23 +82,47 @@ const RegistrationScreen = () => {
       }
 
       const res = await API.register(payload);
-      const { verification_required, token, user } = res;
-      console.log("🚀 Registration response:", res);
 
-      if (verification_required) {
-        await setItemSafe("user_id", user.id);
-        await setItemSafe("user", JSON.stringify(user));
-        await setItemSafe("user_email", user.email);
-        await setItemSafe("registration_step", "email-verification");
-        router.push("/auth/email-verification");
-        return;
+      const {verification_required, pre_auth_token, user, next_step} = res;
+
+      console.log("Registration completed:", {verification_required, has_pre_auth_token: Boolean(pre_auth_token), next_step, user_id: user?.id });
+
+      if (!user?.id || !user?.email) {
+        throw new Error(
+          "Registration succeeded, but the user information is incomplete."
+        );
       }
 
-      if (token) {
-        await setItemSafe("authToken", token);
-        showAlert("Success", "Registered! Token saved securely.");
+      /*
+ * API.register() should already store this,
+ * but storing it here as a defensive check
+ * is acceptable.
+ */
+    if (pre_auth_token) {
+        await setItemSafe("pre_auth_token", pre_auth_token);
       }
-    } catch (err: any) {
+
+    if (verification_required && pre_auth_token) {
+      await setItemSafe("user_id", String(user.id));
+
+      await setItemSafe("user", JSON.stringify(user));
+
+      await setItemSafe("user_email", user.email);
+
+      await setItemSafe("registration_step", next_step ?? "verify_email");
+
+      router.replace("/auth/email-verification");
+
+      return;
+    }
+
+    throw new Error(
+      "Registration was completed, but the verification session was not created."
+    );
+    }
+
+      
+       catch (err: any) {
   console.log("🔥 REGISTER ERROR FULL:", err);
   console.log("🔥 REGISTER ERROR RESPONSE:", err?.response);
   console.log("🔥 REGISTER ERROR DATA:", err?.response?.data);
@@ -317,20 +341,25 @@ const RegistrationScreen = () => {
        
 
         {/* Referrer ID (always visible but optional) */}
-        <FormField label="Referrer ID (optional)">
-          <Controller
-            control={control}
-            name="referrer_id"
-            render={({ field: { onChange, value } }) => (
-              <TextInput
-                placeholder="Enter Oramex ID of referrer"
-                style={styles.input}
-                value={value}
-                onChangeText={onChange}
-              />
-            )}
-          />
-        </FormField>
+        <Controller
+  control={control}
+  name="referral_id"
+  render={({
+    field: {
+      onChange,
+      value,
+    },
+  }) => (
+    <TextInput
+      placeholder="Enter Oramex ID of referrer"
+      style={styles.input}
+      value={value}
+      onChangeText={
+        onChange
+      }
+    />
+  )}
+/>
 
         {/* Terms */}
         <View style={{ flexDirection: "row", alignItems: "center", marginVertical: 12 }}>
