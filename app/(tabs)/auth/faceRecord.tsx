@@ -1,11 +1,5 @@
-import React, {
-  useEffect,
-  useRef,
-  useState,
-} from "react";
-
-import {
-  ActivityIndicator,
+import React, { useEffect, useRef, useState } from "react";
+import { ActivityIndicator,
   Alert,
   Image,
   StyleSheet,
@@ -14,27 +8,12 @@ import {
   View,
 } from "react-native";
 
-import {
-  CameraView,
-  useCameraPermissions,
-} from "expo-camera";
-
-import {
-  useLocalSearchParams,
-  useRouter,
-} from "expo-router";
-
-import {
-  appendDeviceDetails,
-  getDeviceDetails,
-} from "@/src/utils/device";
-
-import {
-  getItemSafe,
-  setItemSafe,
-} from "@/utils/storage";
-
-import API from "@/src/services/api";
+import { CameraView, useCameraPermissions } from "expo-camera";
+import { useLocalSearchParams, useRouter } from "expo-router";
+import { appendDeviceDetails, getDeviceDetails } from "@/src/utils/device";
+import { getItemSafe, setItemSafe } from "@/utils/storage";
+import API, { verifyNewDeviceFace } from "@/src/services/api";
+import ScreenWrapper from "components/ScreenWrapper";
 
 type ScreenMode =
   | "kyc"
@@ -171,42 +150,25 @@ export default function FaceLivenessScreen() {
         );
 
         const response =
-          await API
-            .verifyFaceForNewDevice(
-              formData
-            );
+         await verifyNewDeviceFace(
+          formData
+        );
 
-        if (!response.success) {
+        if (!response.success) {  
           throw new Error(
             response.message
               ?? "Device verification failed."
           );
         }
 
-        await setItemSafe(
-          "auth_token",
-          response.token
-        );
-
-        await setItemSafe(
-          "user",
-          JSON.stringify(
-            response.user
-          )
-        );
-
-        await setItemSafe(
-          "user_id",
-          String(response.user.id)
-        );
+        await setItemSafe("auth_token", response.token);
+        await setItemSafe("user", JSON.stringify(response.user));
+        await setItemSafe("user_id", String(response.user.id));
 
         /*
          * Clear restricted token.
          */
-        await setItemSafe(
-          "pre_auth_token",
-          ""
-        );
+        await setItemSafe("pre_auth_token", "");
 
         Alert.alert(
           "Device verified",
@@ -228,10 +190,9 @@ export default function FaceLivenessScreen() {
       /*
        * Normal authenticated KYC.
        */
-      const response =
-        await API.kycLiveness(
-          formData
-        );
+      const response = await API.kycLiveness(
+        formData
+      );
 
       if (!response.success) {
         throw new Error(
@@ -371,6 +332,8 @@ export default function FaceLivenessScreen() {
   }
 
   return (
+
+    <ScreenWrapper>
     <View style={styles.container}>
       <CameraView
         ref={cameraRef}
@@ -417,6 +380,7 @@ export default function FaceLivenessScreen() {
         </TouchableOpacity>
       </View>
     </View>
+    </ScreenWrapper>
   );
 }
 

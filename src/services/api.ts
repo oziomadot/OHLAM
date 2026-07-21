@@ -6,14 +6,14 @@ import axios, {
 
 import { getItemSafe, setItemSafe, removeItemSafe } from "@/utils/storage";
 import { getDeviceDetails } from "@/utils/device";
-import { env } from "@/src/config/env";
+import { ENV } from '@/src/config/env';
 
 const TOKEN_KEY = "auth_token";
 
-export const BASE_URL = env.apiUrl;
+export const BASE_URL = ENV.API_URL;
 
 if (__DEV__) {
-  console.log("[API] Environment:", env.name);
+  console.log("[API] Environment:", ENV.APP_ENV);
   console.log("[API] Base URL:", BASE_URL);
 }
 
@@ -205,20 +205,29 @@ class ApiService {
   // Authentication endpoints
 
   async login(email: string, password: string) {
-    const device = await getDeviceDetails();
+  const device = await getDeviceDetails();
 
-    const response = await API.post("/login", {
-      email,
-      password,
-      ...device,
-    });
+  const response = await API.post("/login", {
+    email,
+    password,
+    ...device,
+  });
 
-    if (response.data?.token) {
-      await this.setToken(response.data.token);
-    }
+  const data = response.data;
 
-    return response.data;
+  if (data?.authentication_state === "authenticated" && data?.token) {
+    await setItemSafe("auth_token", data.token);
+    await removeItemSafe("pre_auth_token");
+  } else if (
+    data?.authentication_state === "pre_auth" &&
+    data?.pre_auth_token
+  ) {
+    await setItemSafe("pre_auth_token", data.pre_auth_token);
+    await removeItemSafe("auth_token");
   }
+
+  return data;
+}
 
   async forgetPassword(email: string) {
     return this.request("/forgot-password", {
@@ -228,14 +237,22 @@ class ApiService {
   }
 
   async register(userData: unknown) {
-    const response = await API.post("/register", userData);
+      const response = await API.post("/register", userData);
 
-    if (response.data?.token) {
-      await this.setToken(response.data.token);
-    }
+      const preAuthToken =response.data?.pre_auth_token;
 
-    return response.data;
-  }
+      if (preAuthToken) {
+        await setItemSafe("pre_auth_token", preAuthToken);
+      }
+
+      /*
+      * An incomplete registration must not
+      * retain a full authentication token.
+      */
+      await removeItemSafe("auth_token");
+
+      return response.data;
+}
 
   async verifyEmail(payload: unknown) {
     return this.request("/verify-email", {
@@ -269,16 +286,27 @@ class ApiService {
     return this.request<any[]>("/id-card-types");
   }
 
-  async verifyIdCard(formData: FormData) {
-    const response = await API.post("/verify-id-card", formData, {
+ async verifyIdCard(formData: FormData) {
+  const preAuthToken = await getItemSafe("pre_auth_token");
+
+  if (!preAuthToken) {
+    throw new Error(
+      "Your verification session is missing. Please log in again."
+    );
+  }
+
+  const response = await API.post("/verify-id-card", formData, {
       headers: {
         Accept: "application/json",
-        "Content-Type": "multipart/form-data",
+        Authorization:
+          `Bearer ${preAuthToken}`,
       },
-    });
+      timeout: 120_000,
+    }
+  );
 
-    return response.data;
-  }
+  return response.data;
+}
 
   async updateProfile(formData: FormData) {
     const response = await API.post("/update-profile", formData, {
@@ -389,16 +417,27 @@ class ApiService {
 
   // KYC endpoints
 
-  async kycLiveness(formData: FormData) {
-    const response = await API.post("/kyc-liveness", formData, {
+ async kycLiveness(formData: FormData) {
+    const preAuthToken = await getItemSafe("pre_auth_token");
+
+    if (!preAuthToken) {
+    throw new Error(
+      "Your verification session is missing. Please log in again."
+    );
+  }
+
+  const response = await API.post("/kyc-liveness", formData, {
       headers: {
         Accept: "application/json",
-        "Content-Type": "multipart/form-data",
+        Authorization:
+          `Bearer ${preAuthToken}`,
       },
-    });
+      timeout: 120_000,
+    }
+  );
 
-    return response.data;
-  }
+  return response.data;
+}
 
   async verifyFaceForNewDevice(formData: FormData) {
     const response = await API.post(

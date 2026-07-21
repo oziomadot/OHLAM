@@ -5,6 +5,15 @@ export default {
     scheme: "ohlam",
     version: "1.0.0",
 
+
+     "runtimeVersion": {
+      "policy": "appVersion"
+    },
+
+    "updates": {
+      "fallbackToCacheTimeout": 0
+    },
+
     android: {
       package: "com.oramexglobal.ohlam",
       versionCode: 1,

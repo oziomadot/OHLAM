@@ -11,7 +11,7 @@ import {
 } from "react-native";
 import { useRouter } from "expo-router";
 import * as ImagePicker from "expo-image-picker";
-import { setItemSafe, getItemSafe } from "@/utils/storage";
+import { setItemSafe, getItemSafe, removeItemSafe } from "@/utils/storage";
 import API from "@/src/services/api";
 import Navbar from "components/Navbar";
 import ScreenWrapper from "components/ScreenWrapper";
@@ -216,6 +216,9 @@ if (res?.success === true && res?.token) {
   await setItemSafe("auth_token", res.token);
   await setItemSafe("user", JSON.stringify(res.user));
   await setItemSafe("registrationCompleted", "true");
+  await removeItemSafe("pre_auth_token");
+
+
 
   Alert.alert("Success", res?.message || "ID card verified successfully", [
     {
