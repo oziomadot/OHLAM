@@ -1,42 +1,41 @@
 import React, { useEffect, useState } from "react";
 import {
-  KeyboardAvoidingView,
-  ScrollView,
+
   Text,
   StyleSheet,
   View,
   TextInput,
   TouchableOpacity,
   Platform,
-  Alert,
+ 
   ActivityIndicator,
   
 } from "react-native";
-import { setItemSafe, getItemSafe, removeItemSafe } from "@/utils/storage";
+import { setItemSafe, getItemSafe} from "@/utils/storage";
 import  API  from "@/src/services/api";
-import ApiService from "@/src/services/api";
 import { useRouter } from "expo-router";
 import { useForm, Controller } from "react-hook-form";
 import CustomAlert from "components/CustomAlert";
-import { useAuth } from "@/context/AuthContext";
+
 import { useRouteHandler }  from "@/hooks/seRouteHandler";
 import ScreenWrapper from "components/ScreenWrapper";
 
 interface User {
-  id: string;
+  id: string | number;
   email: string;
-  [key: string]: any;
+  phonenumber?: string;
+  [key: string]: unknown;
 }
 
 
 
 const EmailVerificationScreen = () => {
   const [loading, setLoading] = useState(false);
-  const [code, setCode] = useState("");
+  
   const [userId, setUserId] = useState<string | null>(null);
   const router = useRouter();
-  const [isVerifyWithPhoneNumber, setIsVerifyWithPhoneNumber] = useState(false);
-  const { login } = useAuth();
+ 
+ 
   const { handleResponse } = useRouteHandler();
   const [ user, setUser] = useState<User | null>(null);
 
@@ -45,13 +44,6 @@ const [newEmail, setNewEmail] = useState("");
 const [updatingEmail, setUpdatingEmail] = useState(false);
  console.log("user", userId);
 
- const {watch, control,
-  formState: { errors },
-  handleSubmit,
-  setValue,
-
- } = useForm();
-//  const isVerifyWithPhoneNumber = watch("isVerifyWithPhoneNumber");
 
 
   const [alertVisible, setAlertVisible] = useState(false);
@@ -79,123 +71,255 @@ function showAlert(title: string, message: string, onClose?: () => void) {
 
   useEffect(() => {
    const loadUserData = async () => {
-    const storedUserId = await getItemSafe("userId");
+    const storedUserId = await getItemSafe("user_id");
     const storedUser = await getItemSafe("user");
 
     if (storedUserId) {
       setUserId(storedUserId);
     }
 
-    if (storedUser) {
-      setUser(JSON.parse(storedUser));
-    }
+  if (storedUser) {
+  try {
+    setUser(JSON.parse(storedUser));
+  } catch {
+    setUser(null);
+  }
+}
   };
 
   loadUserData();
   }, []);
 
 
+  type EmailVerificationForm = {
+  code: string;
+};
+
+const {
+  control,
+  formState: { errors },
+  handleSubmit,
+} = useForm<EmailVerificationForm>({
+  defaultValues: {
+    code: "",
+  },
+});
 
 
-  const verifyUser = async (data) => {
-    const { code } = data; 
-    const userId = await getItemSafe("user_id");
-    const user = await getItemSafe("user");
 
-    setUserId(userId);
-    setUser(user ? JSON.parse(user) : null);
 
-  console.log(["code", code,  "user id", userId]);
-    if (!code.trim()) {
-      showAlert("Error", "Please enter your verification code");
-      return;
-    }
+type ApiError = {
+  message?: string;
+  status?: number;
+  errors?: Record<string, string[]>;
+};
 
-    if (!userId) {
-      showAlert("Error", "User ID missing. Please log in again.");
-      return;
-    }
+const verifyUser = async (
+  data: EmailVerificationForm
+): Promise<void> => {
+  const verificationCode = data.code.trim();
+  const currentUserId =
+    await getItemSafe("user_id");
 
-    setLoading(true);
-    try {
-  const res = await API.verifyEmail({
-    user_id: userId,  
-    code: code.trim(),
-  });
-
-  console.log(res);
- 
-  if (res.status === 200) {
-    const {user_id, user} = res;
-
-  router.push("/auth/phoneNumberVerification");
-
-    showAlert("Email Verified!", res.message, () => {
-      handleResponse(res, {
-        successRoute: res.successRoute,
-        successMessage: res.successMessage,
-      });
-    });
+  if (!/^\d{6}$/.test(verificationCode)) {
+    showAlert(
+      "Invalid Code",
+      "Please enter the complete 6-digit verification code."
+    );
+    return;
   }
-} catch (error) {
-  console.log(error.response || error.message);
 
-  // 👇 handle 422 (or any backend error message)
-  const errorMessage =
-    error.response?.errorMessage || "Verification failed. Please try again.";
+  if (!currentUserId) {
+    showAlert(
+      "Session Error",
+      "User ID missing. Please restart registration."
+    );
+    return;
+  }
 
-  showAlert("Failed", errorMessage);
-} finally {
-  setLoading(false);
-}
+  setLoading(true);
 
-  };
+  try {
+    const response = await API.verifyEmail({
+      user_id: currentUserId,
+      code: verificationCode,
+    });
 
-  const resendEmailCode = async () => {
-    setLoading(true);
-    console.log("Resending code to email");
+    if (response.user_id !== undefined) {
+      await setItemSafe(
+        "user_id",
+        String(response.user_id)
+      );
+    }
+
+    if (response.user) {
+      await setItemSafe(
+        "user",
+        JSON.stringify(response.user)
+      );
+
+      setUser(response.user);
+    }
+
+    showAlert(
+      "Email Verified",
+      response.message ||
+        "Your email was verified successfully.",
+      () => {
+        router.replace(
+          "/auth/phoneNumberVerification"
+        );
+      }
+    );
+  } catch (error: unknown) {
+    const apiError = error as ApiError;
+
+    console.error(
+      "Email verification failed:",
+      apiError
+    );
+
+    showAlert(
+      "Verification Failed",
+      apiError.message ||
+        "The verification code is invalid or expired."
+    );
+  } finally {
+    setLoading(false);
+  }
+};
+
+  const resendEmailCode = async (): Promise<void> => {
+  setLoading(true);
+
+  try {
+    const currentUserId =
+      (await getItemSafe("user_id")) ||
+      user?.id;
+
+    if (!currentUserId) {
+      showAlert(
+        "Session Error",
+        "User ID missing. Please restart registration."
+      );
+      return;
+    }
+
+    const response =
+      await API.resendEmailCode({
+        user_id: currentUserId,
+        method: "email",
+      });
+
+    if (response.user) {
+      await setItemSafe(
+        "user",
+        JSON.stringify(response.user)
+      );
+
+      setUser(response.user);
+    }
+
+    showAlert(
+      "Code Sent",
+      response.message ||
+        "A new verification code has been sent to your email."
+    );
+  } catch (error: unknown) {
+    const apiError = error as ApiError;
+
+    console.error(
+      "Resend email code failed:",
+      apiError
+    );
+
+    showAlert(
+      "Unable to Send Code",
+      apiError.message ||
+        "Unable to resend the verification code."
+    );
+  } finally {
+    setLoading(false);
+  }
+};
+
+
+
+const updateEmailAddress =
+  async (): Promise<void> => {
+    const normalizedEmail =
+      newEmail.trim().toLowerCase();
+
+    if (
+      !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(
+        normalizedEmail
+      )
+    ) {
+      showAlert(
+        "Invalid Email",
+        "Please enter a valid email address."
+      );
+      return;
+    }
+
+    setUpdatingEmail(true);
+
     try {
-      // Always fetch the latest userId from storage
-      const currentUserId = await getItemSafe("user_id") || user?.id;
-    
+      const currentUserId =
+        await getItemSafe("user_id");
 
       if (!currentUserId) {
-        showAlert("Error", "User ID missing. Please log in again.");
+        showAlert(
+          "Session Error",
+          "User ID missing. Please restart registration."
+        );
         return;
       }
 
-      const res = await API.resendEmailCode({
+      const response = await API.updateEmail({
         user_id: currentUserId,
-        method: "email"
+        email: normalizedEmail,
       });
 
-   
-     
+      await setItemSafe(
+        "user_email",
+        normalizedEmail
+      );
 
-      if (res.status === 200) {
-         await setItemSafe("user", res.user);
-        showAlert("Sent", res.message || "A new code has been sent to your email.");
-        handleResponse(res, {
-          successRoute: res.successRoute,
-          successMessage: res.successMessage,
-        });
-      } 
+      setUser((currentUser) =>
+        currentUser
+          ? {
+              ...currentUser,
+              email: normalizedEmail,
+            }
+          : currentUser
+      );
 
-    } catch (error) {
-      
+      setShowUpdateEmail(false);
+      setNewEmail("");
 
-       console.log(error.response || error.message);
+      showAlert(
+        "Email Updated",
+        response.message ||
+          "Email updated. A new verification code was sent."
+      );
+    } catch (error: unknown) {
+      const apiError = error as ApiError;
 
-  // 👇 handle 422 (or any backend error message)
-  const errorMessage =
-    error.response?.errorMessage || "Unable to resend code. Please try again.";
+      console.error(
+        "Update email failed:",
+        apiError
+      );
 
-  showAlert("Error", errorMessage);
+      showAlert(
+        "Update Failed",
+        apiError.message ||
+          "Your email address could not be updated."
+      );
     } finally {
-      setLoading(false);
+      setUpdatingEmail(false);
     }
   };
-
   
 
 
@@ -281,34 +405,11 @@ function showAlert(title: string, message: string, onClose?: () => void) {
         style={styles.input}
       />
 
-      <TouchableOpacity
-        style={styles.updateBtn}
-        disabled={updatingEmail}
-        onPress={async () => {
-          if (!newEmail.trim()) {
-            showAlert("Error", "Please enter your new email address.");
-            return;
-          }
-
-          setUpdatingEmail(true);
-
-          try {
-            const res = await API.updateEmail('payload');
-
-            showAlert("Success", res.message || "Email updated. Verification code sent.");
-
-            await setItemSafe("user_email", newEmail.trim());
-
-            setShowUpdateEmail(false);
-            setNewEmail("");
-          } catch (err: any) {
-            console.log("Update email error:", err);
-            showAlert("Error", err.message || "Could not update email.");
-          } finally {
-            setUpdatingEmail(false);
-          }
-        }}
-      >
+     <TouchableOpacity
+  style={styles.updateBtn}
+  disabled={updatingEmail}
+  onPress={updateEmailAddress}
+>
         <Text style={styles.updateBtnText}>
           {updatingEmail ? "Updating..." : "Update Email"}
         </Text>

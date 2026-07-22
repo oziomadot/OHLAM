@@ -28,33 +28,57 @@ export const API: AxiosInstance = axios.create({
 /**
  * Automatically add the authentication token to every request.
  */
-API.interceptors.request.use(
-  async config => {
-    try {
-      const existingAuthorization =
-        config.headers?.Authorization;
+// API.interceptors.request.use(
+//   async config => {
+//     try {
+//       /*
+//        * Do not replace a token explicitly supplied
+//        * by KYC or device-verification requests.
+//        */
+//       const existingAuthorization =
+//         config.headers?.Authorization;
 
-      if (!existingAuthorization) {
-        const token =
-          await getItemSafe("auth_token");
+//       if (!existingAuthorization) {
+//         const authToken =
+//           await getItemSafe("auth_token");
 
-        if (token) {
-          config.headers.Authorization =
-            `Bearer ${token}`;
-        }
-      }
-    } catch (error) {
-      console.warn(
-        "[API] Failed to attach authentication token:",
-        error
-      );
-    }
+//         if (authToken) {
+//           config.headers.Authorization =
+//             `Bearer ${authToken}`;
+//         }
+//       }
+//     } catch (error) {
+//       console.warn("[API] Failed to attach token:", error);
+//     }
 
-    return config;
-  },
-  error => Promise.reject(error)
+//     return config;
+//   },
+//   error => Promise.reject(error)
+// );
+
+
+
+API.interceptors.response.use(
+  response => response,
+  (error: AxiosError<any>) => {
+    const diagnostic = {
+      baseURL: error.config?.baseURL,
+      url: error.config?.url,
+      fullURL: `${error.config?.baseURL ?? ""}${error.config?.url ?? ""}`,
+      method: error.config?.method?.toUpperCase(),
+      status: error.response?.status ?? 0,
+      responseData: error.response?.data ?? null,
+      message: error.message,
+      code: error.code,
+      hasResponse: Boolean(error.response),
+      hasRequest: Boolean(error.request),
+    };
+
+    console.error("[API ERROR]", JSON.stringify(diagnostic, null, 2));
+
+    return Promise.reject(error);
+  }
 );
-
 
 export async function verifyNewDeviceFace(
   formData: FormData
@@ -121,6 +145,84 @@ type ApiError = {
   status: number;
   message: string;
   errors: Record<string, string[]>;
+};
+
+export type ResendPhoneCodePayload = {
+  user_id: string | number;
+};
+
+export type ResendPhoneCodeResponse = {
+  status: number;
+  message: string;
+  user_id: string | number;
+};
+
+export type VerifyPhonePayload = {
+  user_id: string | number;
+  code: string;
+};
+
+export type VerifyPhoneResponse = {
+  status: number;
+  message: string;
+  user_id?: string | number;
+  user?: Record<string, unknown>;
+};
+
+export type UpdatePhoneNumberPayload = {
+  user_id: string | number;
+  phone: string;
+};
+
+export type UpdatePhoneNumberResponse = {
+  status: number;
+  message: string;
+  user_id?: string | number;
+  user?: Record<string, unknown>;
+};
+
+
+export type UserResponse = {
+  id: string | number;
+  email: string;
+  phonenumber?: string;
+  [key: string]: unknown;
+};
+
+export type VerifyEmailPayload = {
+  user_id: string | number;
+  code: string;
+};
+
+export type VerifyEmailResponse = {
+  status: number;
+  message: string;
+  user_id: string | number;
+  user: UserResponse;
+};
+
+export type ResendEmailCodePayload = {
+  user_id: string | number;
+  method?: "email";
+};
+
+export type ResendEmailCodeResponse = {
+  status: number;
+  message: string;
+  user_id?: string | number;
+  user?: UserResponse;
+};
+
+export type UpdateEmailPayload = {
+  user_id: string | number;
+  email: string;
+};
+
+export type UpdateEmailResponse = {
+  status: number;
+  message: string;
+  user_id?: string | number;
+  user?: UserResponse;
 };
 
 class ApiService {
@@ -258,50 +360,99 @@ class ApiService {
   }
 
   async register(userData: unknown) {
-      const response = await API.post("/register", userData);
+  const response = await API.post("/register", userData);
 
-      const preAuthToken =response.data?.pre_auth_token;
+  const preAuthToken = response.data?.pre_auth_token;
 
-      if (preAuthToken) {
-        await setItemSafe("pre_auth_token", preAuthToken);
-      }
+  if (!preAuthToken) {
+    throw new Error("No verification token was returned by the server.");
+  }
 
-      /*
-      * An incomplete registration must not
-      * retain a full authentication token.
-      */
-      await removeItemSafe("auth_token");
+  await removeItemSafe("auth_token");
 
-      return response.data;
+  await removeItemSafe("pre_auth_token");
+
+  await setItemSafe("pre_auth_token", String(preAuthToken));
+
+  const storedToken = await getItemSafe("pre_auth_token");
+
+  if (storedToken !== String(preAuthToken)) {
+    throw new Error("The verification token could not be stored correctly.");
+  }
+
+  return response.data;
 }
 
-  async verifyEmail(payload: unknown) {
-    return this.request("/verify-email", {
+  async verifyEmail(
+  payload: VerifyEmailPayload
+): Promise<VerifyEmailResponse> {
+  return this.request<VerifyEmailResponse>(
+    "/verify-email",
+    {
       method: "POST",
       body: payload,
-    });
-  }
+    }
+  );
+}
 
-  async resendEmailCode(payload: unknown) {
-    return this.request("/resend-email-code", {
+async resendEmailCode(
+  payload: ResendEmailCodePayload
+): Promise<ResendEmailCodeResponse> {
+  return this.request<ResendEmailCodeResponse>(
+    "/resend-email-code",
+    {
       method: "POST",
       body: payload,
-    });
-  }
+    }
+  );
+}
 
-  async updateEmail(payload: unknown) {
-    return this.request("/update-email", {
+async updateEmail(
+  payload: UpdateEmailPayload
+): Promise<UpdateEmailResponse> {
+  return this.request<UpdateEmailResponse>(
+    "/update-email",
+    {
       method: "POST",
       body: payload,
-    });
-  }
+    }
+  );
+}
+  async resendPhoneCode(
+  payload: ResendPhoneCodePayload
+): Promise<ResendPhoneCodeResponse> {
+  return this.request<ResendPhoneCodeResponse>(
+    "/send-phone-Code",
+    {
+      method: "POST",
+      body: payload,
+    }
+  );
+}
 
-  async updatePhoneNumber(payload: unknown) {
-    return this.request("/update-phone-number", {
+async verifyPhone(
+  payload: VerifyPhonePayload
+): Promise<VerifyPhoneResponse> {
+  return this.request<VerifyPhoneResponse>(
+    "/verify-phone",
+    {
       method: "POST",
       body: payload,
-    });
-  }
+    }
+  );
+}
+
+async updatePhoneNumber(
+  payload: UpdatePhoneNumberPayload
+): Promise<UpdatePhoneNumberResponse> {
+  return this.request<UpdatePhoneNumberResponse>(
+    "/update-phone-number",
+    {
+      method: "POST",
+      body: payload,
+    }
+  );
+}
 
   async getIdCardTypes() {
     return this.request<any[]>("/id-card-types");
@@ -311,9 +462,7 @@ class ApiService {
   const preAuthToken = await getItemSafe("pre_auth_token");
 
   if (!preAuthToken) {
-    throw new Error(
-      "Your verification session is missing. Please log in again."
-    );
+    throw new Error("Your verification session is missing. Please log in again.");
   }
 
   const response = await API.post("/verify-id-card", formData, {
@@ -438,20 +587,48 @@ class ApiService {
 
   // KYC endpoints
 
- async kycLiveness(formData: FormData) {
-    const preAuthToken = await getItemSafe("pre_auth_token");
+ async kycLiveness(
+  formData: FormData
+) {
+  const preAuthToken =
+    await getItemSafe(
+      "pre_auth_token"
+    );
 
-    console.log("Hitting kyc liveness", preAuthToken);
+  console.log(
+    "[KYC] Token exists:",
+    Boolean(preAuthToken)
+  );
 
-    if (!preAuthToken) {
+  console.log(
+    "[KYC] Token format valid:",
+    Boolean(
+      preAuthToken
+        && preAuthToken.includes("|")
+    )
+  );
+
+  console.log("[KYC] Token length:", preAuthToken?.length ?? 0);
+
+  if (!preAuthToken) {
     throw new Error(
       "Your verification session is missing. Please log in again."
     );
   }
 
-  const response = await API.post("/kyc-liveness", formData, {
+  if (!preAuthToken.includes("|")) {
+    throw new Error(
+      "The stored verification token is invalid. Please register or log in again."
+    );
+  }
+
+  const response = await API.post(
+    "/kyc-liveness",
+    formData,
+    {
       headers: {
-        Accept: "application/json",
+        Accept:
+          "application/json",
         Authorization:
           `Bearer ${preAuthToken}`,
       },
@@ -567,6 +744,36 @@ class ApiService {
     const response = await API.get("/dashboard/summary");
     return response.data;
   }
+
+
+
+
+
+  async testPreAuthToken() {
+  const preAuthToken =
+    await getItemSafe(
+      "pre_auth_token"
+    );
+
+  if (!preAuthToken) {
+    throw new Error(
+      "No pre-auth token stored."
+    );
+  }
+
+  const response =
+    await API.get(
+      "/pre-auth-test",
+      {
+        headers: {
+          Authorization:
+            `Bearer ${preAuthToken}`,
+        },
+      }
+    );
+
+  return response.data;
+}
 }
 
 const apiService = new ApiService();

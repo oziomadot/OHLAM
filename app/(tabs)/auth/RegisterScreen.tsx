@@ -60,10 +60,22 @@ const RegistrationScreen = () => {
     
   // ✅ On form submit
   const onSubmit = async (data: any) => {
+
+
+ console.log(
+    "[REGISTER] onSubmit reached"
+  );
+
+
+
+
     if (!agreeTerms) {
       showAlert("Terms Required", "You must agree to the Terms and Conditions to register.");
       return;
     }
+
+
+
 
     setLoading(true);
     try {
@@ -71,9 +83,9 @@ const RegistrationScreen = () => {
 
       let storedRef: string | null = null;
       if (Platform.OS === "web") {
-        storedRef = window?.localStorage?.getItem("referral_code");
+        storedRef = window?.localStorage?.getItem("referral_id");
       } else {
-        storedRef = await getItemSafe("referral_code");
+        storedRef = await getItemSafe("referral_id");
       }
       if (storedRef) payload.ref = storedRef;
 
@@ -395,7 +407,7 @@ const RegistrationScreen = () => {
             
 
         {/* Submit */}
-        <TouchableOpacity
+        {/* <TouchableOpacity
           onPress={agreeTerms ? handleSubmit(onSubmit) : null}
           disabled={loading || !agreeTerms}
           style={[styles.button, (loading || !agreeTerms) && { opacity: 0.6 }]}
@@ -403,7 +415,42 @@ const RegistrationScreen = () => {
           <Text style={styles.buttonText}>
             {loading ? "Registering..." : "Register"}
           </Text>
-        </TouchableOpacity>
+          
+        </TouchableOpacity> */}
+
+
+<TouchableOpacity
+  onPress={handleSubmit(
+    onSubmit,
+    validationErrors => {
+      console.log(
+        "[REGISTER] Form validation errors:",
+        validationErrors
+      );
+
+      showAlert(
+        "Form incomplete",
+        "Please complete all required fields correctly."
+      );
+    }
+  )}
+  disabled={loading}
+  style={[
+    styles.button,
+    loading && { opacity: 0.6 },
+  ]}
+>
+  {loading ? (
+    <ActivityIndicator color="#ffffff" />
+  ) : (
+    <Text style={styles.buttonText}>
+      Register
+    </Text>
+  )}
+</TouchableOpacity>
+
+
+
 
         <View style={{ alignItems: "center", marginTop: 20 }}>
           <Text style={{ fontSize: 16 }}>
