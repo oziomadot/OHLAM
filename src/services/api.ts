@@ -422,7 +422,7 @@ async updateEmail(
   payload: ResendPhoneCodePayload
 ): Promise<ResendPhoneCodeResponse> {
   return this.request<ResendPhoneCodeResponse>(
-    "/send-phone-Code",
+    "/send-phone-code",
     {
       method: "POST",
       body: payload,

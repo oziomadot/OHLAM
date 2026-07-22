@@ -353,6 +353,7 @@ const RegistrationScreen = () => {
        
 
         {/* Referrer ID (always visible but optional) */}
+        <FormField label="Referrer ID">
         <Controller
   control={control}
   name="referral_id"
@@ -371,7 +372,7 @@ const RegistrationScreen = () => {
       }
     />
   )}
-/>
+/></FormField>
 
         {/* Terms */}
         <View style={{ flexDirection: "row", alignItems: "center", marginVertical: 12 }}>
