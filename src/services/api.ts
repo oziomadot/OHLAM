@@ -25,36 +25,6 @@ export const API: AxiosInstance = axios.create({
   },
 });
 
-/**
- * Automatically add the authentication token to every request.
- */
-// API.interceptors.request.use(
-//   async config => {
-//     try {
-//       /*
-//        * Do not replace a token explicitly supplied
-//        * by KYC or device-verification requests.
-//        */
-//       const existingAuthorization =
-//         config.headers?.Authorization;
-
-//       if (!existingAuthorization) {
-//         const authToken =
-//           await getItemSafe("auth_token");
-
-//         if (authToken) {
-//           config.headers.Authorization =
-//             `Bearer ${authToken}`;
-//         }
-//       }
-//     } catch (error) {
-//       console.warn("[API] Failed to attach token:", error);
-//     }
-
-//     return config;
-//   },
-//   error => Promise.reject(error)
-// );
 
 
 
@@ -238,27 +208,15 @@ class ApiService {
     return API.get<T>(url, config);
   }
 
-  post<T = unknown>(
-    url: string,
-    data?: unknown,
-    config?: AxiosRequestConfig
-  ) {
+  post<T = unknown>(url: string, data?: unknown, config?: AxiosRequestConfig) {
     return API.post<T>(url, data, config);
   }
 
-  put<T = unknown>(
-    url: string,
-    data?: unknown,
-    config?: AxiosRequestConfig
-  ) {
+  put<T = unknown>(url: string, data?: unknown, config?: AxiosRequestConfig) {
     return API.put<T>(url, data, config);
   }
 
-  patch<T = unknown>(
-    url: string,
-    data?: unknown,
-    config?: AxiosRequestConfig
-  ) {
+  patch<T = unknown>(url: string, data?: unknown, config?: AxiosRequestConfig) {
     return API.patch<T>(url, data, config);
   }
 
@@ -271,10 +229,7 @@ class ApiService {
   }
 
   async setToken(token: string): Promise<void> {
-    if (!token) {
-      return;
-    }
-
+    if (!token) return;
     await setItemSafe(TOKEN_KEY, token);
   }
 
@@ -282,10 +237,7 @@ class ApiService {
     await removeItemSafe(TOKEN_KEY);
   }
 
-  async request<T = unknown>(
-    endpoint: string,
-    options: RequestOptions = {}
-  ): Promise<T> {
+  async request<T = unknown>(endpoint: string, options: RequestOptions = {}): Promise<T> {
     const {
       method = "GET",
       body,
@@ -318,6 +270,29 @@ class ApiService {
       throw apiError;
     }
   }
+
+
+  private async preAuthRequest<T>(endpoint: string, options: RequestOptions = {}): Promise<T> {
+  const preAuthToken = await getItemSafe("pre_auth_token");
+
+  if (!preAuthToken) {
+    throw {
+      status: 401,
+      message:
+        "Your verification session is missing. Please register or log in again.",
+      errors: {},
+    } satisfies ApiError;
+  }
+
+  return this.request<T>(endpoint, {
+    ...options,
+    headers: {
+      ...(options.headers ?? {}),
+      Accept: "application/json",
+      Authorization: `Bearer ${preAuthToken}`,
+    },
+  });
+}
 
   // Authentication endpoints
 
@@ -383,76 +358,65 @@ class ApiService {
   return response.data;
 }
 
-  async verifyEmail(
-  payload: VerifyEmailPayload
-): Promise<VerifyEmailResponse> {
-  return this.request<VerifyEmailResponse>(
-    "/verify-email",
-    {
-      method: "POST",
-      body: payload,
+  async verifyEmail( payload: VerifyEmailPayload): Promise<VerifyEmailResponse> {
+      return this.preAuthRequest<VerifyEmailResponse>(
+        "/verify-email",
+        {
+          method: "POST",
+          body: payload,
+        }
+      );
     }
-  );
-}
 
-async resendEmailCode(
-  payload: ResendEmailCodePayload
-): Promise<ResendEmailCodeResponse> {
-  return this.request<ResendEmailCodeResponse>(
-    "/resend-email-code",
-    {
-      method: "POST",
-      body: payload,
-    }
-  );
-}
+async resendEmailCode( payload: ResendEmailCodePayload): Promise<ResendEmailCodeResponse> {
+    return this.preAuthRequest<ResendEmailCodeResponse>(
+      "/resend-email-code",
+      {
+        method: "POST",
+        body: payload,
+      }
+    );
+  }
 
-async updateEmail(
-  payload: UpdateEmailPayload
-): Promise<UpdateEmailResponse> {
-  return this.request<UpdateEmailResponse>(
-    "/update-email",
-    {
-      method: "POST",
-      body: payload,
+async updateEmail(payload: UpdateEmailPayload): Promise<UpdateEmailResponse> {
+      return this.preAuthRequest<UpdateEmailResponse>(
+        "/update-email",
+        {
+          method: "POST",
+          body: payload,
+        }
+      );
     }
-  );
-}
-  async resendPhoneCode(
-  payload: ResendPhoneCodePayload
-): Promise<ResendPhoneCodeResponse> {
-  return this.request<ResendPhoneCodeResponse>(
-    "/send-phone-code",
-    {
-      method: "POST",
-      body: payload,
-    }
-  );
-}
 
-async verifyPhone(
-  payload: VerifyPhonePayload
-): Promise<VerifyPhoneResponse> {
-  return this.request<VerifyPhoneResponse>(
-    "/verify-phone",
-    {
-      method: "POST",
-      body: payload,
+ async resendPhoneCode(payload: ResendPhoneCodePayload): Promise<ResendPhoneCodeResponse> {
+      return this.preAuthRequest<ResendPhoneCodeResponse>(
+        "/send-phone-code",
+        {
+          method: "POST",
+          body: payload,
+        }
+      );
     }
-  );
-}
 
-async updatePhoneNumber(
-  payload: UpdatePhoneNumberPayload
-): Promise<UpdatePhoneNumberResponse> {
-  return this.request<UpdatePhoneNumberResponse>(
-    "/update-phone-number",
-    {
-      method: "POST",
-      body: payload,
+async verifyPhone(payload: VerifyPhonePayload): Promise<VerifyPhoneResponse> {
+      return this.preAuthRequest<VerifyPhoneResponse>(
+        "/verify-phone",
+        {
+          method: "POST",
+          body: payload,
+        }
+      );
     }
-  );
-}
+
+async updatePhoneNumber(  payload: UpdatePhoneNumberPayload): Promise<UpdatePhoneNumberResponse> {
+      return this.preAuthRequest<UpdatePhoneNumberResponse>(
+        "/update-phone-number",
+        {
+          method: "POST",
+          body: payload,
+        }
+      );
+    }
 
   async getIdCardTypes() {
     return this.request<any[]>("/id-card-types");
