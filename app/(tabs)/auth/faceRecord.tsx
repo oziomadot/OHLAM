@@ -12,7 +12,7 @@ import { CameraView, useCameraPermissions } from "expo-camera";
 import { useLocalSearchParams, useRouter } from "expo-router";
 import { appendDeviceDetails, getDeviceDetails } from "@/src/utils/device";
 import { getItemSafe, setItemSafe } from "@/utils/storage";
-import API, { verifyNewDeviceFace } from "@/src/services/api";
+import API, { BASE_URL, verifyNewDeviceFace } from "@/src/services/api";
 import ScreenWrapper from "components/ScreenWrapper";
 
 type ScreenMode =
@@ -123,19 +123,13 @@ export default function FaceLivenessScreen() {
 
       const formData = new FormData();
 
-      formData.append(
-        "consent_given",
-        "1"
-      );
+      formData.append("consent_given", "1");
 
-      formData.append(
-        "selfie_image",
-        {
-          uri: selfieUri,
-          name: "selfie.jpg",
-          type: "image/jpeg",
-        } as any
-      );
+      formData.append("selfie_image", {
+        uri: selfieUri,
+        name: "selfie.jpg",
+        type: "image/jpeg",
+      } as any);
 
       if (mode ==="device-verification") {
         const device =
@@ -167,10 +161,7 @@ export default function FaceLivenessScreen() {
          */
         await setItemSafe("pre_auth_token", "");
 
-        Alert.alert(
-          "Device verified",
-          response.message,
-          [
+        Alert.alert("Device verified", response.message, [
             {
               text: "Continue",
               onPress: () =>
@@ -184,6 +175,11 @@ export default function FaceLivenessScreen() {
         return;
       }
 
+
+
+      console.log("[KYC] Uploading...");
+console.log("[KYC] URL:", BASE_URL + "/kyc-liveness");
+// console.log("[KYC] Token:", preAuthToken?.substring(0,20));
       /*
        * Normal authenticated KYC.
        */

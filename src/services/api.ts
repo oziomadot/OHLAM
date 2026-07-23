@@ -418,6 +418,44 @@ async updatePhoneNumber(  payload: UpdatePhoneNumberPayload): Promise<UpdatePhon
       );
     }
 
+
+    // KYC endpoints
+
+ async kycLiveness(formData: FormData) {
+  const preAuthToken =
+    await getItemSafe("pre_auth_token");
+        console.log("[KYC] Token exists:", Boolean(preAuthToken));
+
+        console.log("[KYC] Token format valid:", Boolean(preAuthToken && preAuthToken.includes("|")));
+
+        console.log("[KYC] Token length:", preAuthToken?.length ?? 0);
+
+        if (!preAuthToken) {
+          throw new Error(
+            "Your verification session is missing. Please log in again."
+          );
+        }
+
+        if (!preAuthToken.includes("|")) {
+          throw new Error(
+            "The stored verification token is invalid. Please register or log in again."
+          );
+        }
+
+      const response = await API.post("/kyc-liveness", formData, {
+          headers: {
+            Accept:
+              "application/json",
+            Authorization:
+              `Bearer ${preAuthToken}`,
+          },
+          timeout: 120_000,
+        }
+      );
+
+    return response.data;
+    }
+
   async getIdCardTypes() {
     return this.request<any[]>("/id-card-types");
   }
@@ -549,59 +587,7 @@ async updatePhoneNumber(  payload: UpdatePhoneNumberPayload): Promise<UpdatePhon
     return API.get(`/properties/${id}/status`);
   }
 
-  // KYC endpoints
-
- async kycLiveness(
-  formData: FormData
-) {
-  const preAuthToken =
-    await getItemSafe(
-      "pre_auth_token"
-    );
-
-  console.log(
-    "[KYC] Token exists:",
-    Boolean(preAuthToken)
-  );
-
-  console.log(
-    "[KYC] Token format valid:",
-    Boolean(
-      preAuthToken
-        && preAuthToken.includes("|")
-    )
-  );
-
-  console.log("[KYC] Token length:", preAuthToken?.length ?? 0);
-
-  if (!preAuthToken) {
-    throw new Error(
-      "Your verification session is missing. Please log in again."
-    );
-  }
-
-  if (!preAuthToken.includes("|")) {
-    throw new Error(
-      "The stored verification token is invalid. Please register or log in again."
-    );
-  }
-
-  const response = await API.post(
-    "/kyc-liveness",
-    formData,
-    {
-      headers: {
-        Accept:
-          "application/json",
-        Authorization:
-          `Bearer ${preAuthToken}`,
-      },
-      timeout: 120_000,
-    }
-  );
-
-  return response.data;
-}
+  
 
   async verifyFaceForNewDevice(formData: FormData) {
     const response = await API.post(
