@@ -418,38 +418,132 @@ async updatePhoneNumber(  payload: UpdatePhoneNumberPayload): Promise<UpdatePhon
  async kycLiveness(formData: FormData) {
   const preAuthToken =
     await getItemSafe("pre_auth_token");
-        console.log("[KYC] Token exists:", Boolean(preAuthToken));
 
-        console.log("[KYC] Token format valid:", Boolean(preAuthToken && preAuthToken.includes("|")));
+  console.log(
+    "[KYC] Token exists:",
+    Boolean(preAuthToken)
+  );
 
-        console.log("[KYC] Token length:", preAuthToken?.length ?? 0);
+  console.log(
+    "[KYC] Token format valid:",
+    Boolean(
+      preAuthToken &&
+      preAuthToken.includes("|")
+    )
+  );
 
-        if (!preAuthToken) {
-          throw new Error(
-            "Your verification session is missing. Please log in again."
-          );
-        }
+  console.log(
+    "[KYC] Token length:",
+    preAuthToken?.length ?? 0
+  );
 
-        if (!preAuthToken.includes("|")) {
-          throw new Error(
-            "The stored verification token is invalid. Please register or log in again."
-          );
-        }
+  if (!preAuthToken) {
+    throw new Error(
+      "Your verification session is missing. Please restart registration."
+    );
+  }
 
-      const response = await API.post("/kyc-liveness", formData, {
-          headers: {
-            Accept:
-              "application/json",
-            Authorization:
-              `Bearer ${preAuthToken}`,
-          },
-          timeout: 120_000,
-        }
-      );
+  if (!preAuthToken.includes("|")) {
+    throw new Error(
+      "Your verification session is invalid. Please restart registration."
+    );
+  }
 
-    return response.data;
+  const url = `${BASE_URL}/kyc-liveness`;
+
+  console.log("[KYC] Upload URL:", url);
+
+  const controller = new AbortController();
+
+  const timeoutId = setTimeout(() => {
+    controller.abort();
+  }, 120_000);
+
+  try {
+    const response = await fetch(url, {
+      method: "POST",
+      headers: {
+        Accept: "application/json",
+        Authorization:
+          `Bearer ${preAuthToken}`,
+      },
+
+      /*
+       * Do not manually set Content-Type.
+       * React Native must generate the multipart boundary.
+       */
+      body: formData,
+      signal: controller.signal,
+    });
+
+    const responseText =
+      await response.text();
+
+    console.log(
+      "[KYC] HTTP status:",
+      response.status
+    );
+
+    console.log(
+      "[KYC] Response preview:",
+      responseText.slice(0, 500)
+    );
+
+    let responseData: any;
+
+    try {
+      responseData = responseText
+        ? JSON.parse(responseText)
+        : {};
+    } catch {
+      responseData = {
+        success: false,
+        message:
+          response.status >= 500
+            ? "The verification server encountered an error."
+            : "The server returned an invalid response.",
+        rawResponse: responseText.slice(
+          0,
+          500
+        ),
+      };
     }
 
+    if (!response.ok) {
+      const error = new Error(
+        responseData?.message ??
+          `Face verification failed with status ${response.status}.`
+      ) as Error & {
+        status?: number;
+        data?: unknown;
+      };
+
+      error.status = response.status;
+      error.data = responseData;
+
+      throw error;
+    }
+
+    return responseData;
+  } catch (error: any) {
+    if (error?.name === "AbortError") {
+      throw new Error(
+        "The face upload timed out. Please check your connection and try again."
+      );
+    }
+
+    console.error("[KYC] Fetch failed:", {
+      name: error?.name,
+      message: error?.message,
+      status: error?.status,
+      data: error?.data,
+    });
+
+    throw error;
+  } finally {
+    clearTimeout(timeoutId);
+  }
+}
   async getIdCardTypes() {
     return this.request<any[]>("/id-card-types");
   }

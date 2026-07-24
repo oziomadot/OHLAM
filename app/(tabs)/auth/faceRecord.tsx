@@ -2,6 +2,7 @@ import { useEffect, useRef, useState } from "react";
 import { ActivityIndicator,
   Alert,
   Image,
+  Platform,
   StyleSheet,
   Text,
   TouchableOpacity,
@@ -12,7 +13,7 @@ import { CameraView, useCameraPermissions } from "expo-camera";
 import { useLocalSearchParams, useRouter } from "expo-router";
 import { appendDeviceDetails, getDeviceDetails } from "@/src/utils/device";
 import { getItemSafe, removeItemSafe, setItemSafe } from "@/utils/storage";
-import API, { verifyNewDeviceFace } from "@/src/services/api";
+import API, { BASE_URL, verifyNewDeviceFace } from "@/src/services/api";
 import ScreenWrapper from "components/ScreenWrapper";
 
 type ScreenMode =
@@ -86,7 +87,7 @@ export default function FaceLivenessScreen() {
       const photo =
         await cameraRef.current
           ?.takePictureAsync({
-            quality: 0.85,
+            quality: 0.5,
             skipProcessing: false,
           });
 
@@ -107,158 +108,198 @@ export default function FaceLivenessScreen() {
   }
 
   async function submitSelfie():
-    Promise<void> {
-    if (!selfieUri || loading) {
-      return;
+  Promise<void> {
+  if (!selfieUri || loading) {
+    return;
+  }
+
+  try {
+    setLoading(true);
+
+    const preAuthToken =
+      await getItemSafe(
+        "pre_auth_token"
+      );
+
+    console.log("[FACE] Starting upload");
+    console.log(
+      "[FACE] Mode:",
+      mode
+    );
+    console.log(
+      "[FACE] URI:",
+      selfieUri
+    );
+    console.log(
+      "[FACE] Platform:",
+      Platform.OS
+    );
+    console.log(
+      "[FACE] Token exists:",
+      Boolean(preAuthToken)
+    );
+
+    if (!preAuthToken) {
+      throw new Error(
+        "Your verification session is missing."
+      );
     }
 
-    try {
-      setLoading(true);
+    const normalizedUri =
+      Platform.OS === "ios"
+        ? selfieUri.replace(
+            "file://",
+            ""
+          )
+        : selfieUri;
 
-      const formData = new FormData();
+    const formData =
+      new FormData();
 
-      formData.append("consent_given", "1");
+    formData.append(
+      "consent_given",
+      "1"
+    );
 
-      formData.append("selfie_image", {
-        uri: selfieUri,
-        name: "selfie.jpg",
+    formData.append(
+      "selfie_image",
+      {
+        uri: normalizedUri,
+        name:
+          `selfie-${Date.now()}.jpg`,
         type: "image/jpeg",
-      } as any);
+      } as any
+    );
 
-      if (mode ==="device-verification") {
-        const device =
-          await getDeviceDetails();
+    if (
+      mode ===
+      "device-verification"
+    ) {
+      const device =
+        await getDeviceDetails();
 
-        appendDeviceDetails(
-          formData,
-          device
-        );
+      appendDeviceDetails(
+        formData,
+        device
+      );
 
-        const response =
-         await verifyNewDeviceFace(
+      const response =
+        await verifyNewDeviceFace(
           formData
         );
 
-        if (!response.success) {  
-          throw new Error(
-            response.message
-              ?? "Device verification failed."
-          );
-        }
-
-        await setItemSafe("auth_token", response.token);
-        await setItemSafe("user", JSON.stringify(response.user));
-        await setItemSafe("user_id", String(response.user.id));
-
-        /*
-         * Clear restricted token.
-         */
-       await removeItemSafe("pre_auth_token");
-
-        Alert.alert("Device verified", response.message, [
-            {
-              text: "Continue",
-              onPress: () =>
-                router.replace(
-                  "/(tabs)/dashboard"
-                ),
-            },
-          ]
-        );
-
-        return;
-      }
-
-
-
-
-const preAuthToken =
-  await getItemSafe("pre_auth_token");
-
-console.log("[FACE SCREEN] Pre-auth token exists:", Boolean(preAuthToken));
-
-console.log("[FACE SCREEN] Token length:", preAuthToken?.length ?? 0);
-
-if (!preAuthToken) {
-  Alert.alert(
-    "Session expired",
-    "Your verification session is missing. Please restart registration."
-  );
-
-  return;
-}
-
-try {
-  const tokenTest =
-    await API.testPreAuthToken();
-
-  console.log(
-    "[FACE SCREEN] Token validation:",
-    JSON.stringify(tokenTest, null, 2)
-  );
-} catch (tokenError: any) {
-  console.error(
-    "[FACE SCREEN] Token validation failed:",
-    tokenError
-  );
-
-  Alert.alert(
-    "Session expired",
-    tokenError?.message ??
-      "Your verification session is no longer valid."
-  );
-
-  return;
-}
-
-
-
-      /*
-       * Normal authenticated KYC.
-       */
-      const response = await API.kycLiveness(
-        formData
-      );
-
       if (!response.success) {
         throw new Error(
-          response.message
-            ?? "Face verification failed."
+          response.message ??
+            "Device verification failed."
         );
       }
 
+      await setItemSafe(
+        "auth_token",
+        response.token
+      );
+
+      await setItemSafe(
+        "user",
+        JSON.stringify(
+          response.user
+        )
+      );
+
+      await setItemSafe(
+        "user_id",
+        String(response.user.id)
+      );
+
+      await setItemSafe(
+        "pre_auth_token",
+        ""
+      );
+
       Alert.alert(
-        "Liveness confirmed",
+        "Device verified",
         response.message,
         [
           {
             text: "Continue",
             onPress: () =>
               router.replace(
-                "/auth/idCardUpload"
+                "/(tabs)/dashboard"
               ),
           },
         ]
       );
-    } catch (error: any) {
-      console.error(
-        "Face verification failed",
-        error?.response?.data
-          ?? error?.message
-      );
 
-      Alert.alert(
-        "Verification failed",
-        error?.response?.data
-          ?.message
-          ?? error?.message
-          ?? "Could not verify your face."
-      );
-    } finally {
-      setLoading(false);
+      return;
     }
-  }
 
+    console.log(
+      "[FACE] Calling kycLiveness"
+    );
+
+
+
+    const healthResponse =
+      await fetch(`${BASE_URL}/health`, {
+        headers: {
+          Accept: "application/json",
+        },
+      });
+      
+console.log(
+  "[FACE] Health status:",
+  healthResponse.status
+);
+
+    const response =
+      await API.kycLiveness(formData);
+
+    console.log("[FACE] KYC response:", JSON.stringify(response, null, 2));
+
+    if (!response.success) {
+      throw new Error(
+        response.message ??
+          "Face verification failed."
+      );
+    }
+
+    Alert.alert("Liveness confirmed", response.message ??
+        "Your face was verified.",
+      [
+        {
+          text: "Continue",
+          onPress: () =>
+            router.replace(
+              "/auth/idCardUpload"
+            ),
+        },
+      ]
+    );
+  } catch (error: any) {
+    console.error(
+      "[FACE] Verification failed:",
+      {
+        name: error?.name,
+        message: error?.message,
+        status:
+          error?.status ??
+          error?.response?.status,
+        data:
+          error?.data ??
+          error?.response?.data,
+        code: error?.code,
+        stack: error?.stack,
+      }
+    );
+
+    Alert.alert("Verification failed", error?.data?.message ?? 
+      error?.response?.data?.message ?? error?.message ??
+       "Could not verify your face.");
+  } finally {
+    setLoading(false);
+  }
+}
   function retake(): void {
     if (loading) {
       return;
