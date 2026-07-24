@@ -92,17 +92,10 @@ type ApiError = {
     });
 
     if (response.user_id !== undefined) {
-      await setItemSafe(
-        "user_id",
-        String(response.user_id)
-      );
+      await setItemSafe("user_id", String(response.user_id));
     }
 
-    showAlert(
-      "Code Sent",
-      response.message ??
-        "A new verification code has been sent to your phone number."
-    );
+    showAlert("Code Sent", response.message ?? "A new verification code has been sent to your phone number.");
   } catch (error: unknown) {
     const apiError = error as ApiError;
 
@@ -122,9 +115,7 @@ type ApiError = {
   
   
 
-  const verifyOtp = async (
-  formData: PhoneVerificationForm
-): Promise<void> => {
+  const verifyOtp = async (formData: PhoneVerificationForm): Promise<void> => {
   const verificationCode = formData.code.trim();
 
   if (!/^\d{6}$/.test(verificationCode)) {
@@ -153,6 +144,36 @@ type ApiError = {
       code: verificationCode,
     });
 
+
+    const tokenAfterPhone =
+  await getItemSafe("pre_auth_token");
+
+console.log(
+  "[PHONE VERIFIED] Pre-auth token exists:",
+  Boolean(tokenAfterPhone)
+);
+
+console.log(
+  "[PHONE VERIFIED] Token length:",
+  tokenAfterPhone?.length ?? 0
+);
+
+if (!tokenAfterPhone) {
+  throw new Error(
+    "The verification session disappeared after phone verification."
+  );
+}
+
+const tokenTest =
+  await API.testPreAuthToken();
+
+console.log(
+  "[PHONE VERIFIED] Token test:",
+  JSON.stringify(tokenTest, null, 2)
+);
+
+
+
     if (response.user) {
       const userToStore =
         typeof response.user === "string"
@@ -168,15 +189,11 @@ type ApiError = {
       );
     }
 
-    await setItemSafe(
-      "registration_step",
-      "face-record"
-    );
+    await setItemSafe("registration_step", "face-record");
 
     showAlert(
       "Phone Number Verified",
-      response.message ??
-        "Your phone number has been verified successfully.",
+      response.message ?? "Your phone number has been verified successfully.",
       () => {
         router.replace("/auth/faceRecord");
       }

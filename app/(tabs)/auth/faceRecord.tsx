@@ -1,4 +1,4 @@
-import React, { useEffect, useRef, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { ActivityIndicator,
   Alert,
   Image,
@@ -11,8 +11,8 @@ import { ActivityIndicator,
 import { CameraView, useCameraPermissions } from "expo-camera";
 import { useLocalSearchParams, useRouter } from "expo-router";
 import { appendDeviceDetails, getDeviceDetails } from "@/src/utils/device";
-import { getItemSafe, setItemSafe } from "@/utils/storage";
-import API, { BASE_URL, verifyNewDeviceFace } from "@/src/services/api";
+import { getItemSafe, removeItemSafe, setItemSafe } from "@/utils/storage";
+import API, { verifyNewDeviceFace } from "@/src/services/api";
 import ScreenWrapper from "components/ScreenWrapper";
 
 type ScreenMode =
@@ -98,15 +98,9 @@ export default function FaceLivenessScreen() {
 
       setSelfieUri(photo.uri);
     } catch (error) {
-      console.error(
-        "Selfie capture failed",
-        error
-      );
+      console.error("Selfie capture failed", error);
 
-      Alert.alert(
-        "Capture failed",
-        "Could not capture your selfie. Please try again."
-      );
+      Alert.alert("Capture failed", "Could not capture your selfie. Please try again.");
     } finally {
       setLoading(false);
     }
@@ -159,7 +153,7 @@ export default function FaceLivenessScreen() {
         /*
          * Clear restricted token.
          */
-        await setItemSafe("pre_auth_token", "");
+       await removeItemSafe("pre_auth_token");
 
         Alert.alert("Device verified", response.message, [
             {
@@ -177,9 +171,48 @@ export default function FaceLivenessScreen() {
 
 
 
-      console.log("[KYC] Uploading...");
-console.log("[KYC] URL:", BASE_URL + "/kyc-liveness");
-// console.log("[KYC] Token:", preAuthToken?.substring(0,20));
+
+const preAuthToken =
+  await getItemSafe("pre_auth_token");
+
+console.log("[FACE SCREEN] Pre-auth token exists:", Boolean(preAuthToken));
+
+console.log("[FACE SCREEN] Token length:", preAuthToken?.length ?? 0);
+
+if (!preAuthToken) {
+  Alert.alert(
+    "Session expired",
+    "Your verification session is missing. Please restart registration."
+  );
+
+  return;
+}
+
+try {
+  const tokenTest =
+    await API.testPreAuthToken();
+
+  console.log(
+    "[FACE SCREEN] Token validation:",
+    JSON.stringify(tokenTest, null, 2)
+  );
+} catch (tokenError: any) {
+  console.error(
+    "[FACE SCREEN] Token validation failed:",
+    tokenError
+  );
+
+  Alert.alert(
+    "Session expired",
+    tokenError?.message ??
+      "Your verification session is no longer valid."
+  );
+
+  return;
+}
+
+
+
       /*
        * Normal authenticated KYC.
        */

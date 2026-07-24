@@ -1,8 +1,4 @@
-import axios, {
-  AxiosError,
-  AxiosInstance,
-  AxiosRequestConfig,
-} from "axios";
+import axios, { AxiosError, AxiosInstance, AxiosRequestConfig,} from "axios";
 
 import { getItemSafe, setItemSafe, removeItemSafe } from "@/utils/storage";
 import { getDeviceDetails } from "@/utils/device";
@@ -50,9 +46,7 @@ API.interceptors.response.use(
   }
 );
 
-export async function verifyNewDeviceFace(
-  formData: FormData
-) {
+export async function verifyNewDeviceFace(formData: FormData) {
   console.log("[verifyNewDeviceFace] formData", formData);
   const preAuthToken =
     await getItemSafe("pre_auth_token");
