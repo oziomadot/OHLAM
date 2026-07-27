@@ -119,7 +119,7 @@ const RegistrationScreen = () => {
 
       await setItemSafe("user_email", user.email);
 
-      await setItemSafe("registration_step", next_step ?? "verify_email");
+      await setItemSafe("registration_step", next_step ?? "email_verification");
 
       router.replace("/auth/email-verification");
 

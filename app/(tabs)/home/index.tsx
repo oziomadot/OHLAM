@@ -1,4 +1,4 @@
-import { useRouter } from "expo-router";
+import { useFocusEffect, useRouter } from "expo-router";
 import React, { useCallback, useState } from "react";
 import {
   ScrollView,
@@ -14,8 +14,8 @@ import { MaterialCommunityIcons } from "@expo/vector-icons";
 import API, { BASE_URL } from "@/src/services/api";
 import Navbar from "components/Navbar";
 import FilterBar from "components/FilterBar";
-import { useFocusEffect } from "@react-navigation/native";
 import ScreenWrapper from "components/ScreenWrapper";
+
 
 const categories = [
   { name: "Rent", key: "rents" },

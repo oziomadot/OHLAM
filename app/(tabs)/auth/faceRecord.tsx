@@ -465,7 +465,7 @@ const styles =
     },
 
     overlay: {
-      ...StyleSheet.absoluteFillObject,
+      ...StyleSheet.absoluteFill,
       alignItems: "center",
       justifyContent: "flex-end",
       paddingHorizontal: 24,

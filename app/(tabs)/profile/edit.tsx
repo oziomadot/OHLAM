@@ -12,17 +12,14 @@ import { View,
     Alert,
  } from "react-native";
 import Navbar from "components/Navbar";
-import { useForm, Controller, useWatch} from "react-hook-form";
+import { useForm, Controller } from "react-hook-form";
 import { useAuth } from "context/AuthContext";
 import API from "@/src/services/api";
-import { useState, useEffect, useCallback  } from "react";
-import AsyncStorage from "@react-native-async-storage/async-storage";
-import { Picker } from "@react-native-picker/picker";
+import { useState, useEffect } from "react";
 import * as ImagePicker from "expo-image-picker";
 // API_BASE_URL is now defined in the API service
 import { useRouter } from "expo-router";
-import { useFocusEffect } from '@react-navigation/native';
-import { getItem, setItem } from "../../utils/storage";
+
 
 
 import CustomAlert from "components/CustomAlert";

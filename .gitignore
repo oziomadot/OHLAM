@@ -47,3 +47,5 @@ android/local.properties
 
 ios/Pods/
 ios/build/
+android/
+ios/
