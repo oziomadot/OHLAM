@@ -10,7 +10,6 @@ import {
   Alert,
 } from "react-native";
 import { useForm, Controller } from "react-hook-form";
-import { Picker } from "@react-native-picker/picker";
 import { useRouter, Link } from "expo-router";
 import API from "@/src/services/api";
 import Navbar from "components/Navbar";
@@ -19,16 +18,16 @@ import CustomAlert from "components/CustomAlert";
 import ScreenWrapper from "components/ScreenWrapper";
 import TermsModal from "components/TermsModal";
 import { setItemSafe, getItemSafe } from "@/utils/storage";
+import { getFriendlyApiError } from "@/src/utils/apiError";
 
 import { useLocalSearchParams } from "expo-router";
-
 
 
 const RegistrationScreen = () => {
   const router = useRouter();
   const [loading, setLoading] = useState(false);
   
-  const [error, setError] = useState("");
+ 
   const [agreeTerms, setAgreeTerms] = useState(false);
   const [termsModalVisible, setTermsModalVisible] = useState(false);
 
@@ -97,7 +96,6 @@ const RegistrationScreen = () => {
 
       const {verification_required, pre_auth_token, user, next_step} = res;
 
-      console.log("Registration completed:", {verification_required, has_pre_auth_token: Boolean(pre_auth_token), next_step, user_id: user?.id });
 
       if (!user?.id || !user?.email) {
         throw new Error(
@@ -134,36 +132,26 @@ const RegistrationScreen = () => {
     }
 
       
-       catch (err: any) {
-  console.log("🔥 REGISTER ERROR FULL:", err);
-  console.log("🔥 REGISTER ERROR RESPONSE:", err?.response);
-  console.log("🔥 REGISTER ERROR DATA:", err?.response?.data);
-  console.log("🔥 REGISTER ERROR MESSAGE:", err?.message);
-
-  const data = err?.response?.data || err?.data || err;
-
-  let message = "Something went wrong. Please try again.";
-
-  if (data?.errors) {
-    message = Object.values(data.errors).flat().join("\n");
-    showAlert("Validation Error", message);
-    return;
+        catch (error: unknown) {
+  if (__DEV__) {
+    console.log(
+      "[REGISTER] Error:",
+      error
+    );
   }
 
-  if (data?.message) {
-    showAlert("Error", data.message);
-    return;
-  }
+  const friendlyError = getFriendlyApiError(
+    error,
+    "We could not complete your registration. Please try again."
+  );
 
-  if (err?.message) {
-    showAlert("Error", err.message);
-    return;
-  }
-
-  showAlert("Error", message);
+  showAlert(
+    friendlyError.title,
+    friendlyError.message
+  );
 } finally {
-      setLoading(false);
-    }
+  setLoading(false);
+}
   };
 
   // ✅ Password strength logic
@@ -195,13 +183,6 @@ const RegistrationScreen = () => {
 
 
 
-  if (error) {
-    return (
-      <View style={styles.center}>
-        <Text style={{ color: "red" }}>{error}</Text>
-      </View>
-    );
-  }
 
   return (
     <ScreenWrapper>
@@ -261,23 +242,37 @@ const RegistrationScreen = () => {
         </FormField>
 
         {/* Email */}
-        <FormField label="Email" required error={errors.email}>
-          <Controller
-            control={control}
-            name="email"
-            rules={{ required: true }}
-            render={({ field: { onChange, value } }) => (
-              <TextInput
-                placeholder="Enter email"
-                keyboardType="email-address"
-                autoCapitalize="none"
-                style={styles.input}
-                value={value}
-                onChangeText={onChange}
-              />
-            )}
-          />
-        </FormField>
+        <Controller
+  control={control}
+  name="email"
+  rules={{
+    required: "Email address is required.",
+    pattern: {
+      value:
+        /^[^\s@]+@[^\s@]+\.[^\s@]+$/,
+      message:
+        "Enter a valid email address.",
+    },
+  }}
+  render={({
+    field: {
+      onChange,
+      onBlur,
+      value,
+    },
+  }) => (
+    <TextInput
+      placeholder="Enter email"
+      keyboardType="email-address"
+      autoCapitalize="none"
+      autoCorrect={false}
+      style={styles.input}
+      value={value ?? ""}
+      onBlur={onBlur}
+      onChangeText={onChange}
+    />
+  )}
+/>
 
         {/* Password */}
         <FormField label="Password" required error={errors.password}>
@@ -285,7 +280,7 @@ const RegistrationScreen = () => {
             control={control}
             name="password"
             rules={{
-              required: true,
+              required: "Password is required",
               minLength: { value: 8, message: "Password must be at least 8 characters long" },
             }}
             render={({ field: { onChange, value } }) => (
@@ -315,7 +310,7 @@ const RegistrationScreen = () => {
             control={control}
             name="password_confirmation"
             rules={{
-              required: "Confirm Password is required",
+              required: "Please, confirm your password",
               validate: (value) => value === password || "Passwords do not match",
             }}
             render={({ field: { onChange, value } }) => (
@@ -334,22 +329,67 @@ const RegistrationScreen = () => {
         <DOBPicker control={control} setValue={setValue} />
 
         {/* Phone */}
-        <FormField label="Phone Number">
-          <Controller
-            control={control}
-            name="phonenumber"
-            render={({ field: { onChange, value } }) => (
-              <TextInput
-                placeholder="Enter phone number"
-                keyboardType="phone-pad"
-                style={styles.input}
-                value={value}
-                onChangeText={onChange}
-              />
-            )}
-          />
-        </FormField>
+        <FormField
+  label="Phone Number"
+  required
+  error={errors.phonenumber}
+>
+  <Controller
+    control={control}
+    name="phonenumber"
+    rules={{
+      required:
+        "Phone number is required.",
 
+      pattern: {
+        value: /^\+[1-9]\d{7,14}$/,
+        message:
+          "Enter the number with its country code, for example +2348012345678.",
+      },
+    }}
+    render={({
+      field: {
+        onChange,
+        onBlur,
+        value,
+      },
+    }) => (
+      <TextInput
+        placeholder="+2348012345678"
+        keyboardType="phone-pad"
+        autoComplete="tel"
+        style={styles.input}
+        value={value ?? ""}
+        onBlur={onBlur}
+        onChangeText={(text) => {
+          /*
+           * Allow + and digits only.
+           */
+          const cleaned = text.replace(
+            /[^\d+]/g,
+            ""
+          );
+
+          /*
+           * Ensure + can only appear at the start.
+           */
+          const normalized =
+            cleaned.startsWith("+")
+              ? "+"
+                + cleaned
+                    .slice(1)
+                    .replace(/\+/g, "")
+              : cleaned.replace(
+                  /\+/g,
+                  ""
+                );
+
+          onChange(normalized);
+        }}
+      />
+    )}
+  />
+</FormField>
        
 
         {/* Referrer ID (always visible but optional) */}

@@ -38,11 +38,12 @@ export function AuthProvider({ children }) {
         return data;
     }
 
-    async function logout() {
-        await api.logout();
-        setUser(null);
-    }
+    const logout = async () => {
+        await performFullLogout();
 
+        setUser(null);
+        setIsAuthenticated(false);
+};
     return (
         <AuthContext.Provider value={{ user, loading, login, register, logout }}>
             {children}

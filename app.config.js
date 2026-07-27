@@ -41,8 +41,20 @@ export default {
     },
 
     plugins: [
+      [
+        "expo-local-authentication",
+        {
+          "faceIDPermission": "Allow OHLAM to use Face ID for secure login."
+        }
+      ],
+      [
+        "expo-secure-store",
+        {
+          "configureAndroidBackup": true,
+          "faceIDPermission": "Allow OHLAM to securely access your login credentials."
+        }
+      ],
       "expo-router",
-      "expo-secure-store",
       "expo-notifications"
     ],
 

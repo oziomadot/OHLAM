@@ -189,6 +189,98 @@ export type UpdateEmailResponse = {
   user?: UserResponse;
 };
 
+export type LoginSecurityStatusResponse = {
+  status: number;
+  data: {
+    pin_enabled: boolean;
+    pin_locked_until?: string | null;
+  };
+};
+
+export type BasicMessageResponse = {
+  status: number;
+  message: string;
+};
+
+export type PinLoginPayload = {
+  login: string;
+  pin: string;
+  device_id: string;
+  device_secret: string;
+};
+
+export type PinLoginResponse = {
+  status: number;
+  message?: string;
+  token?: string;
+  access_token?: string;
+  user?: unknown;
+  next_step?: string;
+  verification_required?: boolean;
+};
+
+export type UserSummary = {
+  id: number;
+  email?: string;
+  phonenumber?: string;
+  firstname?: string;
+  surname?: string;
+  [key: string]: unknown;
+};
+
+export type AuthResponse = {
+  status: number;
+  message?: string;
+
+  token?: string;
+  access_token?: string;
+  auth_token?: string;
+  plainTextToken?: string;
+
+  user?: UserSummary;
+
+  verification_required?: boolean;
+  next_step?: string;
+  pre_auth_token?: string;
+
+  code?: string;
+  remaining_attempts?: number;
+  locked_until?: string | null;
+};
+
+export type LoginSecurityResponse = {
+  status: number;
+  data: {
+    pin_enabled: boolean;
+    pin_locked_until?: string | null;
+  };
+};
+
+export type TrustedDeviceResponse = {
+  status: number;
+  message: string;
+  data: {
+    device_id: string;
+    device_secret: string;
+  };
+};
+
+export function extractAuthToken(
+  response: AuthResponse
+): string | null {
+  return (
+    response.token ||
+    response.access_token ||
+    response.auth_token ||
+    response.plainTextToken ||
+    null
+  );
+}
+
+
+
+
+
 class ApiService {
   public readonly baseURL: string;
   public readonly defaults: AxiosInstance["defaults"];
@@ -329,27 +421,27 @@ class ApiService {
   }
 
   async register(userData: unknown) {
-  const response = await API.post("/register", userData);
+      const response = await API.post("/register", userData);
 
-  const preAuthToken = response.data?.pre_auth_token;
+      const preAuthToken = response.data?.pre_auth_token;
 
-  if (!preAuthToken) {
-    throw new Error("No verification token was returned by the server.");
-  }
+      if (!preAuthToken) {
+        throw new Error("No verification token was returned by the server.");
+      }
 
-  await removeItemSafe("auth_token");
+      await removeItemSafe("auth_token");
 
-  await removeItemSafe("pre_auth_token");
+      await removeItemSafe("pre_auth_token");
 
-  await setItemSafe("pre_auth_token", String(preAuthToken));
+      await setItemSafe("pre_auth_token", String(preAuthToken));
 
-  const storedToken = await getItemSafe("pre_auth_token");
+      const storedToken = await getItemSafe("pre_auth_token");
 
-  if (storedToken !== String(preAuthToken)) {
-    throw new Error("The verification token could not be stored correctly.");
-  }
+      if (storedToken !== String(preAuthToken)) {
+        throw new Error("The verification token could not be stored correctly.");
+      }
 
-  return response.data;
+      return response.data;
 }
 
   async verifyEmail( payload: VerifyEmailPayload): Promise<VerifyEmailResponse> {
@@ -412,6 +504,78 @@ async updatePhoneNumber(  payload: UpdatePhoneNumberPayload): Promise<UpdatePhon
       );
     }
 
+
+    async getLoginSecurity(): Promise<LoginSecurityStatusResponse> {
+        return API
+          .get<LoginSecurityStatusResponse>("/login-security")
+          .then((response) => response.data);
+      }
+
+  async setLoginPin(payload: {
+        current_password: string;
+        pin: string;
+        pin_confirmation: string;
+      }): Promise<BasicMessageResponse> {
+        return API
+          .post<BasicMessageResponse>("/login-security/pin", payload)
+          .then((response) => response.data);
+      }
+
+  async disableLoginPin(payload: {
+        current_password: string;
+      }): Promise<BasicMessageResponse> {
+        return API
+          .delete<BasicMessageResponse>("/login-security/pin", {
+            data: payload,
+          })
+          .then((response) => response.data);
+      }
+
+  async loginWithPin(
+  payload: PinLoginPayload
+) {
+  const response =
+    await API.post(
+      "/login/pin",
+      payload
+    );
+
+  return response.data;
+}
+
+
+  async getCurrentUser() {
+    return API
+      .get("/user")
+      .then((response) => response.data);
+  }
+
+  async registerTrustedLoginDevice(payload: {
+    device_id: string;
+    device_name?: string;
+    platform?: string;
+    app_version?: string;
+  }): Promise<TrustedDeviceResponse> {
+    return API
+      .post<TrustedDeviceResponse>(
+        "/trusted-login-devices",
+        payload
+      )
+      .then((response) => response.data);
+  }
+
+  async revokeTrustedLoginDevice(payload: {
+    device_id: string;
+  }) {
+    return API
+      .delete(
+        "/trusted-login-devices/current",
+        {
+          data: payload,
+        }
+      )
+      .then((response) => response.data);
+  }
 
     // KYC endpoints
 
@@ -675,6 +839,8 @@ async verifyIdCard(formData: FormData) {
       method: "POST",
     });
   }
+
+
 
   // Property endpoints
 

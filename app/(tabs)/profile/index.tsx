@@ -235,6 +235,22 @@ export default function ProfileScreen() {
             <Text style={styles.sectionTitle}>Account Actions</Text>
 
             <TouchableOpacity
+              style={styles.securityButton}
+              onPress={() =>
+                router.push("/(tabs)/profile/login-security" as any)
+              }
+            >
+              <Ionicons
+                name="shield-checkmark-outline"
+                size={20}
+                color="#fff"
+              />
+              <Text style={styles.actionButtonText}>
+                Login & Security
+              </Text>
+          </TouchableOpacity>
+
+            <TouchableOpacity
               style={styles.actionButton}
               onPress={() => router.push("/(tabs)/profile/edit" as any)}
             >
@@ -415,4 +431,15 @@ const styles = StyleSheet.create({
     gap: 8,
   },
   actionButtonText: { color: "#fff", fontWeight: "900" },
+
+  securityButton: {
+  backgroundColor: "#059669",
+  padding: 14,
+  borderRadius: 14,
+  alignItems: "center",
+  justifyContent: "center",
+  flexDirection: "row",
+  gap: 8,
+  marginBottom: 10,
+},
 });
