@@ -3,6 +3,7 @@ import axios, { AxiosError, AxiosInstance, AxiosRequestConfig,} from "axios";
 import { getItemSafe, setItemSafe, removeItemSafe } from "@/utils/storage";
 import { getDeviceDetails } from "@/utils/device";
 import { ENV } from '@/src/config/env';
+import { fetch } from "expo/fetch";
 
 const TOKEN_KEY = "auth_token";
 
@@ -583,23 +584,15 @@ async updatePhoneNumber(  payload: UpdatePhoneNumberPayload): Promise<UpdatePhon
   const preAuthToken =
     await getItemSafe("pre_auth_token");
 
-  console.log(
-    "[KYC] Token exists:",
-    Boolean(preAuthToken)
-  );
+  console.log("[KYC] Token exists:", Boolean(preAuthToken));
 
-  console.log(
-    "[KYC] Token format valid:",
-    Boolean(
+  console.log("[KYC] Token format valid:", Boolean(
       preAuthToken &&
       preAuthToken.includes("|")
     )
   );
 
-  console.log(
-    "[KYC] Token length:",
-    preAuthToken?.length ?? 0
-  );
+  console.log("[KYC] Token length:", preAuthToken?.length ?? 0);
 
   if (!preAuthToken) {
     throw new Error(

@@ -13,8 +13,10 @@ import { CameraView, useCameraPermissions } from "expo-camera";
 import { useLocalSearchParams, useRouter } from "expo-router";
 import { appendDeviceDetails, getDeviceDetails } from "@/src/utils/device";
 import { getItemSafe, removeItemSafe, setItemSafe } from "@/utils/storage";
-import API, { BASE_URL, verifyNewDeviceFace } from "@/src/services/api";
+import API, {  verifyNewDeviceFace } from "@/src/services/api";
 import ScreenWrapper from "components/ScreenWrapper";
+import { File } from "expo-file-system";
+
 
 type ScreenMode =
   | "kyc"
@@ -145,32 +147,33 @@ export default function FaceLivenessScreen() {
       );
     }
 
-    const normalizedUri =
-      Platform.OS === "ios"
-        ? selfieUri.replace(
-            "file://",
-            ""
-          )
-        : selfieUri;
+    console.log(selfieUri);
 
-    const formData =
-      new FormData();
+ const selfieFile =
+  new File(selfieUri);
 
-    formData.append(
-      "consent_given",
-      "1"
-    );
+console.log(
+  "[FACE] Selfie URI:",
+  selfieUri
+);
 
-    formData.append(
-      "selfie_image",
-      {
-        uri: normalizedUri,
-        name:
-          `selfie-${Date.now()}.jpg`,
-        type: "image/jpeg",
-      } as any
-    );
 
+const formData =
+  new FormData();
+
+formData.append(
+  "consent_given",
+  "1"
+);
+
+formData.append(
+  "selfie_image",
+  selfieFile
+);
+
+console.log(
+  "[FACE] Multipart form prepared"
+);
     if (
       mode ===
       "device-verification"
@@ -240,20 +243,11 @@ export default function FaceLivenessScreen() {
 
 
 
-    const healthResponse =
-      await fetch(`${BASE_URL}/health`, {
-        headers: {
-          Accept: "application/json",
-        },
-      });
-      
-console.log(
-  "[FACE] Health status:",
-  healthResponse.status
-);
+    
 
-    const response =
-      await API.kycLiveness(formData);
+
+
+    const response = await API.kycLiveness(formData);
 
     console.log("[FACE] KYC response:", JSON.stringify(response, null, 2));
 
