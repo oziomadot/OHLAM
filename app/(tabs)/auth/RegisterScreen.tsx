@@ -242,6 +242,7 @@ const RegistrationScreen = () => {
         </FormField>
 
         {/* Email */}
+        <FormField label="Email" required error={errors.email}>
         <Controller
   control={control}
   name="email"
@@ -273,6 +274,7 @@ const RegistrationScreen = () => {
     />
   )}
 />
+</FormField>
 
         {/* Password */}
         <FormField label="Password" required error={errors.password}>

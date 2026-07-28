@@ -13,7 +13,7 @@ import { View,
  } from "react-native";
 import Navbar from "components/Navbar";
 import { useForm, Controller } from "react-hook-form";
-import { useAuth } from "context/AuthContext";
+import { useAuth } from "@/context/AuthContext";
 import API from "@/src/services/api";
 import { useState, useEffect } from "react";
 import * as ImagePicker from "expo-image-picker";
