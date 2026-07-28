@@ -168,7 +168,7 @@ formData.append(
 
 formData.append(
   "selfie_image",
-  selfieFile
+  selfieFile as any
 );
 
 console.log(
