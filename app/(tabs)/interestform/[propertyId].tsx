@@ -13,12 +13,20 @@ import { Picker } from "@react-native-picker/picker";
 import API from "@/src/services/api";
 import CustomAlert from "components/CustomAlert";
 import Protected from "components/Protected";
-import { useAuth } from "context/AuthContext";
+import { useAuth } from "@/context/AuthContext";
 import { useForm } from "react-hook-form";
 import property from "../properties/create";
 
+interface AppointmentEligibilityResponse {
+  allowed: boolean;
+  required_escrow?: number;
+  current_balance?: number;
+  amount_needed?: number;
+  message?: string;
+}
+
 const InterestFormScreen = () => {
-  const { propertyId } = useLocalSearchParams();
+  const { propertyId } = useLocalSearchParams<{ propertyId: string }>();
   const router = useRouter();
   const { user, isAuthenticated } = useAuth();
 
@@ -61,7 +69,9 @@ const InterestFormScreen = () => {
 
       setCheckingEscrow(true);
 
-      const res = await API.get(`/property/${propertyId}/appointment-eligibility`);
+      const res = await API.get<AppointmentEligibilityResponse>(
+        `/property/${propertyId}/appointment-eligibility`
+      );
 
       const allowed = res.data?.allowed;
       const requiredEscrow = res.data?.required_escrow;
