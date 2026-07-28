@@ -15,7 +15,6 @@ import { appendDeviceDetails, getDeviceDetails } from "@/src/utils/device";
 import { getItemSafe, removeItemSafe, setItemSafe } from "@/utils/storage";
 import API, {  verifyNewDeviceFace } from "@/src/services/api";
 import ScreenWrapper from "components/ScreenWrapper";
-import { File } from "expo-file-system";
 
 
 type ScreenMode =
@@ -149,27 +148,15 @@ export default function FaceLivenessScreen() {
 
     console.log(selfieUri);
 
- const selfieFile =
-  new File(selfieUri);
+    const formData = new FormData();
 
-console.log(
-  "[FACE] Selfie URI:",
-  selfieUri
-);
+    formData.append("consent_given", "1");
 
-
-const formData =
-  new FormData();
-
-formData.append(
-  "consent_given",
-  "1"
-);
-
-formData.append(
-  "selfie_image",
-  selfieFile as any
-);
+    formData.append("selfie_image", {
+      uri: selfieUri,
+      name: "selfie.jpg",
+      type: "image/jpeg",
+    } as any);
 
 console.log(
   "[FACE] Multipart form prepared"

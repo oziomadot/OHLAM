@@ -623,10 +623,6 @@ async updatePhoneNumber(  payload: UpdatePhoneNumberPayload): Promise<UpdatePhon
     );
   }
 
-  const url = `${BASE_URL}/kyc-liveness`;
-
-  console.log("[KYC] Upload URL:", url);
-
   const controller = new AbortController();
 
   const timeoutId = setTimeout(() => {
@@ -634,86 +630,47 @@ async updatePhoneNumber(  payload: UpdatePhoneNumberPayload): Promise<UpdatePhon
   }, 120_000);
 
   try {
-    const response = await fetch(url, {
-      method: "POST",
+    const response = await this.post<any>("/kyc-liveness", formData, {
       headers: {
-        Accept: "application/json",
-        Authorization:
-          `Bearer ${preAuthToken}`,
+        Authorization: `Bearer ${preAuthToken}`,
       },
-
-      /*
-       * Do not manually set Content-Type.
-       * React Native must generate the multipart boundary.
-       */
-      body: formData,
       signal: controller.signal,
+      timeout: 120_000,
     });
 
-    const responseText =
-      await response.text();
+    console.log("[KYC] Response:", JSON.stringify(response.data, null, 2));
 
-    console.log(
-      "[KYC] HTTP status:",
-      response.status
-    );
-
-    console.log(
-      "[KYC] Response preview:",
-      responseText.slice(0, 500)
-    );
-
-    let responseData: any;
-
-    try {
-      responseData = responseText
-        ? JSON.parse(responseText)
-        : {};
-    } catch {
-      responseData = {
-        success: false,
-        message:
-          response.status >= 500
-            ? "The verification server encountered an error."
-            : "The server returned an invalid response.",
-        rawResponse: responseText.slice(
-          0,
-          500
-        ),
-      };
-    }
-
-    if (!response.ok) {
-      const error = new Error(
-        responseData?.message ??
-          `Face verification failed with status ${response.status}.`
-      ) as Error & {
-        status?: number;
-        data?: unknown;
-      };
-
-      error.status = response.status;
-      error.data = responseData;
-
-      throw error;
-    }
-
-    return responseData;
+    return response.data;
   } catch (error: any) {
-    if (error?.name === "AbortError") {
+    if (
+      error?.name === "AbortError" ||
+      error?.name === "CanceledError" ||
+      error?.code === "ERR_CANCELED"
+    ) {
       throw new Error(
         "The face upload timed out. Please check your connection and try again."
       );
     }
 
-    console.error("[KYC] Fetch failed:", {
+    const data = error.response?.data;
+    const message = data?.message ?? error.message ?? "Face verification failed.";
+
+    console.error("[KYC] Upload failed:", {
       name: error?.name,
-      message: error?.message,
-      status: error?.status,
-      data: error?.data,
+      message,
+      status: error.response?.status,
+      data,
     });
 
-    throw error;
+    const err = new Error(message) as Error & {
+      status?: number;
+      data?: unknown;
+    };
+
+    err.status = error.response?.status;
+    err.data = data;
+
+    throw err;
   } finally {
     clearTimeout(timeoutId);
   }
