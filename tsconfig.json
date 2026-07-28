@@ -1,5 +1,7 @@
 {
+  "extends": "expo/tsconfig.base",
   "compilerOptions": {
+    "ignoreDeprecations": "6.0",
     "baseUrl": ".",
     "jsx": "react-jsx",
     "esModuleInterop": true,
@@ -14,19 +16,22 @@
       ".web",
       ""
     ],
-    "paths": {
-      "@/*": ["./app/*"],
-      "@/components/*": ["src/components/*"],
-      "@/hooks/*": ["./src/hooks/*"],
-      "@/utils/*": ["./src/utils/*"],
-      "@/context/*": ["./context/*"],
-      "@/config/*": ["./src/config/*"],
-      "@/config": ["./src/config"],
-      "@/assets/*": ["./assets/*"],
-      "@/assets": ["./assets"],
-      "@/src/*": ["./src/*"],
-      "@/hooks": ["./src/hooks"],
-    }
+   "paths": {
+  "@/*": ["./*"],
+  "@/utils/*": ["./src/utils/*"],
+  "@/components/*": ["./src/components/*"],
+  "@/hooks/*": ["./src/hooks/*"],
+  "@/context/*": ["./context/*"],
+  "@/config": ["./src/config"],
+  "@/config/*": ["./src/config/*"],
+  "@/assets": ["./assets"],
+  "@/assets/*": ["./assets/*"]
+}
   },
-  "extends": "expo/tsconfig.base"
+  "include": [
+    "**/*.ts",
+    "**/*.tsx",
+    ".expo/types/**/*.ts",
+    "expo-env.d.ts"
+  ]
 }
