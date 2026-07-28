@@ -42,14 +42,14 @@ export default function SpinScreen() {
  
 
         
-        const token = await Storage.get("authToken");
+        const token = await getItem("authToken");
         console.log(user?.id);
         const userId = user?.id;  
         
 
 // console.log(response.data);
         console.log("Token:", token); // ← Add this!
-        const res = await API.get("/getCoin", {
+        const res = await API.get<{ total_coins: number }>("/getCoin", {
           headers: {
             Authorization: `Bearer ${token}`,
             Accept: "application/json",

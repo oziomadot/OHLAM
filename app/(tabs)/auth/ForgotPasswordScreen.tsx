@@ -4,7 +4,7 @@ import React, { useState } from 'react';
 import { Image, KeyboardAvoidingView, Platform, ScrollView, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
 import { Button, TextInput } from 'react-native-paper';
 import * as Yup from 'yup';
-import { useAuth } from 'context/AuthContext';
+import { useAuth } from '@/context/AuthContext';
 import { Link, useRouter } from 'expo-router';
 import Navbar from 'components/Navbar';
 
@@ -39,7 +39,7 @@ const [password, setPassword] = useState('');
       setIsLoading(true);
 
       await forgotPassword(values.email);
-      const response = await API.forgetpassword(values.email);
+      const response = await API.forgetPassword(values.email);
       if (response.success) {
         setEmailSent(true);
         setEmail(response.user_email);
@@ -69,8 +69,8 @@ const [password, setPassword] = useState('');
   setLoading(true);
   try {
 console.log("Resetting password with:", { email, token, password, passwordConfirmation });
-    
-    const response = await API.resetpassword(email, token, password, passwordConfirmation);
+
+    const response = await API.resetPassword(email, token, password, passwordConfirmation);
 
     console.log(response);
     if (response.success) {
@@ -78,31 +78,6 @@ console.log("Resetting password with:", { email, token, password, passwordConfir
       router.push('/(tabs)/auth/LoginScreen');
     } else {
       setError(response.message || 'Failed to reset password');
-    }
-  } catch (err) {
-    setError('Network error. Please try again.');
-  } finally {
-    setLoading(false);
-  }
-    try {
-    const response = await fetch('YOUR_API_URL/reset-password', {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-      },
-      body: JSON.stringify({
-        email,
-        token,
-        password,
-        password_confirmation: passwordConfirmation,
-      }),
-    });
-    const data = await response.json();
-    if (response.ok) {
-      // Success - navigate to login or auto-login
-      router.push('/(tabs)/auth/LoginScreen');
-    } else {
-      setError(data.message || 'Failed to reset password');
     }
   } catch (err) {
     setError('Network error. Please try again.');

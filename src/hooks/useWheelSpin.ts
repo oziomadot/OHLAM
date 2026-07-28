@@ -1,7 +1,7 @@
 import { useRef, useState } from "react";
 import { Animated, Easing } from "react-native";
 import API from "../services/api";
-import { useAuth } from "context/AuthContext";
+import { useAuth } from "@/context/AuthContext";
 import { getItem, setItem } from "../../app/utils/storage";
 
 export const useWheelSpin = (segments: Array<{ label: string; color: string }>, knobAngle = 0) => {
@@ -20,7 +20,7 @@ export const useWheelSpin = (segments: Array<{ label: string; color: string }>, 
 
     try {
       // Get the token from storage
-      const token = await Storage.get('AuthToken');
+      const token = await getItem('AuthToken');
       if (!token) {
         console.error('No authentication token found');
         setSpinning(false);
@@ -28,7 +28,7 @@ export const useWheelSpin = (segments: Array<{ label: string; color: string }>, 
       }
 
       // Make the spin API call
-      const res = await API.post(
+      const res = await API.post<{ coins_won: number; segment_label: string }>(
         "/spin",
         {},
         {

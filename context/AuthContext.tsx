@@ -11,7 +11,7 @@ type AuthContextType = {
   user: any | null;
   login: (token: string, userData: any, refreshToken?: string) => void;
   logout: () => void;
-  forgotPassword: (email: string) => Promise<void>;
+  forgotPassword: (email: string) => Promise<{ success: boolean; user_email?: string; message?: string }>;
   handleOramexIntegration: () => void;
   showOramexBanner: boolean;
   setShowOramexBanner: (show: boolean) => void;
@@ -37,7 +37,7 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
           const verifyAuth = async () => {
             try {
               const tokenStr = typeof accessToken === 'string' ? accessToken : accessToken[0];
-              const res = await API.get('/me', {
+              const res = await API.get<{ user: any }>('/me', {
                 headers: { Authorization: `Bearer ${tokenStr}` }
               });
               const data = res.data;
@@ -81,7 +81,7 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
 
   const forgotPassword = async (email: string) => {
     try {
-      await API.forgetpassword(email);
+      return await API.forgetPassword(email);
     } catch (error) {
       console.error('Forgot password error:', error);
       throw error;

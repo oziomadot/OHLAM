@@ -414,10 +414,27 @@ class ApiService {
   return data;
 }
 
-  async forgetPassword(email: string) {
-    return this.request("/forgot-password", {
+  async forgetPassword(email: string): Promise<{ success: boolean; user_email?: string; message?: string }> {
+    return this.request<{ success: boolean; user_email?: string; message?: string }>("/forgot-password", {
       method: "POST",
       body: { email },
+    });
+  }
+
+  async resetPassword(
+    email: string,
+    token: string,
+    password: string,
+    passwordConfirmation: string
+  ): Promise<{ success: boolean; message?: string }> {
+    return this.request("/reset-password", {
+      method: "POST",
+      body: {
+        email,
+        token,
+        password,
+        password_confirmation: passwordConfirmation,
+      },
     });
   }
 
