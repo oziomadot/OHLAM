@@ -7,7 +7,6 @@ const LAST_VISITED_ROUTE_KEY = "@opaam_last_visited_route";
 
 export default function TabLayout() {
   const pathname = usePathname();
-  const isAuthRoute = pathname.includes("/auth");
 
   useEffect(() => {
     AsyncStorage.setItem(LAST_VISITED_ROUTE_KEY, pathname).catch(console.error);
@@ -18,9 +17,7 @@ export default function TabLayout() {
       screenOptions={{
         tabBarActiveTintColor: "#3b82f6",
         tabBarInactiveTintColor: "#6b7280",
-        tabBarStyle: isAuthRoute
-          ? { display: "none" }
-          : { backgroundColor: "#fff", height: 60 },
+        tabBarStyle: { display: "none" },
         tabBarShowLabel: false,
         headerShown: false,
       }}
