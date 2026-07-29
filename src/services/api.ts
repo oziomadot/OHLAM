@@ -1063,6 +1063,7 @@ async verifyIdCard(formData: FormData) {
 
   return response.data;
 }
+
 }
 
 const apiService = new ApiService();
