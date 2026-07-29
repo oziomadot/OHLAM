@@ -208,30 +208,18 @@ export default function LoginScreen() {
   const router = useRouter();
   const { login } = useAuth();
 
-  const [
-    loginMode,
-    setLoginMode,
-  ] = useState<LoginMode>(
+  const [loginMode, setLoginMode] = useState<LoginMode>(
     "password"
   );
 
-  const [pin, setPin] =
-    useState("");
+  const [pin, setPin] = useState("");
 
-  const [
-    isLoading,
-    setIsLoading,
-  ] = useState(false);
+  const [isLoading, setIsLoading] = useState(false);
 
-  const [
-    device,
-    setDevice,
-  ] = useState<any>(null);
+  const [device, setDevice] = useState<any>(null);
 
-  const [
-    pinLoginAvailable,
-    setPinLoginAvailable,
-  ] = useState(false);
+  const [pinLoginAvailable, setPinLoginAvailable] =
+    useState(false);
 
   const [
     biometricLoginAvailable,
@@ -456,53 +444,30 @@ export default function LoginScreen() {
     };
 
   const handlePasswordLogin =
-    async (
-      values: LoginFormValues
-    ) => {
+    async (values: LoginFormValues) => {
       try {
         setIsLoading(true);
 
-        const email =
-          values.email
-            .trim()
-            .toLowerCase();
+        const email = values.email.trim().toLowerCase();
 
-        const response =
-          await API.login(
-            email,
-            values.password
-          );
+        const response = await API.login(email, values.password);
 
         const verificationHandled =
-          await handleVerificationResponse(
-            response
-          );
+          await handleVerificationResponse(response);
 
-        if (
-          verificationHandled
-        ) {
+        if (verificationHandled) {
           return;
         }
 
-        if (
-          response
-            ?.requires_device_verification ===
-          true
-        ) {
-          if (
-            response
-              ?.pre_auth_token
-          ) {
+        if (response?.requires_device_verification === true ) {
+          if (response?.pre_auth_token) {
             await setItemSafe(
               "pre_auth_token",
               response.pre_auth_token
             );
           }
 
-          await setItemSafe(
-            "pending_device",
-            JSON.stringify(device)
-          );
+          await setItemSafe("pending_device", JSON.stringify(device));
 
           router.replace({
             pathname:
@@ -594,9 +559,12 @@ export default function LoginScreen() {
             JSON.stringify(device)
           );
 
-          router.replace(
-            "/auth/new-Device-Facerecord"
-          );
+          router.replace({
+  pathname: "/auth/faceRecord",
+  params: {
+    mode: "device-verification",
+  },
+});
 
           return;
         }
@@ -888,18 +856,9 @@ export default function LoginScreen() {
             validationSchema={
               LoginSchema
             }
-            onSubmit={
-              handlePasswordLogin
-            }
+            onSubmit={handlePasswordLogin}
           >
-            {({
-              handleChange,
-              handleBlur,
-              handleSubmit,
-              values,
-              errors,
-              touched,
-            }) => (
+            {({handleChange, handleBlur, handleSubmit, values, errors, touched, }) => (
               <View>
                 <TextInput
                   label="Email"

@@ -15,6 +15,7 @@ import { appendDeviceDetails, getDeviceDetails } from "@/src/utils/device";
 import { getItemSafe, removeItemSafe, setItemSafe } from "@/utils/storage";
 import API, {  verifyNewDeviceFace } from "@/src/services/api";
 import ScreenWrapper from "components/ScreenWrapper";
+import { useAuth } from "@/context/AuthContext";
 
 
 type ScreenMode =
@@ -23,6 +24,7 @@ type ScreenMode =
 
 export default function FaceLivenessScreen() {
   const router = useRouter();
+  const { login } = useAuth();
 
   const params = useLocalSearchParams<{
     mode?: string;
@@ -117,28 +119,13 @@ export default function FaceLivenessScreen() {
   try {
     setLoading(true);
 
-    const preAuthToken =
-      await getItemSafe(
-        "pre_auth_token"
-      );
+    const preAuthToken = await getItemSafe("pre_auth_token");
 
     console.log("[FACE] Starting upload");
-    console.log(
-      "[FACE] Mode:",
-      mode
-    );
-    console.log(
-      "[FACE] URI:",
-      selfieUri
-    );
-    console.log(
-      "[FACE] Platform:",
-      Platform.OS
-    );
-    console.log(
-      "[FACE] Token exists:",
-      Boolean(preAuthToken)
-    );
+    console.log("[FACE] Mode:", mode);
+    console.log("[FACE] URI:", selfieUri);
+    console.log("[FACE] Platform:", Platform.OS);
+    console.log("[FACE] Token exists:", Boolean(preAuthToken));
 
     if (!preAuthToken) {
       throw new Error(
@@ -158,75 +145,57 @@ export default function FaceLivenessScreen() {
       type: "image/jpeg",
     } as any);
 
-console.log(
-  "[FACE] Multipart form prepared"
-);
-    if (
-      mode ===
-      "device-verification"
-    ) {
-      const device =
-        await getDeviceDetails();
+    console.log("[FACE] Multipart form prepared");
 
-      appendDeviceDetails(
-        formData,
-        device
-      );
+    if (mode === "device-verification") {
+  const device = await getDeviceDetails();
 
-      const response =
-        await verifyNewDeviceFace(
-          formData
-        );
+  appendDeviceDetails(formData, device);
 
-      if (!response.success) {
-        throw new Error(
-          response.message ??
-            "Device verification failed."
-        );
-      }
+  const response = await verifyNewDeviceFace(formData);
 
-      await setItemSafe(
-        "auth_token",
-        response.token
-      );
-
-      await setItemSafe(
-        "user",
-        JSON.stringify(
-          response.user
-        )
-      );
-
-      await setItemSafe(
-        "user_id",
-        String(response.user.id)
-      );
-
-      await setItemSafe(
-        "pre_auth_token",
-        ""
-      );
-
-      Alert.alert(
-        "Device verified",
-        response.message,
-        [
-          {
-            text: "Continue",
-            onPress: () =>
-              router.replace(
-                "/(tabs)/dashboard"
-              ),
-          },
-        ]
-      );
-
-      return;
-    }
-
-    console.log(
-      "[FACE] Calling kycLiveness"
+  if (!response?.success || !response?.token || !response?.user?.id) {
+    throw new Error(
+      response?.message ??
+        "The device verification response was incomplete."
     );
+  }
+
+  const token = String(response.token);
+
+  await setItemSafe("auth_token", token);
+
+  await setItemSafe("authToken", token);
+
+  await setItemSafe("user", JSON.stringify(response.user));
+
+  await setItemSafe("user_id", String(response.user.id));
+
+  await removeItemSafe("pre_auth_token");
+
+  await removeItemSafe("pending_user_id");
+
+  await removeItemSafe("pending_device");
+
+  await login(token, response.user);
+
+  Alert.alert(
+    "Device verified",
+    response.message ??
+      "Your identity was confirmed and this device is now trusted.",
+    [
+      {
+        text: "Continue",
+        onPress: () =>
+          router.replace("/(tabs)/dashboard"
+          ),
+      },
+    ]
+  );
+
+  return;
+}
+    console.log("[FACE] Calling kycLiveness");
 
 
 
