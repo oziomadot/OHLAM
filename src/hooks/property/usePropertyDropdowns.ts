@@ -57,15 +57,56 @@ export function usePropertyDropdowns(isAuthenticated: boolean, showAlert: any,
           status: safeOptions(data.statuses),
           buildingStatus: safeOptions(data.buildingStatus),
         });
-      } catch (error) {
-        console.error(error);
-        showAlert("Error", "Failed to load dropdown data");
-      } finally {
-        setLoadingDropdowns(false);
-      }
-    };
+      } catch (error: any) {
+  const status =
+    error?.response?.status ??
+    error?.status ??
+    0;
 
-    loadDropdowns();
+  const serverMessage =
+    error?.response?.data?.message ??
+    error?.message ??
+    "Failed to load dropdown data.";
+
+  console.error(
+    "[PROPERTY DROPDOWNS ERROR]",
+    {
+      status,
+      url: error?.config?.url,
+      baseURL: error?.config?.baseURL,
+      response: error?.response?.data,
+      message: serverMessage,
+    }
+  );
+
+  if (status === 401) {
+    showAlert(
+      "Session Expired",
+      "Please log in again to create a property."
+    );
+
+    return;
+  }
+
+  if (status === 403) {
+    showAlert(
+      "Access Denied",
+      "Your account is not authorized to create a property."
+    );
+
+    return;
+  }
+
+  showAlert(
+    "Error",
+    serverMessage
+  );
+} finally {
+  setLoadingDropdowns(false);
+}
+};
+
+loadDropdowns();
   }, [isAuthenticated]);
 
 

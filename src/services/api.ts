@@ -14,38 +14,74 @@ if (__DEV__) {
   console.log("[API] Base URL:", BASE_URL);
 }
 
-export const API: AxiosInstance = axios.create({
-  baseURL: BASE_URL,
-  timeout: 120_000,
-  headers: {
-    Accept: "application/json",
+export const API: AxiosInstance =
+  axios.create({
+    baseURL: BASE_URL,
+    timeout: 120_000,
+    headers: {
+      Accept: "application/json",
+    },
+  });
+
+API.interceptors.request.use(
+  async (config) => {
+    const token = await getItemSafe(
+      TOKEN_KEY
+    );
+
+    config.headers.set(
+      "Accept",
+      "application/json"
+    );
+
+    if (token) {
+      config.headers.set(
+        "Authorization",
+        `Bearer ${token}`
+      );
+    }
+
+    return config;
   },
-});
-
-
-
+  (error) => Promise.reject(error)
+);
 
 API.interceptors.response.use(
-  response => response,
+  (response) => response,
   (error: AxiosError<any>) => {
     const diagnostic = {
       baseURL: error.config?.baseURL,
       url: error.config?.url,
-      fullURL: `${error.config?.baseURL ?? ""}${error.config?.url ?? ""}`,
-      method: error.config?.method?.toUpperCase(),
-      status: error.response?.status ?? 0,
-      responseData: error.response?.data ?? null,
+      fullURL:
+        `${error.config?.baseURL ?? ""}` +
+        `${error.config?.url ?? ""}`,
+      method:
+        error.config?.method?.toUpperCase(),
+      status:
+        error.response?.status ?? 0,
+      responseData:
+        error.response?.data ?? null,
       message: error.message,
       code: error.code,
-      hasResponse: Boolean(error.response),
-      hasRequest: Boolean(error.request),
+      hasResponse:
+        Boolean(error.response),
+      hasRequest:
+        Boolean(error.request),
     };
 
-    console.error("[API ERROR]", JSON.stringify(diagnostic, null, 2));
+    console.error(
+      "[API ERROR]",
+      JSON.stringify(
+        diagnostic,
+        null,
+        2
+      )
+    );
 
     return Promise.reject(error);
   }
 );
+
 
 export async function verifyNewDeviceFace(formData: FormData) {
   console.log("[verifyNewDeviceFace] formData", formData);
@@ -78,26 +114,8 @@ export async function verifyNewDeviceFace(formData: FormData) {
   return response.data;
 }
 
-/**
- * Central API response and error handling.
- */
-API.interceptors.response.use(
-  (response) => response,
-  (error: AxiosError<any>) => {
-    const status = error.response?.status;
-    const url = error.config?.url;
-    const method = error.config?.method?.toUpperCase();
-    const data = error.response?.data;
 
-    console.error(`[API] ${method ?? "REQUEST"} ${url ?? "unknown"}`, {
-      status,
-      message: data?.message ?? error.message,
-      errors: data?.errors,
-    });
 
-    return Promise.reject(error);
-  }
-);
 
 type RequestOptions = {
   method?: AxiosRequestConfig["method"];
