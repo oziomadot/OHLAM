@@ -84,20 +84,23 @@ export async function getDeviceDetails():
 
 export function appendDeviceDetails(
   formData: FormData,
-  details: DeviceDetails
+  device: Record<string, unknown>
 ): void {
-  Object.entries(details).forEach(
+  Object.entries(device).forEach(
     ([key, value]) => {
       if (
-        value !== undefined &&
-        value !== null &&
-        value !== ""
+        value === undefined ||
+        value === null
       ) {
-        formData.append(
-          key,
-          String(value)
-        );
+        return;
       }
+
+      formData.append(
+        key,
+        typeof value === "string"
+          ? value
+          : String(value)
+      );
     }
   );
 }

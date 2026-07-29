@@ -3,7 +3,7 @@ import axios, { AxiosError, AxiosInstance, AxiosRequestConfig,} from "axios";
 import { getItemSafe, setItemSafe, removeItemSafe } from "@/utils/storage";
 import { getDeviceDetails } from "@/utils/device";
 import { ENV } from '@/src/config/env';
-import { fetch } from "expo/fetch";
+
 
 const TOKEN_KEY = "auth_token";
 
@@ -679,6 +679,8 @@ async updatePhoneNumber(  payload: UpdatePhoneNumberPayload): Promise<UpdatePhon
     return this.request<any[]>("/id-card-types");
   }
 
+
+
 async verifyIdCard(formData: FormData) {
   const preAuthToken =
     await getItemSafe("pre_auth_token");
@@ -689,9 +691,11 @@ async verifyIdCard(formData: FormData) {
     );
   }
 
-  const url = `${BASE_URL}/verify-id-card`;
+  console.log(
+    "[ID KYC] Upload URL:",
+    `${BASE_URL}/verify-id-card`
+  );
 
-  console.log("[ID KYC] Upload URL:", url);
   console.log(
     "[ID KYC] Token exists:",
     Boolean(preAuthToken)
@@ -704,22 +708,25 @@ async verifyIdCard(formData: FormData) {
   }, 180_000);
 
   try {
-    const response = await fetch(url, {
-      method: "POST",
-      headers: {
-        Accept: "application/json",
-        Authorization: `Bearer ${preAuthToken}`,
-      },
+    const response = await API.post(
+      "/verify-id-card",
+      formData,
+      {
+        headers: {
+          Accept: "application/json",
+          Authorization: `Bearer ${preAuthToken}`,
 
-      /*
-       * Do not manually set Content-Type.
-       * React Native must generate the multipart boundary.
-       */
-      body: formData,
-      signal: controller.signal,
-    });
-
-    const responseText = await response.text();
+          /*
+           * Do not manually add multipart boundary.
+           * Axios/React Native will generate it.
+           */
+          "Content-Type": "multipart/form-data",
+        },
+        signal: controller.signal,
+        timeout: 180_000,
+        transformRequest: (data) => data,
+      }
+    );
 
     console.log(
       "[ID KYC] HTTP status:",
@@ -727,59 +734,71 @@ async verifyIdCard(formData: FormData) {
     );
 
     console.log(
-      "[ID KYC] Response preview:",
-      responseText.slice(0, 1000)
+      "[ID KYC] Verification response:",
+      JSON.stringify(
+        response.data,
+        null,
+        2
+      )
     );
 
-    let responseData: any;
-
-    try {
-      responseData = responseText
-        ? JSON.parse(responseText)
-        : {};
-    } catch {
-      responseData = {success: false, 
-        message: "The server returned an invalid response.",
-        raw_response:
-          responseText.slice(0, 1000),
-      };
-    }
-
-    if (!response.ok) {
-      const error = new Error(
-        responseData?.message ??
-          `ID verification failed with status ${response.status}.`
-      ) as Error & {
-        status?: number;
-        data?: unknown;
-      };
-
-      error.status = response.status;
-      error.data = responseData;
-
-      throw error;
-    }
-
-    return responseData;
+    return response.data;
   } catch (error: any) {
-    if (error?.name === "AbortError") {
+    if (
+      error?.name === "AbortError" ||
+      error?.name === "CanceledError" ||
+      error?.code === "ERR_CANCELED" ||
+      error?.code === "ECONNABORTED"
+    ) {
       throw new Error(
         "The ID-card upload timed out. Please check your connection and try again."
       );
     }
 
-    console.error("[ID KYC] Upload failed:", {
-      name: error?.name,
-      message: error?.message,
-      status: error?.status,
-      data: error?.data,
-    });
+    const responseData =
+      error?.response?.data;
 
-    throw error;
+    const message =
+      responseData?.message ??
+      error?.message ??
+      "ID verification failed.";
+
+    console.error(
+      "[ID KYC] Upload failed:",
+      {
+        name: error?.name,
+        message,
+        status:
+          error?.response?.status ??
+          error?.status,
+        data:
+          responseData ??
+          error?.data,
+      }
+    );
+
+    const uploadError =
+      new Error(message) as Error & {
+        status?: number;
+        data?: unknown;
+      };
+
+    uploadError.status =
+      error?.response?.status ??
+      error?.status;
+
+    uploadError.data =
+      responseData ??
+      error?.data;
+
+    throw uploadError;
   } finally {
     clearTimeout(timeoutId);
   }
 }
+
+
+
   async updateProfile(formData: FormData) {
     const response = await API.post("/update-profile", formData, {
       headers: {

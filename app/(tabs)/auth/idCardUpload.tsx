@@ -306,30 +306,60 @@ const IdCardUpload = () => {
     };
 
   const createSelectedImage = (
-    asset: ImagePicker.ImagePickerAsset,
-    side: "front" | "back"
-  ): SelectedImage => {
-    let mimeType =
-      asset.mimeType ?? "image/jpeg";
+  asset: ImagePicker.ImagePickerAsset,
+  side: "front" | "back"
+): SelectedImage => {
+  const uri =
+    asset.uri;
 
-    let extension = "jpg";
+  const normalizedUri =
+    uri.toLowerCase();
 
+  let mimeType =
+    asset.mimeType?.toLowerCase() ??
+    "";
+
+  if (
+    !mimeType.startsWith("image/")
+  ) {
     if (
-      mimeType === "image/png" ||
-      asset.uri.toLowerCase().endsWith(".png")
+      normalizedUri.endsWith(".png")
     ) {
       mimeType = "image/png";
-      extension = "png";
+    } else if (
+      normalizedUri.endsWith(".webp")
+    ) {
+      mimeType = "image/webp";
+    } else {
+      mimeType = "image/jpeg";
     }
+  }
 
-    return {
-      uri: asset.uri,
-      mimeType,
-      fileName:
-        asset.fileName ??
-        `${side}_${Date.now()}.${extension}`,
-    };
+  let extension = "jpg";
+
+  if (mimeType === "image/png") {
+    extension = "png";
+  } else if (
+    mimeType === "image/webp"
+  ) {
+    extension = "webp";
+  }
+
+  const originalFileName =
+    asset.fileName?.trim();
+
+  const fileName =
+    originalFileName &&
+    originalFileName.includes(".")
+      ? originalFileName
+      : `${side}_${Date.now()}.${extension}`;
+
+  return {
+    uri,
+    mimeType,
+    fileName,
   };
+};
 
   const saveSelectedImage = (
     side: "front" | "back",
