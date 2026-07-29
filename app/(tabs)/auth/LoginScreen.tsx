@@ -363,85 +363,139 @@ export default function LoginScreen() {
     };
 
   const handleVerificationResponse =
-    async (
-      response: any
-    ): Promise<boolean> => {
-      if (
-        response?.status !== 202
-      ) {
-        return false;
-      }
+  async (
+    response: any
+  ): Promise<boolean> => {
+    const responseStatus =
+      response?.status ??
+      response?.data?.status;
 
-      if (response?.user) {
+    const responseData =
+      response?.data &&
+      typeof response.data === "object"
+        ? response.data
+        : response;
+
+    /*
+     * New or untrusted device verification must be
+     * handled before the normal KYC next-step switch.
+     */
+    if (
+      responseData?.requires_device_verification === true ||
+      responseData?.requires_face_verification === true ||
+      responseData?.next_step === "device_verification" ||
+      responseData?.next_step === "new_device_verification"
+    ) {
+      if (responseData?.user) {
         await setItemSafe(
           "user",
           JSON.stringify(
-            response.user
+            responseData.user
           )
         );
       }
 
-      if (response?.user_id) {
+      if (responseData?.user_id) {
         await setItemSafe(
-          "user_id",
+          "pending_user_id",
           String(
-            response.user_id
+            responseData.user_id
           )
         );
       }
 
-      if (
-        response?.pre_auth_token
-      ) {
+      if (responseData?.pre_auth_token) {
         await setItemSafe(
           "pre_auth_token",
-          response.pre_auth_token
+          String(
+            responseData.pre_auth_token
+          )
         );
       }
 
-      switch (
-        response?.next_step
-      ) {
-        case "email_verification":
-          router.push(
-            "/auth/email-verification"
-          );
-          return true;
+      const currentDevice =
+        device ??
+        (await getDeviceDetails());
 
-        case "phone_verification":
-          router.push(
-            "/auth/phoneNumberVerification"
-          );
-          return true;
+      await setItemSafe("pending_device", JSON.stringify(currentDevice));
 
-        case "face_verification":
-          router.push(
-            "/auth/faceRecord"
-          );
-          return true;
+      router.replace({
+        pathname: "/auth/faceRecord",
+        params: {
+          mode: "device-verification",
+        },
+      });
 
-        case "bvn_nin":
-          router.push(
-            "/auth/identityNumber"
-          );
-          return true;
+      return true;
+    }
 
-        case "gov_id":
-          router.push(
-            "/auth/idCardUpload"
-          );
-          return true;
+    /*
+     * This function only handles verification responses.
+     */
+    if (responseStatus !== 202) {
+      return false;
+    }
 
-        default:
-          showAlert(
-            "Verification Required",
-            response?.message ??
-              "Complete your account verification."
-          );
+    if (responseData?.user) {
+      await setItemSafe("user",
+        JSON.stringify(
+          responseData.user
+        )
+      );
+    }
 
-          return true;
-      }
-    };
+    if (responseData?.user_id) {
+      await setItemSafe("user_id",
+        String(
+          responseData.user_id
+        )
+      );
+    }
+
+    if (responseData?.pre_auth_token) {
+      await setItemSafe("pre_auth_token",
+        String(
+          responseData.pre_auth_token
+        )
+      );
+    }
+
+    switch (responseData?.next_step) {
+      case "email_verification":
+        router.replace("/auth/email-verification");
+        return true;
+
+      case "phone_verification":
+        router.replace("/auth/phoneNumberVerification");
+        return true;
+
+      case "face_verification":
+        router.replace({
+          pathname: "/auth/faceRecord",
+          params: {
+            mode: "kyc",
+          },
+        });
+        return true;
+
+      case "bvn_nin":
+        router.replace("/auth/identityNumber");
+        return true;
+
+      case "gov_id":
+        router.replace("/auth/idCardUpload");
+        return true;
+
+      default:
+        showAlert(
+          "Verification Required",
+          responseData?.message ??
+            "Complete your account verification."
+        );
+
+        return true;
+    }
+  };
 
   const handlePasswordLogin =
     async (values: LoginFormValues) => {
@@ -470,11 +524,9 @@ export default function LoginScreen() {
           await setItemSafe("pending_device", JSON.stringify(device));
 
           router.replace({
-            pathname:
-              "/auth/faceRecord",
+            pathname: "/auth/faceRecord",
             params: {
-              mode:
-                "device-verification",
+              mode: "device-verification",
             },
           });
 
