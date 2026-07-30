@@ -14,8 +14,35 @@ import { setItemSafe, getItemSafe } from "@/utils/storage";
 import API  from "@/src/services/api";
 import Navbar from "components/Navbar";
 import ScreenWrapper from "components/ScreenWrapper";
-
+import axios from 'axios';
 import CustomAlert from "components/CustomAlert";
+
+
+function getApiErrorMessage(error: unknown): string {
+  if (!axios.isAxiosError(error)) {
+    return 'Something went wrong. Please try again.';
+  }
+
+  const data = error.response?.data;
+
+  if (typeof data?.message === 'string' && data.message.trim()) {
+    return data.message;
+  }
+
+  if (data?.errors && typeof data.errors === 'object') {
+    const firstError = Object.values(data.errors).flat()[0];
+
+    if (typeof firstError === 'string') {
+      return firstError;
+    }
+  }
+
+  if (!error.response) {
+    return 'Network error. Check your internet connection and try again.';
+  }
+
+  return 'Verification failed. Please check your information and try again.';
+}
 
 const PhoneNumberVerification = () => {
   const router = useRouter();  
@@ -96,14 +123,13 @@ type ApiError = {
     }
 
     showAlert("Code Sent", response.message ?? "A new verification code has been sent to your phone number.");
-  } catch (error: unknown) {
-    const apiError = error as ApiError;
+  }  catch (error) {
+  const message = getApiErrorMessage(error);
 
-    console.error("Resend phone code failed:", apiError);
-
+  
     showAlert(
       "Unable to Send Code",
-      apiError.message ??
+      message ??
         "Unable to resend the verification code. Please try again."
     );
   } finally {
@@ -198,14 +224,14 @@ console.log(
         router.replace("/auth/faceRecord");
       }
     );
-  } catch (error: unknown) {
-    const apiError = error as ApiError;
+  }  catch (error) {
+  const message = getApiErrorMessage(error);
 
-    console.error("Phone verification failed:", apiError);
+  
 
     showAlert(
       "Verification Failed",
-      apiError.message ??
+      message ??
         "The verification code is invalid or expired."
     );
   } finally {
@@ -267,14 +293,13 @@ const updatePhoneNumber = async (): Promise<void> => {
       response.message ??
         "Your phone number was updated and a new code was sent."
     );
-  } catch (error: unknown) {
-    const apiError = error as ApiError;
+  }  catch (error) {
+  const message = getApiErrorMessage(error);
 
-    console.error("Update phone number failed:", apiError);
-
+  
     showAlert(
       "Update Failed",
-      apiError.message ??
+      message ??
         "Your phone number could not be updated."
     );
   } finally {

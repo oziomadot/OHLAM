@@ -19,6 +19,7 @@ import CustomAlert from "components/CustomAlert";
 
 import { useRouteHandler }  from "@/hooks/seRouteHandler";
 import ScreenWrapper from "components/ScreenWrapper";
+import axios from 'axios';
 
 interface User {
   id: string | number;
@@ -28,6 +29,31 @@ interface User {
 }
 
 
+function getApiErrorMessage(error: unknown): string {
+  if (!axios.isAxiosError(error)) {
+    return 'Something went wrong. Please try again.';
+  }
+
+  const data = error.response?.data;
+
+  if (typeof data?.message === 'string' && data.message.trim()) {
+    return data.message;
+  }
+
+  if (data?.errors && typeof data.errors === 'object') {
+    const firstError = Object.values(data.errors).flat()[0];
+
+    if (typeof firstError === 'string') {
+      return firstError;
+    }
+  }
+
+  if (!error.response) {
+    return 'Network error. Check your internet connection and try again.';
+  }
+
+  return 'Verification failed. Please check your information and try again.';
+}
 
 const EmailVerificationScreen = () => {
   const [loading, setLoading] = useState(false);
@@ -95,8 +121,7 @@ function showAlert(title: string, message: string, onClose?: () => void) {
   code: string;
 };
 
-const {
-  control,
+const { control,
   formState: { errors },
   handleSubmit,
 } = useForm<EmailVerificationForm>({
@@ -171,17 +196,13 @@ const verifyUser = async (
         );
       }
     );
-  } catch (error: unknown) {
-    const apiError = error as ApiError;
+  } catch (error) {
+  const message = getApiErrorMessage(error);
 
-    console.error(
-      "Email verification failed:",
-      apiError
-    );
 
     showAlert(
       "Verification Failed",
-      apiError.message ||
+      message ||
         "The verification code is invalid or expired."
     );
   } finally {
@@ -225,17 +246,14 @@ const verifyUser = async (
       response.message ||
         "A new verification code has been sent to your email."
     );
-  } catch (error: unknown) {
-    const apiError = error as ApiError;
+  }catch (error) {
+  const message = getApiErrorMessage(error);
 
-    console.error(
-      "Resend email code failed:",
-      apiError
-    );
+
 
     showAlert(
       "Unable to Send Code",
-      apiError.message ||
+      message ||
         "Unable to resend the verification code."
     );
   } finally {
@@ -303,17 +321,14 @@ const updateEmailAddress =
         response.message ||
           "Email updated. A new verification code was sent."
       );
-    } catch (error: unknown) {
-      const apiError = error as ApiError;
+    }catch (error) {
+  const message = getApiErrorMessage(error);
 
-      console.error(
-        "Update email failed:",
-        apiError
-      );
+
 
       showAlert(
         "Update Failed",
-        apiError.message ||
+        message ||
           "Your email address could not be updated."
       );
     } finally {

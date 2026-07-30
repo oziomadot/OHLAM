@@ -719,11 +719,13 @@ async verifyIdCard(formData: FormData) {
     Boolean(preAuthToken)
   );
 
-  const controller = new AbortController();
+  const controller =
+    new AbortController();
 
-  const timeoutId = setTimeout(() => {
-    controller.abort();
-  }, 180_000);
+  const timeoutId =
+    setTimeout(() => {
+      controller.abort();
+    }, 120_000);
 
   try {
     const response = await API.post(
@@ -732,17 +734,16 @@ async verifyIdCard(formData: FormData) {
       {
         headers: {
           Accept: "application/json",
-          Authorization: `Bearer ${preAuthToken}`,
-
-          /*
-           * Do not manually add multipart boundary.
-           * Axios/React Native will generate it.
-           */
-          "Content-Type": "multipart/form-data",
+          Authorization:
+            `Bearer ${preAuthToken}`,
         },
+
+        /*
+         * Do not manually set Content-Type.
+         * Axios must create the multipart boundary.
+         */
         signal: controller.signal,
-        timeout: 180_000,
-        transformRequest: (data) => data,
+        timeout: 120_000,
       }
     );
 
@@ -762,36 +763,64 @@ async verifyIdCard(formData: FormData) {
 
     return response.data;
   } catch (error: any) {
+    const status =
+      error?.response?.status ??
+      error?.status;
+
+    const responseData =
+      error?.response?.data ??
+      error?.data;
+
     if (
       error?.name === "AbortError" ||
       error?.name === "CanceledError" ||
       error?.code === "ERR_CANCELED" ||
       error?.code === "ECONNABORTED"
     ) {
-      throw new Error(
-        "The ID-card upload timed out. Please check your connection and try again."
-      );
+      const timeoutError =
+        new Error(
+          "The ID-card verification took too long. Please try again."
+        ) as Error & {
+          status?: number;
+          data?: unknown;
+        };
+
+      timeoutError.status = 408;
+
+      throw timeoutError;
     }
 
-    const responseData =
-      error?.response?.data;
-
-    const message =
+    let message =
       responseData?.message ??
       error?.message ??
       "ID verification failed.";
+
+    if (status === 504) {
+      message =
+        "The identity verification server took too long to respond. Your document may already have been uploaded. Please wait briefly before trying again.";
+    } else if (status === 503) {
+      message =
+        responseData?.message ??
+        "The identity verification service is temporarily unavailable.";
+    } else if (status === 413) {
+      message =
+        "The ID image is too large. Please use a smaller or lower-resolution image.";
+    } else if (status === 422) {
+      message =
+        responseData?.message ??
+        "The submitted ID information is invalid.";
+    }
 
     console.error(
       "[ID KYC] Upload failed:",
       {
         name: error?.name,
+        originalMessage:
+          error?.message,
         message,
-        status:
-          error?.response?.status ??
-          error?.status,
-        data:
-          responseData ??
-          error?.data,
+        status,
+        data: responseData,
+        code: error?.code,
       }
     );
 
@@ -801,13 +830,8 @@ async verifyIdCard(formData: FormData) {
         data?: unknown;
       };
 
-    uploadError.status =
-      error?.response?.status ??
-      error?.status;
-
-    uploadError.data =
-      responseData ??
-      error?.data;
+    uploadError.status = status;
+    uploadError.data = responseData;
 
     throw uploadError;
   } finally {

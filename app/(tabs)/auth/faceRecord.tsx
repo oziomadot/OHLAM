@@ -16,11 +16,40 @@ import { getItemSafe, removeItemSafe, setItemSafe } from "@/utils/storage";
 import API, {  verifyNewDeviceFace } from "@/src/services/api";
 import ScreenWrapper from "components/ScreenWrapper";
 import { useAuth } from "@/context/AuthContext";
-
+import axios from 'axios';
 
 type ScreenMode =
   | "kyc"
   | "device-verification";
+
+
+  
+
+function getApiErrorMessage(error: unknown): string {
+  if (!axios.isAxiosError(error)) {
+    return 'Something went wrong. Please try again.';
+  }
+
+  const data = error.response?.data;
+
+  if (typeof data?.message === 'string' && data.message.trim()) {
+    return data.message;
+  }
+
+  if (data?.errors && typeof data.errors === 'object') {
+    const firstError = Object.values(data.errors).flat()[0];
+
+    if (typeof firstError === 'string') {
+      return firstError;
+    }
+  }
+
+  if (!error.response) {
+    return 'Network error. Check your internet connection and try again.';
+  }
+
+  return 'Verification failed. Please check your information and try again.';
+}
 
 export default function FaceLivenessScreen() {
   const router = useRouter();

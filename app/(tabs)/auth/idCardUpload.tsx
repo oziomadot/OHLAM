@@ -653,30 +653,46 @@ const IdCardUpload = () => {
           "Your ID could not be verified."
       );
     } catch (submitError: any) {
-      const serverData =
-        submitError?.data ??
-        submitError?.response?.data;
+  const status =
+    submitError?.status ??
+    submitError?.response?.status;
 
-      console.error(
-        "[ID KYC] Upload error:",
-        {
-          name: submitError?.name,
-          message:
-            submitError?.message,
-          status:
-            submitError?.status ??
-            submitError?.response?.status,
-          data: serverData,
-        }
-      );
+  const serverData =
+    submitError?.data ??
+    submitError?.response?.data;
 
-      Alert.alert(
-        "ID verification failed",
-        serverData?.message ??
-          submitError?.message ??
-          "Failed to upload your ID. Please try again."
-      );
-    } finally {
+  console.error(
+    "[ID KYC] Upload error:",
+    {
+      name: submitError?.name,
+      message: submitError?.message,
+      status,
+      data: serverData,
+    }
+  );
+
+  let message =
+    serverData?.message ??
+    "Failed to verify your ID. Please try again.";
+
+  if (status === 504) {
+    message =
+      "The identity provider took too long to respond. Your document may have been uploaded, so please wait briefly before trying again.";
+  } else if (status === 413) {
+    message =
+      "The selected image is too large. Please take a lower-resolution photo and try again.";
+  } else if (
+    submitError?.code === "ECONNABORTED"
+  ) {
+    message =
+      "The verification request timed out. Please check your connection and try again.";
+  }
+
+  Alert.alert(
+    "ID verification failed",
+    message
+  );
+} finally {
       setUploading(false);
     }
   };
@@ -914,8 +930,7 @@ const IdCardUpload = () => {
                         item.id
                       )}
                       label={item.name}
-                      value={item.id}
-                      color="#333"
+                      value={item.id}                    
                     />
                   )
                 )}
