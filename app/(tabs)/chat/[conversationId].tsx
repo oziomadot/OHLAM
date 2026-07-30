@@ -1,8 +1,25 @@
 import API from "@/src/services/api";
 import { Ionicons } from "@expo/vector-icons";
-import { Stack, useLocalSearchParams, useRouter } from "expo-router";
-import React, { useCallback, useEffect, useMemo, useRef, useState } from "react";
-import { ActivityIndicator, Alert, FlatList, KeyboardAvoidingView, Platform, SafeAreaView, StyleSheet,
+import {
+  Stack,
+  useLocalSearchParams,
+  useRouter,
+} from "expo-router";
+import React, {
+  useCallback,
+  useEffect,
+  useMemo,
+  useRef,
+  useState,
+} from "react";
+import {
+  ActivityIndicator,
+  Alert,
+  FlatList,
+  KeyboardAvoidingView,
+  Platform,
+  SafeAreaView,
+  StyleSheet,
   Text,
   TextInput,
   TouchableOpacity,
@@ -30,15 +47,8 @@ type Message = {
   sender_id?: number;
   sender?: UserSummary | null;
 
-  status?:
-    | ReferenceValue
-    | string
-    | null;
-
-  message_type?:
-    | ReferenceValue
-    | string
-    | null;
+  status?: ReferenceValue | string | null;
+  message_type?: ReferenceValue | string | null;
 
   client_message_id?: string | null;
 };
@@ -48,25 +58,10 @@ type Conversation = {
   title?: string | null;
   display_title?: string | null;
 
-  type?:
-    | ReferenceValue
-    | string
-    | null;
-
-  purpose?:
-    | ReferenceValue
-    | string
-    | null;
-
-  status?:
-    | ReferenceValue
-    | string
-    | null;
-
-  support_status?:
-    | ReferenceValue
-    | string
-    | null;
+  type?: ReferenceValue | string | null;
+  purpose?: ReferenceValue | string | null;
+  status?: ReferenceValue | string | null;
+  support_status?: ReferenceValue | string | null;
 
   messages?: Message[];
 };
@@ -87,7 +82,9 @@ function getReferenceCode(
     : value.code;
 }
 
-function getUserName(user?: UserSummary | null): string {
+function getUserName(
+  user?: UserSummary | null
+): string {
   if (!user) {
     return "User";
   }
@@ -96,16 +93,20 @@ function getUserName(user?: UserSummary | null): string {
     return user.name.trim();
   }
 
-  return [
+  const fullName = [
     user.firstname,
     user.lastname,
   ]
     .filter(Boolean)
     .join(" ")
-    .trim() || "User";
+    .trim();
+
+  return fullName || "User";
 }
 
-function formatMessageTime(value: string): string {
+function formatMessageTime(
+  value: string
+): string {
   const date = new Date(value);
 
   if (Number.isNaN(date.getTime())) {
@@ -119,20 +120,25 @@ function formatMessageTime(value: string): string {
 }
 
 function extractCurrentUserId(
-  responseData: any
+  responseData: unknown
 ): number | null {
+  const data = responseData as any;
+
   const value =
-    responseData?.id ??
-    responseData?.data?.id ??
+    data?.id ??
+    data?.data?.id ??
+    data?.user?.id ??
+    data?.data?.user?.id ??
     null;
 
-  if (!value) {
+  if (value === null || value === undefined) {
     return null;
   }
 
   const parsed = Number(value);
 
-  return Number.isFinite(parsed)
+  return Number.isInteger(parsed) &&
+    parsed > 0
     ? parsed
     : null;
 }
@@ -147,10 +153,9 @@ function mergeMessages(
   >();
 
   for (const item of existingMessages) {
-    const key =
-      item.client_message_id
-        ? `client:${item.client_message_id}`
-        : `id:${item.id}`;
+    const key = item.client_message_id
+      ? `client:${item.client_message_id}`
+      : `id:${item.id}`;
 
     messageMap.set(key, item);
   }
@@ -170,54 +175,80 @@ function mergeMessages(
 
   return Array.from(
     messageMap.values()
-  ).sort(
-    (first, second) =>
-      new Date(
-        first.created_at
-      ).getTime() -
-      new Date(
-        second.created_at
-      ).getTime()
-  );
+  ).sort((first, second) => {
+    return (
+      new Date(first.created_at).getTime() -
+      new Date(second.created_at).getTime()
+    );
+  });
 }
 
 export default function ChatScreen() {
   const router = useRouter();
 
-  const { conversationId } = useLocalSearchParams<{
-    conversationId: string | string[];
+  const params = useLocalSearchParams<{
+    conversationId?: string | string[];
   }>();
 
-  const normalizedConversationId = Array.isArray(conversationId)
-      ? conversationId[0]
-      : conversationId;
+  const rawConversationId =
+    Array.isArray(params.conversationId)
+      ? params.conversationId[0]
+      : params.conversationId;
 
-  const flatListRef = useRef<FlatList<Message>>(null);
+  const parsedConversationId = Number(
+    rawConversationId
+  );
 
-  const requestRunningRef = useRef(false);
+  const conversationId =
+    Number.isInteger(parsedConversationId) &&
+    parsedConversationId > 0
+      ? parsedConversationId
+      : null;
 
-  const [conversation, setConversation] = useState<Conversation | null>(null);
+  const flatListRef =
+    useRef<FlatList<Message>>(null);
 
-  const [messages, setMessages] = useState<Message[]>([]);
+  const requestRunningRef =
+    useRef(false);
 
-  const [currentUserId, setCurrentUserId] = useState<number | null>(null);
+  const [conversation, setConversation] =
+    useState<Conversation | null>(null);
 
-  const [message, setMessage] = useState("");
+  const [messages, setMessages] =
+    useState<Message[]>([]);
 
-  const [loading, setLoading] = useState(true);
+  const [
+    currentUserId,
+    setCurrentUserId,
+  ] = useState<number | null>(null);
 
-  const [sending, setSending] = useState(false);
+  const [message, setMessage] =
+    useState("");
 
-  const [errorMessage, setErrorMessage] = useState<string | null>(null);
+  const [loading, setLoading] =
+    useState(true);
+
+  const [sending, setSending] =
+    useState(false);
+
+  const [
+    errorMessage,
+    setErrorMessage,
+  ] = useState<string | null>(null);
 
   const loadConversation = useCallback(
     async (
       showLoader = false
     ): Promise<void> => {
-      if (
-        !normalizedConversationId ||
-        requestRunningRef.current
-      ) {
+      if (!conversationId) {
+        setErrorMessage(
+          "The conversation link is invalid."
+        );
+        setLoading(false);
+        return;
+      }
+
+      if (requestRunningRef.current) {
         return;
       }
 
@@ -228,21 +259,23 @@ export default function ChatScreen() {
       }
 
       try {
-        const [conversationResponse, meResponse] =
-          await Promise.all([
-            API.get<{ data: Conversation }>(
-              `/conversations/${normalizedConversationId}`
-            ),
+        const [
+          conversationResponse,
+          meResponse,
+        ] = await Promise.all([
+          API.get<{
+            data: Conversation;
+          }>(
+            `/conversations/${conversationId}`
+          ),
 
-            API.get("/me").catch(() => ({
-              data: null,
-            })),
-          ]);
+          API.get("/me").catch(() => ({
+            data: null,
+          })),
+        ]);
 
         const loadedConversation =
-          conversationResponse.data?.data as
-            | Conversation
-            | undefined;
+          conversationResponse.data?.data;
 
         if (!loadedConversation) {
           throw new Error(
@@ -273,7 +306,7 @@ export default function ChatScreen() {
             meResponse.data
           );
 
-        if (loadedUserId) {
+        if (loadedUserId !== null) {
           setCurrentUserId(
             loadedUserId
           );
@@ -285,8 +318,7 @@ export default function ChatScreen() {
           error?.response?.status;
 
         const serverMessage =
-          error?.response?.data
-            ?.message;
+          error?.response?.data?.message;
 
         if (status === 403) {
           setErrorMessage(
@@ -295,7 +327,8 @@ export default function ChatScreen() {
           );
         } else if (status === 404) {
           setErrorMessage(
-            "This conversation no longer exists."
+            serverMessage ??
+              "This conversation no longer exists."
           );
         } else if (status === 401) {
           setErrorMessage(
@@ -314,18 +347,15 @@ export default function ChatScreen() {
         setLoading(false);
       }
     },
-    [normalizedConversationId]
+    [conversationId]
   );
 
   useEffect(() => {
-    loadConversation(true);
+    void loadConversation(true);
 
-    const interval = setInterval(
-      () => {
-        loadConversation(false);
-      },
-      5_000
-    );
+    const interval = setInterval(() => {
+      void loadConversation(false);
+    }, 5_000);
 
     return () => {
       clearInterval(interval);
@@ -354,17 +384,15 @@ export default function ChatScreen() {
       conversation?.status
     );
 
-  const isReadOnly = useMemo(
-    () =>
-      [
-        "conversation_closed",
-        "conversation_read_only",
-        "conversation_archived",
-      ].includes(
-        conversationStatusCode ?? ""
-      ),
-    [conversationStatusCode]
-  );
+  const isReadOnly = useMemo(() => {
+    return [
+      "conversation_closed",
+      "conversation_read_only",
+      "conversation_archived",
+    ].includes(
+      conversationStatusCode ?? ""
+    );
+  }, [conversationStatusCode]);
 
   const sendMessage =
     useCallback(async (): Promise<void> => {
@@ -373,7 +401,7 @@ export default function ChatScreen() {
 
       if (
         !trimmedMessage ||
-        !normalizedConversationId ||
+        !conversationId ||
         sending ||
         isReadOnly
       ) {
@@ -418,14 +446,10 @@ export default function ChatScreen() {
         const response = await API.post<{
           data?: Message;
         }>(
-          `/conversations/${normalizedConversationId}/messages`,
+          `/conversations/${conversationId}/messages`,
           {
-            message:
-              trimmedMessage,
-
-            message_type:
-              "text",
-
+            message: trimmedMessage,
+            message_type: "text",
             client_message_id:
               clientMessageId,
           }
@@ -472,11 +496,11 @@ export default function ChatScreen() {
         setSending(false);
       }
     }, [
+      conversationId,
       currentUserId,
       isReadOnly,
       loadConversation,
       message,
-      normalizedConversationId,
       sending,
     ]);
 
@@ -496,6 +520,11 @@ export default function ChatScreen() {
 
     const statusCode =
       getReferenceCode(item.status);
+
+    const isFlagged =
+      statusCode ===
+        "message_flagged" ||
+      statusCode === "flagged";
 
     return (
       <View
@@ -544,9 +573,7 @@ export default function ChatScreen() {
             )}
           </Text>
 
-          {statusCode ===
-            "message_flagged" ||
-          statusCode === "flagged" ? (
+          {isFlagged && (
             <View
               style={
                 styles.flaggedContainer
@@ -566,7 +593,7 @@ export default function ChatScreen() {
                 Flagged for review
               </Text>
             </View>
-          ) : null}
+          )}
         </View>
       </View>
     );
@@ -616,9 +643,9 @@ export default function ChatScreen() {
 
         <TouchableOpacity
           style={styles.retryButton}
-          onPress={() =>
-            loadConversation(true)
-          }
+          onPress={() => {
+            void loadConversation(true);
+          }}
         >
           <Text
             style={
@@ -789,7 +816,9 @@ export default function ChatScreen() {
             />
 
             <TouchableOpacity
-              onPress={sendMessage}
+              onPress={() => {
+                void sendMessage();
+              }}
               disabled={
                 sending ||
                 !message.trim()
