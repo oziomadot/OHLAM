@@ -27,9 +27,9 @@ import {
 } from "react-native";
 
 type ReferenceValue = {
-  id: number;
-  code: string;
-  name: string;
+  id?: number;
+  code?: string;
+  name?: string;
 };
 
 type UserSummary = {
@@ -43,25 +43,49 @@ type Message = {
   id: number;
   message: string;
   created_at: string;
-  updated_at?: string;
-  sender_id?: number;
+  updated_at?: string | null;
+
+  sender_id?: number | null;
   sender?: UserSummary | null;
 
-  status?: ReferenceValue | string | null;
-  message_type?: ReferenceValue | string | null;
+  status?:
+    | ReferenceValue
+    | string
+    | null;
+
+  message_type?:
+    | ReferenceValue
+    | string
+    | null;
 
   client_message_id?: string | null;
 };
 
 type Conversation = {
   id: number;
+
   title?: string | null;
   display_title?: string | null;
 
-  type?: ReferenceValue | string | null;
-  purpose?: ReferenceValue | string | null;
-  status?: ReferenceValue | string | null;
-  support_status?: ReferenceValue | string | null;
+  type?:
+    | ReferenceValue
+    | string
+    | null;
+
+  purpose?:
+    | ReferenceValue
+    | string
+    | null;
+
+  status?:
+    | ReferenceValue
+    | string
+    | null;
+
+  support_status?:
+    | ReferenceValue
+    | string
+    | null;
 
   messages?: Message[];
 };
@@ -77,9 +101,11 @@ function getReferenceCode(
     return null;
   }
 
-  return typeof value === "string"
-    ? value
-    : value.code;
+  if (typeof value === "string") {
+    return value;
+  }
+
+  return value.code ?? null;
 }
 
 function getUserName(
@@ -120,20 +146,14 @@ function formatMessageTime(
 }
 
 function extractCurrentUserId(
-  responseData: unknown
+  responseData: any
 ): number | null {
-  const data = responseData as any;
-
   const value =
-    data?.id ??
-    data?.data?.id ??
-    data?.user?.id ??
-    data?.data?.user?.id ??
+    responseData?.id ??
+    responseData?.data?.id ??
+    responseData?.user?.id ??
+    responseData?.data?.user?.id ??
     null;
-
-  if (value === null || value === undefined) {
-    return null;
-  }
 
   const parsed = Number(value);
 
@@ -143,47 +163,110 @@ function extractCurrentUserId(
     : null;
 }
 
+function extractConversation(
+  responseData: any
+): Conversation | null {
+  const possibleValues = [
+    responseData?.data,
+    responseData?.conversation,
+    responseData?.data?.conversation,
+    responseData,
+  ];
+
+  for (const value of possibleValues) {
+    if (
+      value &&
+      typeof value === "object" &&
+      !Array.isArray(value) &&
+      Number(value.id) > 0
+    ) {
+      return value as Conversation;
+    }
+  }
+
+  return null;
+}
+
+function extractMessages(
+  responseData: any
+): Message[] {
+  const possibleValues = [
+    responseData?.data,
+    responseData?.data?.data,
+    responseData?.messages,
+    responseData?.data?.messages,
+    responseData,
+  ];
+
+  for (const value of possibleValues) {
+    if (Array.isArray(value)) {
+      return value;
+    }
+  }
+
+  return [];
+}
+
+function extractSavedMessage(
+  responseData: any
+): Message | null {
+  const possibleValues = [
+    responseData?.data,
+    responseData?.message,
+    responseData?.data?.message,
+  ];
+
+  for (const value of possibleValues) {
+    if (
+      value &&
+      typeof value === "object" &&
+      !Array.isArray(value) &&
+      Number(value.id) !== 0 &&
+      typeof value.message === "string"
+    ) {
+      return value as Message;
+    }
+  }
+
+  return null;
+}
+
 function mergeMessages(
   existingMessages: Message[],
   incomingMessages: Message[]
 ): Message[] {
-  const messageMap = new Map<
-    string,
-    Message
-  >();
+  const map = new Map<string, Message>();
 
   for (const item of existingMessages) {
     const key = item.client_message_id
       ? `client:${item.client_message_id}`
       : `id:${item.id}`;
 
-    messageMap.set(key, item);
+    map.set(key, item);
   }
 
   for (const item of incomingMessages) {
     if (item.client_message_id) {
-      messageMap.delete(
+      map.delete(
         `client:${item.client_message_id}`
       );
     }
 
-    messageMap.set(
-      `id:${item.id}`,
-      item
-    );
+    map.set(`id:${item.id}`, item);
   }
 
-  return Array.from(
-    messageMap.values()
-  ).sort((first, second) => {
-    return (
-      new Date(first.created_at).getTime() -
-      new Date(second.created_at).getTime()
-    );
-  });
+  return Array.from(map.values()).sort(
+    (first, second) =>
+      new Date(
+        first.created_at
+      ).getTime() -
+      new Date(
+        second.created_at
+      ).getTime()
+  );
 }
 
-export default function ChatScreen() {
+export default function ConversationScreen() {
   const router = useRouter();
 
   const params = useLocalSearchParams<{
@@ -208,7 +291,7 @@ export default function ChatScreen() {
   const flatListRef =
     useRef<FlatList<Message>>(null);
 
-  const requestRunningRef =
+  const loadingRequestRef =
     useRef(false);
 
   const [conversation, setConversation] =
@@ -248,11 +331,11 @@ export default function ChatScreen() {
         return;
       }
 
-      if (requestRunningRef.current) {
+      if (loadingRequestRef.current) {
         return;
       }
 
-      requestRunningRef.current = true;
+      loadingRequestRef.current = true;
 
       if (showLoader) {
         setLoading(true);
@@ -261,12 +344,15 @@ export default function ChatScreen() {
       try {
         const [
           conversationResponse,
+          messagesResponse,
           meResponse,
         ] = await Promise.all([
-          API.get<{
-            data: Conversation;
-          }>(
+          API.get(
             `/conversations/${conversationId}`
+          ),
+
+          API.get(
+            `/conversations/${conversationId}/messages`
           ),
 
           API.get("/me").catch(() => ({
@@ -274,25 +360,35 @@ export default function ChatScreen() {
           })),
         ]);
 
+        console.log(
+          "Conversation response:",
+          conversationResponse.data
+        );
+
+        console.log(
+          "Messages response:",
+          messagesResponse.data
+        );
+
         const loadedConversation =
-          conversationResponse.data?.data;
+          extractConversation(
+            conversationResponse.data
+          );
 
         if (!loadedConversation) {
           throw new Error(
-            "Conversation response is empty."
+            "The API returned an invalid conversation."
           );
         }
+
+        const loadedMessages =
+          extractMessages(
+            messagesResponse.data
+          );
 
         setConversation(
           loadedConversation
         );
-
-        const loadedMessages =
-          Array.isArray(
-            loadedConversation.messages
-          )
-            ? loadedConversation.messages
-            : [];
 
         setMessages((previous) =>
           mergeMessages(
@@ -314,13 +410,31 @@ export default function ChatScreen() {
 
         setErrorMessage(null);
       } catch (error: any) {
+        console.log(
+          "Load conversation error:",
+          {
+            url:
+              error?.config?.baseURL +
+              error?.config?.url,
+            status:
+              error?.response?.status,
+            response:
+              error?.response?.data,
+            message: error?.message,
+          }
+        );
+
         const status =
           error?.response?.status;
 
         const serverMessage =
           error?.response?.data?.message;
 
-        if (status === 403) {
+        if (status === 401) {
+          setErrorMessage(
+            "Your session has expired. Please sign in again."
+          );
+        } else if (status === 403) {
           setErrorMessage(
             serverMessage ??
               "You are not allowed to view this conversation."
@@ -328,20 +442,17 @@ export default function ChatScreen() {
         } else if (status === 404) {
           setErrorMessage(
             serverMessage ??
-              "This conversation no longer exists."
-          );
-        } else if (status === 401) {
-          setErrorMessage(
-            "Your session has expired. Please sign in again."
+              "This conversation could not be found."
           );
         } else {
           setErrorMessage(
             serverMessage ??
+              error?.message ??
               "We could not load this conversation."
           );
         }
       } finally {
-        requestRunningRef.current =
+        loadingRequestRef.current =
           false;
 
         setLoading(false);
@@ -379,23 +490,27 @@ export default function ChatScreen() {
     conversation?.title ??
     "Conversation";
 
-  const conversationStatusCode =
+  const conversationStatus =
     getReferenceCode(
       conversation?.status
     );
 
-  const isReadOnly = useMemo(() => {
-    return [
-      "conversation_closed",
-      "conversation_read_only",
-      "conversation_archived",
-    ].includes(
-      conversationStatusCode ?? ""
-    );
-  }, [conversationStatusCode]);
+  const isReadOnly = useMemo(
+    () =>
+      [
+        "conversation_closed",
+        "conversation_read_only",
+        "conversation_archived",
+        "closed",
+        "archived",
+      ].includes(
+        conversationStatus ?? ""
+      ),
+    [conversationStatus]
+  );
 
-  const sendMessage =
-    useCallback(async (): Promise<void> => {
+  const sendMessage = useCallback(
+    async (): Promise<void> => {
       const trimmedMessage =
         message.trim();
 
@@ -411,7 +526,7 @@ export default function ChatScreen() {
       const clientMessageId =
         `mobile-${Date.now()}-${Math.random()
           .toString(36)
-          .slice(2, 8)}`;
+          .slice(2, 10)}`;
 
       const temporaryMessage: Message = {
         id: -Date.now(),
@@ -443,9 +558,7 @@ export default function ChatScreen() {
       setSending(true);
 
       try {
-        const response = await API.post<{
-          data?: Message;
-        }>(
+        const response = await API.post(
           `/conversations/${conversationId}/messages`,
           {
             message: trimmedMessage,
@@ -455,8 +568,15 @@ export default function ChatScreen() {
           }
         );
 
+        console.log(
+          "Send message response:",
+          response.data
+        );
+
         const savedMessage =
-          response.data?.data;
+          extractSavedMessage(
+            response.data
+          );
 
         if (savedMessage) {
           setMessages((previous) => {
@@ -476,6 +596,20 @@ export default function ChatScreen() {
           await loadConversation(false);
         }
       } catch (error: any) {
+        console.log(
+          "Send message error:",
+          {
+            url:
+              error?.config?.baseURL +
+              error?.config?.url,
+            status:
+              error?.response?.status,
+            response:
+              error?.response?.data,
+            message: error?.message,
+          }
+        );
+
         setMessages((previous) =>
           previous.filter(
             (item) =>
@@ -495,14 +629,16 @@ export default function ChatScreen() {
       } finally {
         setSending(false);
       }
-    }, [
+    },
+    [
       conversationId,
       currentUserId,
       isReadOnly,
       loadConversation,
       message,
       sending,
-    ]);
+    ]
+  );
 
   const renderMessage = ({
     item,
@@ -516,15 +652,16 @@ export default function ChatScreen() {
 
     const isMine =
       currentUserId !== null &&
-      senderId === currentUserId;
+      Number(senderId) ===
+        Number(currentUserId);
 
     const statusCode =
       getReferenceCode(item.status);
 
-    const isFlagged =
-      statusCode ===
-        "message_flagged" ||
-      statusCode === "flagged";
+    const isFlagged = [
+      "message_flagged",
+      "flagged",
+    ].includes(statusCode ?? "");
 
     return (
       <View
@@ -601,17 +738,13 @@ export default function ChatScreen() {
 
   if (loading) {
     return (
-      <SafeAreaView
-        style={styles.center}
-      >
+      <SafeAreaView style={styles.center}>
         <ActivityIndicator
           size="large"
           color="#2563eb"
         />
 
-        <Text
-          style={styles.loadingText}
-        >
+        <Text style={styles.loadingText}>
           Loading conversation...
         </Text>
       </SafeAreaView>
@@ -620,18 +753,14 @@ export default function ChatScreen() {
 
   if (errorMessage) {
     return (
-      <SafeAreaView
-        style={styles.center}
-      >
+      <SafeAreaView style={styles.center}>
         <Ionicons
           name="chatbubble-ellipses-outline"
           size={60}
           color="#94a3b8"
         />
 
-        <Text
-          style={styles.errorTitle}
-        >
+        <Text style={styles.errorTitle}>
           Conversation unavailable
         </Text>
 
@@ -658,9 +787,7 @@ export default function ChatScreen() {
 
         <TouchableOpacity
           style={styles.backButton}
-          onPress={() =>
-            router.back()
-          }
+          onPress={() => router.back()}
         >
           <Text
             style={
@@ -675,9 +802,7 @@ export default function ChatScreen() {
   }
 
   return (
-    <SafeAreaView
-      style={styles.safeArea}
-    >
+    <SafeAreaView style={styles.safeArea}>
       <Stack.Screen
         options={{
           title: conversationTitle,
@@ -736,9 +861,7 @@ export default function ChatScreen() {
             false
           }
           onContentSizeChange={() => {
-            if (
-              messages.length > 0
-            ) {
+            if (messages.length > 0) {
               flatListRef.current?.scrollToEnd(
                 {
                   animated: false,
@@ -806,9 +929,7 @@ export default function ChatScreen() {
               onChangeText={setMessage}
               placeholder="Type a message..."
               placeholderTextColor="#94a3b8"
-              style={
-                styles.messageInput
-              }
+              style={styles.messageInput}
               multiline
               maxLength={5000}
               editable={!sending}

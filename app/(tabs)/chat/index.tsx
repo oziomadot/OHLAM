@@ -1,27 +1,24 @@
 import API from "@/src/services/api";
 import { Ionicons } from "@expo/vector-icons";
-import { useFocusEffect, useRouter } from "expo-router";
-import React, { useCallback, useMemo, useRef, useState } from "react";
+import {
+  Stack,
+  useFocusEffect,
+  useRouter,
+} from "expo-router";
+import React, {
+  useCallback,
+  useState,
+} from "react";
 import {
   ActivityIndicator,
   FlatList,
   RefreshControl,
+  SafeAreaView,
   StyleSheet,
   Text,
-  TextInput,
   TouchableOpacity,
   View,
 } from "react-native";
-
-import Navbar from "components/Navbar";
-import Protected from "components/Protected";
-import ScreenWrapper from "components/ScreenWrapper";
-
-type ReferenceValue = {
-  id: number;
-  code: string;
-  name: string;
-};
 
 type UserSummary = {
   id: number;
@@ -30,30 +27,26 @@ type UserSummary = {
   lastname?: string | null;
 };
 
-type Participant = {
-  id: number;
-  user_id?: number;
-  user?: UserSummary | null;
-  role?: ReferenceValue | string | null;
+type ReferenceValue = {
+  id?: number;
+  code?: string;
+  name?: string;
 };
 
 type Message = {
   id: number;
-  message: string;
-  created_at: string;
-  sender_id?: number;
+  message?: string | null;
+  created_at?: string | null;
+  sender_id?: number | null;
   sender?: UserSummary | null;
 };
 
 type Conversation = {
   id: number;
+  title?: string | null;
+  display_title?: string | null;
 
-  type:
-    | ReferenceValue
-    | "private"
-    | "group";
-
-  purpose?:
+  type?:
     | ReferenceValue
     | string
     | null;
@@ -63,146 +56,41 @@ type Conversation = {
     | string
     | null;
 
-  support_status?:
-    | ReferenceValue
-    | string
-    | null;
-
-  title?: string | null;
-  display_title?: string | null;
-
-  participants?: Participant[];
+  participants?: UserSummary[];
   messages?: Message[];
 
+  latest_message?: Message | null;
+  last_message?: Message | null;
+
   unread_count?: number;
-  last_message_at?: string | null;
-  updated_at: string;
+  updated_at?: string | null;
+  created_at?: string | null;
 };
-
-type Tab = "private" | "group";
-
-const COLORS = [
-  "#2563eb",
-  "#7c3aed",
-  "#059669",
-  "#d97706",
-  "#db2777",
-  "#0891b2",
-];
-
-function getReferenceCode(
-  value:
-    | ReferenceValue
-    | string
-    | null
-    | undefined
-): string | null {
-  if (!value) {
-    return null;
-  }
-
-  return typeof value === "string"
-    ? value
-    : value.code;
-}
 
 function getUserName(
   user?: UserSummary | null
 ): string {
   if (!user) {
-    return "";
+    return "User";
   }
 
   if (user.name?.trim()) {
     return user.name.trim();
   }
 
-  return [
+  const fullName = [
     user.firstname,
     user.lastname,
   ]
     .filter(Boolean)
     .join(" ")
     .trim();
+
+  return fullName || "User";
 }
 
-function getConversationType(
+function getConversationTitle(
   conversation: Conversation
-): Tab {
-  return getReferenceCode(
-    conversation.type
-  ) === "group"
-    ? "group"
-    : "private";
-}
-
-function colorFor(id: number): string {
-  return COLORS[
-    Math.abs(id) % COLORS.length
-  ];
-}
-
-function timeAgo(
-  value?: string | null
-): string {
-  if (!value) {
-    return "";
-  }
-
-  const timestamp =
-    new Date(value).getTime();
-
-  if (Number.isNaN(timestamp)) {
-    return "";
-  }
-
-  const difference =
-    Date.now() - timestamp;
-
-  if (difference < 0) {
-    return "now";
-  }
-
-  const minutes = Math.floor(
-    difference / 60_000
-  );
-
-  if (minutes < 1) {
-    return "now";
-  }
-
-  if (minutes < 60) {
-    return `${minutes}m`;
-  }
-
-  const hours = Math.floor(
-    minutes / 60
-  );
-
-  if (hours < 24) {
-    return `${hours}h`;
-  }
-
-  const days = Math.floor(
-    hours / 24
-  );
-
-  if (days < 7) {
-    return `${days}d`;
-  }
-
-  return new Date(value).toLocaleDateString(
-    [],
-    {
-      day: "2-digit",
-      month: "short",
-    }
-  );
-}
-
-function conversationTitle(
-  conversation: Conversation,
-  currentUserId: number | null
 ): string {
   if (
     conversation.display_title?.trim()
@@ -215,133 +103,171 @@ function conversationTitle(
   }
 
   if (
-    getConversationType(conversation) ===
-    "private"
+    Array.isArray(
+      conversation.participants
+    ) &&
+    conversation.participants.length > 0
   ) {
-    const otherParticipant =
-      conversation.participants?.find(
-        (participant) =>
-          participant.user?.id !==
-          currentUserId
-      );
-
-    const otherName = getUserName(
-      otherParticipant?.user
-    );
-
-    return otherName || "Private Chat";
+    return conversation.participants
+      .map(getUserName)
+      .join(", ");
   }
 
-  return "Group Chat";
+  return `Conversation ${conversation.id}`;
 }
 
-function conversationInitials(
-  title: string
+function getLatestMessage(
+  conversation: Conversation
+): Message | null {
+  if (conversation.latest_message) {
+    return conversation.latest_message;
+  }
+
+  if (conversation.last_message) {
+    return conversation.last_message;
+  }
+
+  if (
+    Array.isArray(conversation.messages) &&
+    conversation.messages.length > 0
+  ) {
+    return conversation.messages[
+      conversation.messages.length - 1
+    ];
+  }
+
+  return null;
+}
+
+function formatConversationTime(
+  value?: string | null
 ): string {
-  const initials = title
-    .trim()
-    .split(/\s+/)
-    .slice(0, 2)
-    .map(
-      (word) =>
-        word[0]?.toUpperCase() ?? ""
-    )
-    .join("");
-
-  return initials || "CH";
-}
-
-function extractCurrentUserId(
-  responseData: any
-): number | null {
-  const value =
-    responseData?.id ??
-    responseData?.data?.id ??
-    null;
-
   if (!value) {
-    return null;
+    return "";
   }
 
-  const parsed = Number(value);
+  const date = new Date(value);
 
-  return Number.isFinite(parsed)
-    ? parsed
-    : null;
+  if (Number.isNaN(date.getTime())) {
+    return "";
+  }
+
+  const today = new Date();
+
+  const isToday =
+    date.getFullYear() ===
+      today.getFullYear() &&
+    date.getMonth() === today.getMonth() &&
+    date.getDate() === today.getDate();
+
+  if (isToday) {
+    return date.toLocaleTimeString([], {
+      hour: "2-digit",
+      minute: "2-digit",
+    });
+  }
+
+  return date.toLocaleDateString([], {
+    day: "2-digit",
+    month: "short",
+  });
 }
 
-export default function ChatIndex() {
+function extractConversations(
+  responseData: any
+): Conversation[] {
+  const possibleValues = [
+    responseData?.data,
+    responseData?.data?.data,
+    responseData?.conversations,
+    responseData?.data?.conversations,
+    responseData,
+  ];
+
+  for (const value of possibleValues) {
+    if (Array.isArray(value)) {
+      return value;
+    }
+  }
+
+  return [];
+}
+
+export default function ChatIndexScreen() {
   const router = useRouter();
 
-  const requestRunningRef = useRef(false);
-  const [conversations, setConversations] = useState<Conversation[]>([]);
+  const [
+    conversations,
+    setConversations,
+  ] = useState<Conversation[]>([]);
 
-  const [currentUserId, setCurrentUserId] = useState<number | null>(null);
+  const [loading, setLoading] =
+    useState(true);
 
-  const [loading, setLoading] = useState(true);
+  const [refreshing, setRefreshing] =
+    useState(false);
 
-  const [refreshing, setRefreshing] = useState(false);
+  const [
+    errorMessage,
+    setErrorMessage,
+  ] = useState<string | null>(null);
 
-  const [search, setSearch] = useState("");
-
-  const [tab, setTab] = useState<Tab>("private");
-
-  const [errorMessage, setErrorMessage] = useState<string | null>(null);
-
-  const load = useCallback(
+  const loadConversations = useCallback(
     async (
-      options: {
-        showLoader?: boolean;
-        showRefresh?: boolean;
-      } = {}
+      showFullLoader = false
     ): Promise<void> => {
-      if (requestRunningRef.current) {
-        return;
-      }
-
-      requestRunningRef.current = true;
-
-      if (options.showLoader) {
+      if (showFullLoader) {
         setLoading(true);
       }
 
-      if (options.showRefresh) {
-        setRefreshing(true);
-      }
-
       try {
-        const [conversationResponse, meResponse] =
-          await Promise.all([
-            API.get<{ data: Conversation[] }>("/conversations"),
+        const response =
+          await API.get("/conversations");
 
-            API.get("/me").catch(() => ({
-              data: null,
-            })),
-          ]);
-
-        const loadedConversations = conversationResponse.data?.data;
-
-        setConversations(
-          Array.isArray(loadedConversations)
-            ? loadedConversations
-            : []
+        console.log(
+          "Conversation list response:",
+          response.data
         );
 
-        const loadedUserId = extractCurrentUserId(meResponse.data);
+        const loadedConversations =
+          extractConversations(
+            response.data
+          );
 
-        if (loadedUserId) {
-          setCurrentUserId(loadedUserId);
-        }
+        setConversations(
+          loadedConversations
+        );
 
         setErrorMessage(null);
       } catch (error: any) {
-        const status = error?.response?.status;
+        console.log(
+          "Load conversations error:",
+          {
+            url:
+              error?.config?.baseURL +
+              error?.config?.url,
+            status:
+              error?.response?.status,
+            response:
+              error?.response?.data,
+            message: error?.message,
+          }
+        );
 
-        const serverMessage = error?.response?.data?.message;
+        const status =
+          error?.response?.status;
+
+        const serverMessage =
+          error?.response?.data?.message;
 
         if (status === 401) {
           setErrorMessage(
             "Your session has expired. Please sign in again."
+          );
+        } else if (status === 403) {
+          setErrorMessage(
+            serverMessage ??
+              "You are not allowed to view conversations."
           );
         } else {
           setErrorMessage(
@@ -350,9 +276,6 @@ export default function ChatIndex() {
           );
         }
       } finally {
-        requestRunningRef.current =
-          false;
-
         setLoading(false);
         setRefreshing(false);
       }
@@ -362,80 +285,25 @@ export default function ChatIndex() {
 
   useFocusEffect(
     useCallback(() => {
-      load({
-        showLoader:
-          conversations.length === 0,
-      });
-
-      const interval = setInterval(
-        () => {
-          load();
-        },
-        15_000
-      );
-
-      return () => {
-        clearInterval(interval);
-      };
-    }, [
-      conversations.length,
-      load,
-    ])
+      void loadConversations(true);
+    }, [loadConversations])
   );
 
-  const filteredConversations =
-    useMemo(() => {
-      const normalizedSearch =
-        search.trim().toLowerCase();
-
-      return conversations
-        .filter(
-          (conversation) =>
-            getConversationType(
-              conversation
-            ) === tab
-        )
-        .filter((conversation) => {
-          if (!normalizedSearch) {
-            return true;
-          }
-
-          const title =
-            conversationTitle(
-              conversation,
-              currentUserId
-            ).toLowerCase();
-
-          const lastMessage =
-            (
-              conversation.messages?.[0]
-                ?.message ?? ""
-            ).toLowerCase();
-
-          return (
-            title.includes(
-              normalizedSearch
-            ) ||
-            lastMessage.includes(
-              normalizedSearch
-            )
-          );
-        });
-    }, [
-      conversations,
-      currentUserId,
-      search,
-      tab,
-    ]);
+  const refreshConversations =
+    useCallback(() => {
+      setRefreshing(true);
+      void loadConversations(false);
+    }, [loadConversations]);
 
   const openConversation = useCallback(
-    (conversationId: number) => {
+    (conversation: Conversation) => {
       router.push({
         pathname:
           "/(tabs)/chat/[conversationId]",
         params: {
-          conversationId:
-            String(conversationId),
+          conversationId: String(
+            conversation.id
+          ),
         },
       });
     },
@@ -447,105 +315,69 @@ export default function ChatIndex() {
   }: {
     item: Conversation;
   }) => {
-    const title = conversationTitle(
-      item,
-      currentUserId
+    const latestMessage =
+      getLatestMessage(item);
+
+    const unreadCount = Number(
+      item.unread_count ?? 0
     );
-
-    const type =
-      getConversationType(item);
-
-    const lastMessage =
-      item.messages?.[0];
-
-    const timestamp =
-      lastMessage?.created_at ??
-      item.last_message_at ??
-      item.updated_at;
-
-    const unreadCount =
-      Number(item.unread_count ?? 0);
 
     return (
       <TouchableOpacity
-        style={styles.row}
-        onPress={() =>
-          openConversation(item.id)
-        }
+        style={styles.conversationCard}
         activeOpacity={0.75}
-        accessibilityRole="button"
-        accessibilityLabel={`Open ${title}`}
+        onPress={() =>
+          openConversation(item)
+        }
       >
         <View
-          style={[
-            styles.avatar,
-            {
-              backgroundColor:
-                colorFor(item.id),
-            },
-          ]}
+          style={styles.avatarContainer}
         >
-          {type === "group" ? (
-            <Ionicons
-              name="people"
-              size={21}
-              color="#ffffff"
-            />
-          ) : (
-            <Text
-              style={styles.avatarText}
-            >
-              {conversationInitials(
-                title
-              )}
-            </Text>
-          )}
+          <Ionicons
+            name="person-outline"
+            size={24}
+            color="#2563eb"
+          />
         </View>
 
-        <View style={styles.rowBody}>
-          <View style={styles.rowTop}>
+        <View
+          style={styles.conversationContent}
+        >
+          <View style={styles.titleRow}>
             <Text
-              style={[
-                styles.rowTitle,
-                unreadCount > 0 &&
-                  styles.rowTitleUnread,
-              ]}
+              style={
+                styles.conversationTitle
+              }
               numberOfLines={1}
             >
-              {title}
+              {getConversationTitle(item)}
             </Text>
 
-            <Text
-              style={[
-                styles.rowTime,
-                unreadCount > 0 &&
-                  styles.rowTimeUnread,
-              ]}
-            >
-              {timeAgo(timestamp)}
+            <Text style={styles.timeText}>
+              {formatConversationTime(
+                latestMessage?.created_at ??
+                  item.updated_at ??
+                  item.created_at
+              )}
             </Text>
           </View>
 
-          <View
-            style={styles.previewRow}
-          >
+          <View style={styles.messageRow}>
             <Text
               style={[
-                styles.rowPreview,
+                styles.latestMessage,
                 unreadCount > 0 &&
-                  styles.rowPreviewUnread,
+                  styles.unreadMessage,
               ]}
               numberOfLines={1}
             >
-              {lastMessage?.message ??
+              {latestMessage?.message?.trim() ||
                 "No messages yet"}
             </Text>
 
             {unreadCount > 0 && (
               <View
-                style={
-                  styles.unreadBadge
-                }
+                style={styles.unreadBadge}
               >
                 <Text
                   style={
@@ -560,529 +392,318 @@ export default function ChatIndex() {
             )}
           </View>
         </View>
+
+        <Ionicons
+          name="chevron-forward"
+          size={18}
+          color="#94a3b8"
+        />
       </TouchableOpacity>
     );
   };
 
+  if (loading) {
+    return (
+      <SafeAreaView style={styles.center}>
+        <Stack.Screen
+          options={{
+            title: "SecureChat",
+          }}
+        />
+
+        <ActivityIndicator
+          size="large"
+          color="#2563eb"
+        />
+
+        <Text style={styles.loadingText}>
+          Loading conversations...
+        </Text>
+      </SafeAreaView>
+    );
+  }
+
   return (
-    <ScreenWrapper>
-      <Navbar />
+    <SafeAreaView style={styles.safeArea}>
+      <Stack.Screen
+        options={{
+          title: "SecureChat",
+        }}
+      />
 
-      <Protected>
-        <View style={styles.container}>
-          <View style={styles.header}>
-            <View>
-              <Text
-                style={styles.headerTitle}
-              >
-                Chats
-              </Text>
+      <View style={styles.securityNotice}>
+        <Ionicons
+          name="shield-checkmark-outline"
+          size={18}
+          color="#0369a1"
+        />
 
-              <Text
-                style={
-                  styles.headerSubtitle
-                }
-              >
-                Secure OHLAM conversations
-              </Text>
-            </View>
+        <Text
+          style={
+            styles.securityNoticeText
+          }
+        >
+          Keep all property communication
+          inside OHLAM SecureChat.
+        </Text>
+      </View>
 
-            <TouchableOpacity
-              style={styles.refreshButton}
-              onPress={() =>
-                load({
-                  showRefresh: true,
-                })
-              }
-              disabled={refreshing}
-            >
-              {refreshing ? (
-                <ActivityIndicator
-                  size="small"
-                  color="#2563eb"
-                />
-              ) : (
-                <Ionicons
-                  name="refresh"
-                  size={20}
-                  color="#2563eb"
-                />
-              )}
-            </TouchableOpacity>
-          </View>
+      {errorMessage ? (
+        <View style={styles.center}>
+          <Ionicons
+            name="cloud-offline-outline"
+            size={58}
+            color="#94a3b8"
+          />
 
-          <View
-            style={styles.searchWrap}
+          <Text style={styles.errorTitle}>
+            Conversations unavailable
+          </Text>
+
+          <Text
+            style={styles.errorMessage}
           >
-            <Ionicons
-              name="search-outline"
-              size={18}
-              color="#94a3b8"
-            />
+            {errorMessage}
+          </Text>
 
-            <TextInput
-              style={styles.searchInput}
-              placeholder="Search conversations..."
-              placeholderTextColor="#94a3b8"
-              value={search}
-              onChangeText={setSearch}
-              returnKeyType="search"
-              autoCorrect={false}
-            />
-
-            {search.length > 0 && (
-              <TouchableOpacity
-                onPress={() =>
-                  setSearch("")
-                }
-              >
-                <Ionicons
-                  name="close-circle"
-                  size={18}
-                  color="#94a3b8"
-                />
-              </TouchableOpacity>
-            )}
-          </View>
-
-          <View style={styles.tabs}>
-            {(
-              [
-                "private",
-                "group",
-              ] as Tab[]
-            ).map((itemTab) => {
-              const isActive =
-                tab === itemTab;
-
-              return (
-                <TouchableOpacity
-                  key={itemTab}
-                  style={[
-                    styles.tab,
-                    isActive &&
-                      styles.tabActive,
-                  ]}
-                  onPress={() =>
-                    setTab(itemTab)
-                  }
-                >
-                  <Ionicons
-                    name={
-                      itemTab ===
-                      "private"
-                        ? "person-outline"
-                        : "people-outline"
-                    }
-                    size={16}
-                    color={
-                      isActive
-                        ? "#2563eb"
-                        : "#94a3b8"
-                    }
-                  />
-
-                  <Text
-                    style={[
-                      styles.tabText,
-                      isActive &&
-                        styles.tabTextActive,
-                    ]}
-                  >
-                    {itemTab === "private"
-                      ? "Direct"
-                      : "Groups"}
-                  </Text>
-                </TouchableOpacity>
-              );
-            })}
-          </View>
-
-          {errorMessage && (
-            <View
-              style={styles.errorBanner}
+          <TouchableOpacity
+            style={styles.retryButton}
+            onPress={() => {
+              void loadConversations(true);
+            }}
+          >
+            <Text
+              style={
+                styles.retryButtonText
+              }
             >
-              <Ionicons
-                name="warning-outline"
-                size={19}
-                color="#b91c1c"
-              />
-
-              <Text
-                style={styles.errorText}
-              >
-                {errorMessage}
-              </Text>
-
-              <TouchableOpacity
-                onPress={() =>
-                  load({
-                    showLoader: true,
-                  })
-                }
-              >
-                <Text
-                  style={
-                    styles.retryText
-                  }
-                >
-                  Retry
-                </Text>
-              </TouchableOpacity>
-            </View>
-          )}
-
-          {loading ? (
-            <View style={styles.center}>
-              <ActivityIndicator
-                size="large"
-                color="#2563eb"
-              />
-
-              <Text
-                style={styles.loadingText}
-              >
-                Loading conversations...
-              </Text>
-            </View>
-          ) : (
-            <FlatList
-              data={
-                filteredConversations
-              }
-              keyExtractor={(item) =>
-                String(item.id)
-              }
-              renderItem={
-                renderConversation
-              }
-              contentContainerStyle={
-                filteredConversations.length ===
-                0
-                  ? styles.emptyList
-                  : styles.list
-              }
-              refreshControl={
-                <RefreshControl
-                  refreshing={refreshing}
-                  onRefresh={() =>
-                    load({
-                      showRefresh: true,
-                    })
-                  }
-                  tintColor="#2563eb"
-                />
-              }
-              ListEmptyComponent={
-                <View
-                  style={styles.empty}
-                >
-                  <Ionicons
-                    name={
-                      tab === "private"
-                        ? "chatbubble-ellipses-outline"
-                        : "people-outline"
-                    }
-                    size={58}
-                    color="#cbd5e1"
-                  />
-
-                  <Text
-                    style={
-                      styles.emptyTitle
-                    }
-                  >
-                    {search
-                      ? "No results found"
-                      : tab ===
-                          "private"
-                        ? "No direct chats"
-                        : "No group chats"}
-                  </Text>
-
-                  <Text
-                    style={
-                      styles.emptyText
-                    }
-                  >
-                    {search
-                      ? "Try another search term."
-                      : tab ===
-                          "private"
-                        ? "OHLAM Support and appointment conversations will appear here."
-                        : "Verified and approved groups will appear here."}
-                  </Text>
-                </View>
-              }
-              ItemSeparatorComponent={() => (
-                <View
-                  style={
-                    styles.separator
-                  }
-                />
-              )}
-            />
-          )}
+              Try again
+            </Text>
+          </TouchableOpacity>
         </View>
-      </Protected>
-    </ScreenWrapper>
+      ) : (
+        <FlatList
+          data={conversations}
+          keyExtractor={(item) =>
+            String(item.id)
+          }
+          renderItem={renderConversation}
+          refreshControl={
+            <RefreshControl
+              refreshing={refreshing}
+              onRefresh={
+                refreshConversations
+              }
+            />
+          }
+          contentContainerStyle={[
+            styles.listContent,
+            conversations.length === 0 &&
+              styles.emptyListContent,
+          ]}
+          showsVerticalScrollIndicator={
+            false
+          }
+          ListEmptyComponent={
+            <View style={styles.emptyContainer}>
+              <Ionicons
+                name="chatbubbles-outline"
+                size={64}
+                color="#cbd5e1"
+              />
+
+              <Text style={styles.emptyTitle}>
+                No conversations yet
+              </Text>
+
+              <Text style={styles.emptyText}>
+                Your property, appointment
+                and support conversations
+                will appear here.
+              </Text>
+            </View>
+          }
+        />
+      )}
+    </SafeAreaView>
   );
 }
 
 const styles = StyleSheet.create({
-  container: {
+  safeArea: {
     flex: 1,
-    backgroundColor: "#ffffff",
-  },
-
-  header: {
-    flexDirection: "row",
-    alignItems: "center",
-    justifyContent: "space-between",
-    paddingHorizontal: 20,
-    paddingTop: 18,
-    paddingBottom: 12,
-  },
-
-  headerTitle: {
-    fontSize: 27,
-    fontWeight: "900",
-    color: "#0f172a",
-  },
-
-  headerSubtitle: {
-    marginTop: 2,
-    fontSize: 12,
-    fontWeight: "600",
-    color: "#64748b",
-  },
-
-  refreshButton: {
-    width: 42,
-    height: 42,
-    borderRadius: 21,
-    alignItems: "center",
-    justifyContent: "center",
-    backgroundColor: "#eff6ff",
-  },
-
-  searchWrap: {
-    flexDirection: "row",
-    alignItems: "center",
-    gap: 8,
-    marginHorizontal: 16,
-    marginBottom: 12,
-    paddingHorizontal: 13,
-    paddingVertical: 11,
-    borderRadius: 14,
-    backgroundColor: "#f1f5f9",
-  },
-
-  searchInput: {
-    flex: 1,
-    padding: 0,
-    fontSize: 14,
-    fontWeight: "600",
-    color: "#0f172a",
-  },
-
-  tabs: {
-    flexDirection: "row",
-    marginHorizontal: 16,
-    marginBottom: 10,
-    padding: 4,
-    borderRadius: 14,
-    backgroundColor: "#f1f5f9",
-  },
-
-  tab: {
-    flex: 1,
-    flexDirection: "row",
-    alignItems: "center",
-    justifyContent: "center",
-    gap: 6,
-    paddingVertical: 10,
-    borderRadius: 11,
-  },
-
-  tabActive: {
-    backgroundColor: "#ffffff",
-    elevation: 1,
-  },
-
-  tabText: {
-    fontSize: 13,
-    fontWeight: "700",
-    color: "#94a3b8",
-  },
-
-  tabTextActive: {
-    color: "#2563eb",
-  },
-
-  errorBanner: {
-    flexDirection: "row",
-    alignItems: "center",
-    gap: 8,
-    marginHorizontal: 16,
-    marginBottom: 10,
-    padding: 12,
-    borderRadius: 12,
-    borderWidth: 1,
-    borderColor: "#fecaca",
-    backgroundColor: "#fef2f2",
-  },
-
-  errorText: {
-    flex: 1,
-    color: "#991b1b",
-    fontSize: 12,
-    fontWeight: "600",
-  },
-
-  retryText: {
-    color: "#b91c1c",
-    fontSize: 12,
-    fontWeight: "900",
+    backgroundColor: "#f8fafc",
   },
 
   center: {
     flex: 1,
     alignItems: "center",
     justifyContent: "center",
+    padding: 24,
+    backgroundColor: "#f8fafc",
   },
 
   loadingText: {
     marginTop: 12,
     color: "#64748b",
+    fontSize: 14,
     fontWeight: "600",
   },
 
-  list: {
-    paddingBottom: 30,
+  securityNotice: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 8,
+    paddingHorizontal: 14,
+    paddingVertical: 10,
+    borderBottomWidth: 1,
+    borderBottomColor: "#bae6fd",
+    backgroundColor: "#f0f9ff",
   },
 
-  emptyList: {
+  securityNoticeText: {
+    flex: 1,
+    color: "#075985",
+    fontSize: 12,
+    fontWeight: "600",
+    lineHeight: 17,
+  },
+
+  listContent: {
+    paddingVertical: 8,
+  },
+
+  emptyListContent: {
     flexGrow: 1,
   },
 
-  empty: {
-    flex: 1,
-    alignItems: "center",
-    justifyContent: "center",
-    gap: 10,
-    padding: 40,
-  },
-
-  emptyTitle: {
-    fontSize: 18,
-    fontWeight: "900",
-    color: "#0f172a",
-  },
-
-  emptyText: {
-    maxWidth: 300,
-    color: "#94a3b8",
-    fontSize: 14,
-    fontWeight: "600",
-    lineHeight: 22,
-    textAlign: "center",
-  },
-
-  row: {
+  conversationCard: {
     flexDirection: "row",
     alignItems: "center",
     gap: 12,
-    paddingHorizontal: 16,
-    paddingVertical: 13,
+    minHeight: 78,
+    paddingHorizontal: 14,
+    paddingVertical: 12,
+    borderBottomWidth: 1,
+    borderBottomColor: "#e2e8f0",
     backgroundColor: "#ffffff",
   },
 
-  avatar: {
-    width: 51,
-    height: 51,
-    borderRadius: 26,
+  avatarContainer: {
+    width: 48,
+    height: 48,
     alignItems: "center",
     justifyContent: "center",
+    borderRadius: 24,
+    backgroundColor: "#dbeafe",
   },
 
-  avatarText: {
-    color: "#ffffff",
-    fontSize: 16,
-    fontWeight: "900",
-  },
-
-  rowBody: {
+  conversationContent: {
     flex: 1,
+    gap: 7,
   },
 
-  rowTop: {
-    flexDirection: "row",
-    alignItems: "center",
-    justifyContent: "space-between",
-    marginBottom: 4,
-  },
-
-  rowTitle: {
-    flex: 1,
-    marginRight: 8,
-    color: "#0f172a",
-    fontSize: 15,
-    fontWeight: "700",
-  },
-
-  rowTitleUnread: {
-    fontWeight: "900",
-  },
-
-  rowTime: {
-    color: "#94a3b8",
-    fontSize: 12,
-    fontWeight: "600",
-  },
-
-  rowTimeUnread: {
-    color: "#2563eb",
-    fontWeight: "800",
-  },
-
-  previewRow: {
+  titleRow: {
     flexDirection: "row",
     alignItems: "center",
     gap: 8,
   },
 
-  rowPreview: {
+  conversationTitle: {
+    flex: 1,
+    color: "#0f172a",
+    fontSize: 15,
+    fontWeight: "800",
+  },
+
+  timeText: {
+    color: "#94a3b8",
+    fontSize: 11,
+    fontWeight: "600",
+  },
+
+  messageRow: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 8,
+  },
+
+  latestMessage: {
     flex: 1,
     color: "#64748b",
     fontSize: 13,
-    fontWeight: "500",
   },
 
-  rowPreviewUnread: {
-    color: "#334155",
+  unreadMessage: {
+    color: "#0f172a",
     fontWeight: "700",
   },
 
   unreadBadge: {
     minWidth: 21,
     height: 21,
-    paddingHorizontal: 6,
-    borderRadius: 11,
     alignItems: "center",
     justifyContent: "center",
+    paddingHorizontal: 6,
+    borderRadius: 11,
     backgroundColor: "#2563eb",
   },
 
   unreadBadgeText: {
     color: "#ffffff",
     fontSize: 10,
-    fontWeight: "900",
+    fontWeight: "800",
   },
 
-  separator: {
-    height: 1,
-    marginLeft: 79,
-    backgroundColor: "#f1f5f9",
+  errorTitle: {
+    marginTop: 15,
+    color: "#0f172a",
+    fontSize: 19,
+    fontWeight: "900",
+    textAlign: "center",
+  },
+
+  errorMessage: {
+    marginTop: 8,
+    color: "#64748b",
+    fontSize: 14,
+    lineHeight: 21,
+    textAlign: "center",
+  },
+
+  retryButton: {
+    marginTop: 20,
+    paddingHorizontal: 24,
+    paddingVertical: 12,
+    borderRadius: 10,
+    backgroundColor: "#2563eb",
+  },
+
+  retryButtonText: {
+    color: "#ffffff",
+    fontWeight: "800",
+  },
+
+  emptyContainer: {
+    flex: 1,
+    alignItems: "center",
+    justifyContent: "center",
+    padding: 36,
+  },
+
+  emptyTitle: {
+    marginTop: 14,
+    color: "#0f172a",
+    fontSize: 18,
+    fontWeight: "900",
+    textAlign: "center",
+  },
+
+  emptyText: {
+    marginTop: 7,
+    color: "#64748b",
+    fontSize: 14,
+    lineHeight: 21,
+    textAlign: "center",
   },
 });
