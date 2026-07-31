@@ -480,15 +480,120 @@ class ApiService {
       return response.data;
 }
 
-  async verifyEmail( payload: VerifyEmailPayload): Promise<VerifyEmailResponse> {
-      return this.preAuthRequest<VerifyEmailResponse>(
-        "/verify-email",
-        {
-          method: "POST",
-          body: payload,
-        }
-      );
+  async verifyEmail(
+    payload: VerifyEmailPayload
+  ): Promise<VerifyEmailResponse> {
+  const { user_id, code } = payload;
+  const preAuthToken =
+    await getItemSafe("pre_auth_token");
+
+  if (!preAuthToken) {
+    throw new Error(
+      "Your verification session is missing. Please register or log in again."
+    );
+  }
+
+  const normalizedCode =
+    String(code).trim();
+
+  if (!/^\d{6}$/.test(normalizedCode)) {
+    throw new Error(
+      "Please enter the complete six-digit verification code."
+    );
+  }
+
+  try {
+    const response = await API.post(
+      "/verify-email",
+      {
+        user_id: Number(user_id),
+
+        /*
+         * Keep this as a string so leading zeroes
+         * are preserved.
+         */
+        code: normalizedCode,
+      },
+      {
+        headers: {
+          Accept: "application/json",
+          Authorization:
+            `Bearer ${preAuthToken}`,
+        },
+      }
+    );
+
+    return response.data;
+  } catch (error: any) {
+    const status =
+      error?.response?.status ??
+      error?.status;
+
+    const responseData =
+      error?.response?.data ??
+      error?.data;
+
+    const validationMessage =
+      responseData?.errors?.code?.[0] ??
+      responseData?.errors
+        ?.user_id?.[0];
+
+    let message =
+      validationMessage ??
+      responseData?.message ??
+      error?.message ??
+      "Email verification failed.";
+
+    if (status === 401) {
+      message =
+        "Your verification session has expired. Please log in again.";
+    } else if (status === 403) {
+      message =
+        "This verification session does not belong to your account.";
+    } else if (status === 422) {
+      message =
+        validationMessage ??
+        responseData?.message ??
+        "The verification code is invalid or has expired.";
+    } else if (status === 429) {
+      message =
+        responseData?.message ??
+        "Too many attempts. Please wait before trying again.";
     }
+
+    console.error(
+      "[EMAIL VERIFY] Request failed:",
+      {
+        status,
+        message,
+        data: responseData,
+        user_id,
+        codeLength:
+          normalizedCode.length,
+
+        /*
+         * Do not log the actual OTP.
+         */
+        hasCode:
+          normalizedCode.length > 0,
+      }
+    );
+
+    const verificationError =
+      new Error(message) as Error & {
+        status?: number;
+        data?: unknown;
+      };
+
+    verificationError.status =
+      status;
+
+    verificationError.data =
+      responseData;
+
+    throw verificationError;
+  }
+}
 
 async resendEmailCode( payload: ResendEmailCodePayload): Promise<ResendEmailCodeResponse> {
     return this.preAuthRequest<ResendEmailCodeResponse>(
