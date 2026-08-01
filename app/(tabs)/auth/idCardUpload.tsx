@@ -917,6 +917,7 @@ const IdCardUpload = () => {
                 <Picker.Item
                   label="Select ID type"
                   value=""
+                  color="#160e0e5b"
                 />
 
                 {idCardTypes.map(
@@ -926,7 +927,8 @@ const IdCardUpload = () => {
                         item.id
                       )}
                       label={item.name}
-                      value={item.id}                    
+                      value={item.id}   
+                      color="#160e0e5b"                 
                     />
                   )
                 )}
