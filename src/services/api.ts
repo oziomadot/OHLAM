@@ -25,14 +25,30 @@ export const API: AxiosInstance =
 
 API.interceptors.request.use(
   async (config) => {
-    const token = await getItemSafe(
-      TOKEN_KEY
-    );
-
     config.headers.set(
       "Accept",
       "application/json"
     );
+
+    /*
+     * Respect an Authorization header explicitly
+     * supplied by verifyEmail/preAuthRequest.
+     */
+    const existingAuthorization =
+      config.headers.get(
+        "Authorization"
+      );
+
+    if (
+      existingAuthorization
+    ) {
+      return config;
+    }
+
+    const token =
+      await getItemSafe(
+        TOKEN_KEY
+      );
 
     if (token) {
       config.headers.set(
@@ -43,8 +59,10 @@ API.interceptors.request.use(
 
     return config;
   },
-  (error) => Promise.reject(error)
+  (error) =>
+    Promise.reject(error)
 );
+
 
 API.interceptors.response.use(
   (response) => response,
@@ -456,29 +474,81 @@ class ApiService {
     });
   }
 
-  async register(userData: unknown) {
-      const response = await API.post("/register", userData);
+ async register(userData: unknown): Promise<AuthResponse> {
+  const response = await API.post<AuthResponse>("/register", userData);
 
-      const preAuthToken = response.data?.pre_auth_token;
+  const data = response.data;
 
-      if (!preAuthToken) {
-        throw new Error("No verification token was returned by the server.");
-      }
+  const preAuthToken = data?.pre_auth_token;
 
-      await removeItemSafe("auth_token");
+  const registeredUser = data?.user;
 
-      await removeItemSafe("pre_auth_token");
+  if (!preAuthToken) {
+    throw new Error(
+      "No verification token was returned by the server."
+    );
+  }
 
-      await setItemSafe("pre_auth_token", String(preAuthToken));
+  if (!registeredUser?.id) {
+    throw new Error(
+      "The server did not return the registered user."
+    );
+  }
 
-      const storedToken = await getItemSafe("pre_auth_token");
+  /*
+   * Initial registration must not keep an old
+   * authenticated login token.
+   */
+  await removeItemSafe("auth_token");
 
-      if (storedToken !== String(preAuthToken)) {
-        throw new Error("The verification token could not be stored correctly.");
-      }
+  await removeItemSafe("pre_auth_token");
 
-      return response.data;
+  await setItemSafe("pre_auth_token", String(preAuthToken));
+
+  /*
+   * These values are required by the email,
+   * phone and KYC verification screens.
+   */
+  await setItemSafe("user_id", String(registeredUser.id));
+
+  await setItemSafe("user", JSON.stringify(registeredUser));
+  
+
+  if (registeredUser.email) {
+    await setItemSafe("user_email", String(registeredUser.email));
+  }
+
+  /*
+   * Confirm that essential registration state
+   * was stored successfully.
+   */
+  const [storedToken, storedUserId] = await Promise.all([
+    getItemSafe("pre_auth_token"),
+    getItemSafe("user_id"),
+  ]);
+
+  if (storedToken !== String(preAuthToken)) {
+    throw new Error(
+      "The verification token could not be stored correctly."
+    );
+  }
+
+  if (storedUserId !== String(registeredUser.id)) {
+    throw new Error(
+      "The registered user could not be stored correctly."
+    );
+  }
+
+  console.log("[REGISTER] Verification session stored:", {
+    userId: registeredUser.id,
+    hasPreAuthToken: Boolean(storedToken),
+  });
+
+
+  return data;
 }
+
+
 
   async verifyEmail(
     payload: VerifyEmailPayload

@@ -17,7 +17,7 @@ import { useRouter } from "expo-router";
 import { useForm, Controller } from "react-hook-form";
 import CustomAlert from "components/CustomAlert";
 
-import { useRouteHandler }  from "@/hooks/seRouteHandler";
+
 import ScreenWrapper from "components/ScreenWrapper";
 import axios from 'axios';
 
@@ -29,30 +29,109 @@ interface User {
 }
 
 
-function getApiErrorMessage(error: unknown): string {
-  if (!axios.isAxiosError(error)) {
-    return 'Something went wrong. Please try again.';
-  }
+function getApiErrorMessage(
+  error: unknown
+): string {
+  /*
+   * Errors normalized by ApiService.request().
+   */
+  if (
+    typeof error === "object" &&
+    error !== null
+  ) {
+    const normalizedError =
+      error as {
+        message?: unknown;
+        errors?: Record<
+          string,
+          string[] | string
+        >;
+        status?: number;
+      };
 
-  const data = error.response?.data;
+    if (
+      typeof normalizedError.message ===
+        "string" &&
+      normalizedError.message.trim()
+    ) {
+      return normalizedError.message;
+    }
 
-  if (typeof data?.message === 'string' && data.message.trim()) {
-    return data.message;
-  }
+    if (
+      normalizedError.errors &&
+      typeof normalizedError.errors ===
+        "object"
+    ) {
+      const firstError =
+        Object.values(
+          normalizedError.errors
+        )
+          .flat()
+          .find(
+            (
+              item
+            ): item is string =>
+              typeof item ===
+              "string"
+          );
 
-  if (data?.errors && typeof data.errors === 'object') {
-    const firstError = Object.values(data.errors).flat()[0];
-
-    if (typeof firstError === 'string') {
-      return firstError;
+      if (firstError) {
+        return firstError;
+      }
     }
   }
 
-  if (!error.response) {
-    return 'Network error. Check your internet connection and try again.';
+  /*
+   * Raw Axios errors.
+   */
+  if (axios.isAxiosError(error)) {
+    const data =
+      error.response?.data;
+
+    if (
+      typeof data?.message ===
+        "string" &&
+      data.message.trim()
+    ) {
+      return data.message;
+    }
+
+    if (
+      data?.errors &&
+      typeof data.errors ===
+        "object"
+    ) {
+      const firstError =
+        Object.values(
+          data.errors
+        )
+          .flat()
+          .find(
+            (
+              item
+            ): item is string =>
+              typeof item ===
+              "string"
+          );
+
+      if (firstError) {
+        return firstError;
+      }
+    }
+
+    if (!error.response) {
+      return "Network error. Check your internet connection and try again.";
+    }
   }
 
-  return 'Verification failed. Please check your information and try again.';
+  if (
+    error instanceof Error &&
+    error.message
+  ) {
+    return error.message;
+  }
+
+  return "Something went wrong. Please try again.";
 }
 
 const EmailVerificationScreen = () => {
@@ -60,9 +139,9 @@ const EmailVerificationScreen = () => {
   
   const [userId, setUserId] = useState<string | null>(null);
   const router = useRouter();
+ const [loadingSession, setLoadingSession] = useState(true);
  
  
-  const { handleResponse } = useRouteHandler();
   const [ user, setUser] = useState<User | null>(null);
 
   const [showUpdateEmail, setShowUpdateEmail] = useState(false);
@@ -95,26 +174,85 @@ function showAlert(title: string, message: string, onClose?: () => void) {
    
   
 
-  useEffect(() => {
-   const loadUserData = async () => {
-    const storedUserId = await getItemSafe("user_id");
-    const storedUser = await getItemSafe("user");
+ useEffect(() => {
+  const loadUserData =
+    async (): Promise<void> => {
+      try {
+        const [storedUserId, storedUser, preAuthToken] = await Promise.all([
+          getItemSafe("user_id"),
+          getItemSafe("user"),
+          getItemSafe("pre_auth_token"),
+        ]);
 
-    if (storedUserId) {
-      setUserId(storedUserId);
-    }
+        let parsedUser: User | null = null;
 
-  if (storedUser) {
-  try {
-    setUser(JSON.parse(storedUser));
-  } catch {
-    setUser(null);
-  }
-}
-  };
+        if (storedUser) {
+          try {
+            parsedUser = JSON.parse(storedUser) as User;
+            setUser(parsedUser);
+          } catch (parseError) {
+            console.error("[EMAIL VERIFY] Invalid stored user:", parseError);
+            setUser(null);
+          }
+        }
 
-  loadUserData();
-  }, []);
+        /*
+         * Prefer the dedicated user_id but recover
+         * it from the stored user when necessary.
+         */
+        const resolvedUserId =
+          storedUserId ??
+          (parsedUser?.id !== undefined ? String(parsedUser.id) : null);
+
+        if (resolvedUserId) {
+          setUserId(String(resolvedUserId));
+
+          /*
+           * Repair missing user_id storage.
+           */
+          if (!storedUserId) {
+            await setItemSafe(
+              "user_id",
+              String(
+                resolvedUserId
+              )
+            );
+          }
+        } else {
+          setUserId(null);
+        }
+
+        console.log(
+          "[EMAIL VERIFY] Session loaded:",
+          {
+            userId:
+              resolvedUserId,
+            hasStoredUser:
+              Boolean(
+                parsedUser
+              ),
+            hasPreAuthToken:
+              Boolean(
+                preAuthToken
+              ),
+          }
+        );
+      } catch (loadError) {
+        console.error(
+          "[EMAIL VERIFY] Failed to load session:",
+          loadError
+        );
+
+        setUserId(null);
+        setUser(null);
+      } finally {
+        setLoadingSession(
+          false
+        );}
+    };
+
+  void loadUserData();
+}, []);
 
 
   type EmailVerificationForm = {
@@ -142,53 +280,106 @@ type ApiError = {
 const verifyUser = async (
   data: EmailVerificationForm
 ): Promise<void> => {
-  const verificationCode = data.code.trim();
-  const currentUserId =
-    await getItemSafe("user_id");
+  if (loading) {
+    return;
+  }
 
-  if (!/^\d{6}$/.test(verificationCode)) {
+  const verificationCode =
+    data.code.trim();
+
+  if (
+    !/^\d{6}$/.test(
+      verificationCode
+    )
+  ) {
     showAlert(
       "Invalid Code",
       "Please enter the complete 6-digit verification code."
     );
+
     return;
   }
+
+  const storedUserId =
+    await getItemSafe(
+      "user_id"
+    );
+
+  const currentUserId =
+    storedUserId ??
+    userId ??
+    (
+      user?.id !== undefined
+        ? String(user.id)
+        : null
+    );
 
   if (!currentUserId) {
     showAlert(
       "Session Error",
-      "User ID missing. Please restart registration."
+      "Your registration session is incomplete. Please restart registration."
     );
+
     return;
   }
 
   setLoading(true);
 
   try {
-    const response = await API.verifyEmail({
-      user_id: currentUserId,
-      code: verificationCode,
-    });
+    console.log(
+      "[EMAIL VERIFY] Sending request:",
+      {
+        endpoint:
+          "/verify-email",
+        userId:
+          currentUserId,
+        codeLength:
+          verificationCode.length,
+      }
+    );
 
-    if (response.user_id !== undefined) {
+    const response =
+      await API.verifyEmail({
+        user_id:
+          currentUserId,
+        code:
+          verificationCode,
+      });
+
+    if (
+      response.user_id !==
+      undefined
+    ) {
       await setItemSafe(
         "user_id",
-        String(response.user_id)
+        String(
+          response.user_id
+        )
+      );
+
+      setUserId(
+        String(
+          response.user_id
+        )
       );
     }
 
     if (response.user) {
       await setItemSafe(
         "user",
-        JSON.stringify(response.user)
+        JSON.stringify(
+          response.user
+        )
       );
 
-      setUser(response.user);
+      setUser(
+        response.user
+      );
     }
 
     showAlert(
       "Email Verified",
-      response.message ||
+      response.message ??
         "Your email was verified successfully.",
       () => {
         router.replace(
@@ -197,76 +388,116 @@ const verifyUser = async (
       }
     );
   } catch (error) {
-  const message = getApiErrorMessage(error);
-
+    console.error(
+      "[EMAIL VERIFY] Screen error:",
+      error
+    );
 
     showAlert(
       "Verification Failed",
-      message ||
-        "The verification code is invalid or expired."
+      getApiErrorMessage(
+        error
+      )
     );
   } finally {
     setLoading(false);
   }
 };
+  const resendEmailCode =
+  async (): Promise<void> => {
+    if (loading) {
+      return;
+    }
 
-  const resendEmailCode = async (): Promise<void> => {
-  setLoading(true);
+    const storedUserId =
+      await getItemSafe(
+        "user_id"
+      );
 
-  try {
     const currentUserId =
-      (await getItemSafe("user_id")) ||
-      user?.id;
+      storedUserId ??
+      userId ??
+      (
+        user?.id !== undefined
+          ? String(user.id)
+          : null
+      );
 
     if (!currentUserId) {
       showAlert(
         "Session Error",
-        "User ID missing. Please restart registration."
+        "Your registration session is incomplete. Please restart registration."
       );
+
       return;
     }
 
-    const response =
-      await API.resendEmailCode({
-        user_id: currentUserId,
-        method: "email",
-      });
+    setLoading(true);
 
-    if (response.user) {
-      await setItemSafe(
-        "user",
-        JSON.stringify(response.user)
+    try {
+      console.log(
+        "[EMAIL VERIFY] Resending code:",
+        {
+          endpoint:
+            "/resend-email-code",
+          userId:
+            currentUserId,
+        }
       );
 
-      setUser(response.user);
+      const response =
+        await API.resendEmailCode({
+          user_id:
+            currentUserId,
+          method: "email",
+        });
+
+      if (response.user) {
+        await setItemSafe(
+          "user",
+          JSON.stringify(
+            response.user
+          )
+        );
+
+        setUser(
+          response.user
+        );
+      }
+
+      showAlert(
+        "Code Sent",
+        response.message ??
+          "A new verification code has been sent to your email."
+      );
+    } catch (error) {
+      console.error(
+        "[EMAIL VERIFY] Resend error:",
+        error
+      );
+
+      showAlert(
+        "Unable to Send Code",
+        getApiErrorMessage(
+          error
+        )
+      );
+    } finally {
+      setLoading(false);
     }
-
-    showAlert(
-      "Code Sent",
-      response.message ||
-        "A new verification code has been sent to your email."
-    );
-  }catch (error) {
-  const message = getApiErrorMessage(error);
-
-
-
-    showAlert(
-      "Unable to Send Code",
-      message ||
-        "Unable to resend the verification code."
-    );
-  } finally {
-    setLoading(false);
-  }
-};
-
+  };
 
 
 const updateEmailAddress =
   async (): Promise<void> => {
+    if (updatingEmail) {
+      return;
+    }
+
     const normalizedEmail =
-      newEmail.trim().toLowerCase();
+      newEmail
+        .trim()
+        .toLowerCase();
 
     if (
       !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(
@@ -277,67 +508,140 @@ const updateEmailAddress =
         "Invalid Email",
         "Please enter a valid email address."
       );
+
+      return;
+    }
+
+    const storedUserId =
+      await getItemSafe(
+        "user_id"
+      );
+
+    const currentUserId =
+      storedUserId ??
+      userId ??
+      (
+        user?.id !== undefined
+          ? String(user.id)
+          : null
+      );
+
+    if (!currentUserId) {
+      showAlert(
+        "Session Error",
+        "Your registration session is incomplete. Please restart registration."
+      );
+
       return;
     }
 
     setUpdatingEmail(true);
 
     try {
-      const currentUserId =
-        await getItemSafe("user_id");
+      console.log(
+        "[EMAIL VERIFY] Updating email:",
+        {
+          endpoint:
+            "/update-email",
+          userId:
+            currentUserId,
 
-      if (!currentUserId) {
-        showAlert(
-          "Session Error",
-          "User ID missing. Please restart registration."
-        );
-        return;
-      }
+          /*
+           * Avoid logging the complete email
+           * in production.
+           */
+        }
+      );
 
-      const response = await API.updateEmail({
-        user_id: currentUserId,
-        email: normalizedEmail,
-      });
+      const response =
+        await API.updateEmail({
+          user_id:
+            currentUserId,
+          email:
+            normalizedEmail,
+        });
 
       await setItemSafe(
         "user_email",
         normalizedEmail
       );
 
-      setUser((currentUser) =>
-        currentUser
-          ? {
-              ...currentUser,
-              email: normalizedEmail,
-            }
-          : currentUser
+      if (response.user) {
+        await setItemSafe(
+          "user",
+          JSON.stringify(
+            response.user
+          )
+        );
+
+        setUser(
+          response.user
+        );
+      } else {
+        setUser(
+          (
+            currentUser
+          ) =>
+            currentUser
+              ? {
+                  ...currentUser,
+                  email:
+                    normalizedEmail,
+                }
+              : currentUser
+        );
+      }
+
+      setShowUpdateEmail(
+        false
       );
 
-      setShowUpdateEmail(false);
       setNewEmail("");
 
       showAlert(
         "Email Updated",
-        response.message ||
+        response.message ??
           "Email updated. A new verification code was sent."
       );
-    }catch (error) {
-  const message = getApiErrorMessage(error);
-
-
+    } catch (error) {
+      console.error(
+        "[EMAIL VERIFY] Update email error:",
+        error
+      );
 
       showAlert(
         "Update Failed",
-        message ||
-          "Your email address could not be updated."
+        getApiErrorMessage(
+          error
+        )
       );
     } finally {
-      setUpdatingEmail(false);
+      setUpdatingEmail(
+        false
+      );
     }
   };
-  
 
+if (loadingSession) {
+  return (
+    <ScreenWrapper>
+      <View style={styles.card}>
+        <ActivityIndicator
+          size="large"
+        />
 
+        <Text
+          style={{
+            textAlign: "center",
+            marginTop: 12,
+          }}
+        >
+          Loading verification session...
+        </Text>
+      </View>
+    </ScreenWrapper>
+  );
+}
   
 
   return (
