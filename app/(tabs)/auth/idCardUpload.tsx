@@ -900,24 +900,20 @@ const IdCardUpload = () => {
               style={styles.pickerWrapper}
             >
               <Picker
-                selectedValue={idType}
-                enabled={!uploading}
-                onValueChange={(
-                  value: number | string
-                ) => {
-                  if (
-                    value === "" ||
-                    value === null
-                  ) {
-                    setIdType("");
-                    return;
-                  }
+  selectedValue={idType}
+  enabled={!uploading}
+  style={styles.picker}
+  dropdownIconColor="#000000"
+  mode="dropdown"
+  onValueChange={(value) => {
+    if (value === "" || value === null) {
+      setIdType("");
+      return;
+    }
 
-                  setIdType(
-                    Number(value)
-                  );
-                }}
-              >
+    setIdType(Number(value));
+  }}
+>
                 <Picker.Item
                   label="Select ID type"
                   value=""
@@ -1128,6 +1124,10 @@ const styles = StyleSheet.create({
     backgroundColor: "#ffffff",
   },
 
+  picker: {
+    color: "#000000",
+    backgroundColor: "#ffffff",
+  },
   form: {
     marginBottom: 20,
   },

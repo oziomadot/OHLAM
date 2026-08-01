@@ -224,6 +224,9 @@ const MobileMenu = ({ activeMenu, isAuthenticated, menuVisible, setMenuVisible, 
               </TouchableOpacity>
             </>
           )}
+
+
+          <View style={{height: 50}} />
         </ScrollView>
       </View>
     </View>

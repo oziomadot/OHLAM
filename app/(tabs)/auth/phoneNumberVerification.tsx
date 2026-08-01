@@ -18,30 +18,94 @@ import axios from 'axios';
 import CustomAlert from "components/CustomAlert";
 
 
-function getApiErrorMessage(error: unknown): string {
-  if (!axios.isAxiosError(error)) {
-    return 'Something went wrong. Please try again.';
-  }
+function getApiErrorMessage(
+  error: unknown
+): string {
+  /*
+   * Errors normalized by ApiService.request().
+   */
+  if (
+    typeof error === "object" &&
+    error !== null
+  ) {
+    const apiError =
+      error as {
+        message?: unknown;
+        status?: unknown;
+        errors?: Record<
+          string,
+          string[] | string
+        >;
+        response?: {
+          data?: {
+            message?: unknown;
+            errors?: Record<
+              string,
+              string[] | string
+            >;
+          };
+        };
+      };
 
-  const data = error.response?.data;
+    const backendData =
+      apiError.response?.data;
 
-  if (typeof data?.message === 'string' && data.message.trim()) {
-    return data.message;
-  }
+    const message =
+      backendData?.message ??
+      apiError.message;
 
-  if (data?.errors && typeof data.errors === 'object') {
-    const firstError = Object.values(data.errors).flat()[0];
+    if (
+      typeof message === "string" &&
+      message.trim()
+    ) {
+      return message;
+    }
 
-    if (typeof firstError === 'string') {
-      return firstError;
+    const errors =
+      backendData?.errors ??
+      apiError.errors;
+
+    if (
+      errors &&
+      typeof errors === "object"
+    ) {
+      const firstMessage =
+        Object.values(errors)
+          .flat()
+          .find(
+            (
+              value
+            ): value is string =>
+              typeof value ===
+              "string" &&
+              value.trim().length > 0
+          );
+
+      if (firstMessage) {
+        return firstMessage;
+      }
     }
   }
 
-  if (!error.response) {
-    return 'Network error. Check your internet connection and try again.';
+  if (axios.isAxiosError(error)) {
+    if (!error.response) {
+      return "Network error. Check your internet connection and try again.";
+    }
+
+    return (
+      error.response.data?.message ??
+      "The request could not be completed."
+    );
   }
 
-  return 'Verification failed. Please check your information and try again.';
+  if (
+    error instanceof Error &&
+    error.message
+  ) {
+    return error.message;
+  }
+
+  return "Something went wrong. Please try again.";
 }
 
 const PhoneNumberVerification = () => {
@@ -252,13 +316,15 @@ const updatePhoneNumber = async (): Promise<void> => {
     return;
   }
 
-  if (!/^\+?[0-9]{10,15}$/.test(phone)) {
-    showAlert(
-      "Invalid Phone Number",
-      "Enter a valid phone number, including the country code where necessary."
-    );
-    return;
-  }
+ if (!/^\+[1-9]\d{7,14}$/.test(phone)) {
+  showAlert(
+    "Invalid Phone Number",
+    "Enter the number in international format, for example +2348012345678 or +31612345678."
+  );
+
+  return;
+}
+  
 
   setUpdatingPhoneNumber(true);
 
@@ -280,10 +346,17 @@ const updatePhoneNumber = async (): Promise<void> => {
 
     await setItemSafe("user_phone", phone);
 
-    setUser((currentUser: any) => ({
-      ...currentUser,
-      phonenumber: phone,
-    }));
+    if (response.user) {
+      await setItemSafe("user", JSON.stringify(response.user));
+
+      setUser(response.user);
+    } else {
+      setUser((currentUser: any) => ({
+        ...currentUser,
+        phonenumber: phone,
+      }));
+    }
+
 
     setShowUpdatePhoneNumber(false);
     setNewPhoneNumber("");

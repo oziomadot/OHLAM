@@ -119,7 +119,7 @@ export default function FaceLivenessScreen() {
       const photo =
         await cameraRef.current
           ?.takePictureAsync({
-            quality: 0.5,
+            quality: 0.8,
             skipProcessing: false,
           });
 
@@ -256,26 +256,76 @@ export default function FaceLivenessScreen() {
       ]
     );
   } catch (error: any) {
-    console.error(
-      "[FACE] Verification failed:",
-      {
-        name: error?.name,
-        message: error?.message,
-        status:
-          error?.status ??
-          error?.response?.status,
-        data:
-          error?.data ??
-          error?.response?.data,
-        code: error?.code,
-        stack: error?.stack,
-      }
-    );
+  const status =
+    error?.status ??
+    error?.response?.status;
 
-    Alert.alert("Verification failed", error?.data?.message ?? 
-      error?.response?.data?.message ?? error?.message ??
-       "Could not verify your face.");
-  } finally {
+  const responseData =
+    error?.data ??
+    error?.response?.data;
+
+  const liveness =
+    responseData?.liveness;
+
+  console.error(
+    "[FACE] Verification failed:",
+    {
+      name:
+        error?.name,
+
+      message:
+        error?.message,
+
+      status,
+
+      responseData,
+
+      code:
+        responseData?.code ??
+        error?.code,
+
+      liveness,
+    }
+  );
+
+  let message =
+    responseData?.message ??
+    error?.message ??
+    "Could not verify your face.";
+
+  if (
+    responseData?.code ===
+    "LIVENESS_FAILED"
+  ) {
+    if (
+      liveness?.face_detected
+      === false
+    ) {
+      message =
+        "No clear face was detected. Keep your whole face inside the oval and try again.";
+    } else if (
+      liveness?.passed === false
+    ) {
+      message =
+        "The liveness check was not passed. Look directly at the camera and keep the phone steady.";
+    } else if (
+      typeof liveness?.score ===
+        "number" &&
+      typeof liveness
+        ?.minimum_score ===
+        "number"
+    ) {
+      message =
+        `Liveness confidence was ${liveness.score}%. ` +
+        `At least ${liveness.minimum_score}% is required.`;
+    }
+  }
+
+  Alert.alert(
+    "Verification failed",
+    message
+  );
+} finally {
     setLoading(false);
   }
 }
@@ -386,6 +436,7 @@ export default function FaceLivenessScreen() {
         style={StyleSheet.absoluteFill}
         facing="front"
         mode="picture"
+        mirror={true}
         onCameraReady={() =>
           setCameraReady(true)
         }
