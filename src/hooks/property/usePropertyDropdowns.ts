@@ -12,7 +12,7 @@ export function usePropertyDropdowns(isAuthenticated: boolean, showAlert: any,
   const [states, setStates] = useState<any[]>([]);
   const [areas, setAreas] = useState<any[]>([]);
   const [propertyTypes, setPropertyTypes] = useState<any[]>([]);
-  const [registrationStatuses, setRegistrationStatuses] = useState<any[]>([]);
+  const [listingCapacities, setListingCapacities] = useState<any[]>([]);
   const [dropdowns, setDropdowns] = useState<any>({});
   const selectedBuildingType = parseInt(watch("building_type_id") || "0", 10);
   const selectedBuilding = parseInt(watch("building_id") || "0", 10);
@@ -35,8 +35,8 @@ export function usePropertyDropdowns(isAuthenticated: boolean, showAlert: any,
         setPropertyTypes(safeOptions(data.propertyTypes));
         setStates(safeOptions(data.states));
 
-        setRegistrationStatuses(
-          safeOptions(data.registrationStatuses).filter((item: any) =>
+        setListingCapacities(
+          safeOptions(data.listingCapacities).filter((item: any) =>
             ["agent", "landlord", "developer"].includes(
               String(item.name).toLowerCase()
             )
@@ -141,7 +141,7 @@ loadDropdowns();
     areas,
     setAreas,
     propertyTypes,
-    registrationStatuses,
+    listingCapacities,
     dropdowns,
     selectedBuildingType,
     selectedBuilding,

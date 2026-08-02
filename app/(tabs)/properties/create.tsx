@@ -111,13 +111,13 @@ const CreateProperty = () => {
     states,
     areas,
     propertyTypes,
-    registrationStatuses,
+    listingCapacities,
     dropdowns,
     selectedBuildingType,
     selectedBuilding,
   } = usePropertyDropdowns(isAuthenticated, showAlert, watch);
 
-  const selectedListingRole = registrationStatuses.find(
+  const selectedListingRole = listingCapacities.find(
     (s) => String(s.id) === String(selectedListingRoleId)
   );
 
@@ -364,7 +364,7 @@ const CreateProperty = () => {
 <PropertyRoleVerification
   control={control}
   errors={errors}
-  registrationStatuses={registrationStatuses}
+  listingCapacity={listingCapacities}
   selectedListingRoleName={selectedListingRoleName}
   proofDocument={proofDocument}
   pickProofDocument={pickProofDocument}

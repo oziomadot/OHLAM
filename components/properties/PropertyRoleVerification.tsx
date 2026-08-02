@@ -6,7 +6,7 @@ import FormPicker from "./FormPicker";
 type Props = {
   control: any;
   errors: any;
-  registrationStatuses: any[];
+  listingCapacity: any[];
   selectedListingRoleName: string;
   proofDocument: any;
   pickProofDocument: () => void;
@@ -15,7 +15,7 @@ type Props = {
 export default function PropertyRoleVerification({
   control,
   errors,
-  registrationStatuses,
+  listingCapacity,
   selectedListingRoleName,
   proofDocument,
   pickProofDocument,
@@ -29,7 +29,7 @@ export default function PropertyRoleVerification({
         render={({ field }) => (
           <FormPicker
             label="Who are you listing as?"
-            items={registrationStatuses}
+            items={listingCapacity}
             value={field.value}
             onChange={field.onChange}
             error={errors.listing_role_id?.message}
