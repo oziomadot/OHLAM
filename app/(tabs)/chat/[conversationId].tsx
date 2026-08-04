@@ -28,8 +28,8 @@ import {
 
 type ReferenceValue = {
   id?: number;
-  code?: string;
-  name?: string;
+  code?: string | null;
+  name?: string | null;
 };
 
 type UserSummary = {
@@ -37,6 +37,26 @@ type UserSummary = {
   name?: string | null;
   firstname?: string | null;
   lastname?: string | null;
+};
+
+type UserRole = {
+  id?: number;
+  code?: string | null;
+  name?: string | null;
+};
+
+type AuthUser = {
+  id: number;
+  name?: string | null;
+  firstname?: string | null;
+  lastname?: string | null;
+
+  is_staff?: boolean;
+  is_admin?: boolean;
+
+  role?: UserRole | null;
+  roles?: UserRole[];
+  permissions?: string[];
 };
 
 type Message = {
@@ -48,15 +68,8 @@ type Message = {
   sender_id?: number | null;
   sender?: UserSummary | null;
 
-  status?:
-    | ReferenceValue
-    | string
-    | null;
-
-  message_type?:
-    | ReferenceValue
-    | string
-    | null;
+  status?: ReferenceValue | string | null;
+  message_type?: ReferenceValue | string | null;
 
   client_message_id?: string | null;
 };
@@ -67,35 +80,22 @@ type Conversation = {
   title?: string | null;
   display_title?: string | null;
 
-  type?:
-    | ReferenceValue
-    | string
-    | null;
+  type?: ReferenceValue | string | null;
+  purpose?: ReferenceValue | string | null;
+  status?: ReferenceValue | string | null;
 
-  purpose?:
-    | ReferenceValue
-    | string
-    | null;
+  support_status?: ReferenceValue | string | null;
+  supportStatus?: ReferenceValue | string | null;
 
-  status?:
-    | ReferenceValue
-    | string
-    | null;
-
-  support_status?:
-    | ReferenceValue
-    | string
-    | null;
+  assigned_staff_id?: number | null;
+  assigned_staff?: UserSummary | null;
+  assignedStaff?: UserSummary | null;
 
   messages?: Message[];
 };
 
 function getReferenceCode(
-  value:
-    | ReferenceValue
-    | string
-    | null
-    | undefined
+  value?: ReferenceValue | string | null
 ): string | null {
   if (!value) {
     return null;
@@ -123,11 +123,46 @@ function getUserName(
     user.firstname,
     user.lastname,
   ]
-    .filter(Boolean)
+    .filter(
+      (value): value is string =>
+        typeof value === "string" &&
+        value.trim().length > 0
+    )
     .join(" ")
     .trim();
 
   return fullName || "User";
+}
+
+function hasRole(
+  user: AuthUser | null,
+  roleCode: string
+): boolean {
+  if (!user) {
+    return false;
+  }
+
+  if (user.role?.code === roleCode) {
+    return true;
+  }
+
+  return Boolean(
+    user.roles?.some(
+      (role) => role.code === roleCode
+    )
+  );
+}
+
+function isStaffOrAdmin(
+  user: AuthUser | null
+): boolean {
+  return Boolean(
+    user?.is_staff ||
+      user?.is_admin ||
+      hasRole(user, "staff") ||
+      hasRole(user, "admin") ||
+      hasRole(user, "super_admin")
+  );
 }
 
 function formatMessageTime(
@@ -145,32 +180,39 @@ function formatMessageTime(
   });
 }
 
-function extractCurrentUserId(
-  responseData: any
-): number | null {
+function extractCurrentUser(
+  responseData: unknown
+): AuthUser | null {
+  const data = responseData as any;
+
   const value =
-    responseData?.id ??
-    responseData?.data?.id ??
-    responseData?.user?.id ??
-    responseData?.data?.user?.id ??
+    data?.data?.user ??
+    data?.data ??
+    data?.user ??
+    data ??
     null;
 
-  const parsed = Number(value);
+  if (
+    !value ||
+    typeof value !== "object" ||
+    Number(value.id) <= 0
+  ) {
+    return null;
+  }
 
-  return Number.isInteger(parsed) &&
-    parsed > 0
-    ? parsed
-    : null;
+  return value as AuthUser;
 }
 
 function extractConversation(
-  responseData: any
+  responseData: unknown
 ): Conversation | null {
+  const data = responseData as any;
+
   const possibleValues = [
-    responseData?.data,
-    responseData?.conversation,
-    responseData?.data?.conversation,
-    responseData,
+    data?.data?.conversation,
+    data?.data,
+    data?.conversation,
+    data,
   ];
 
   for (const value of possibleValues) {
@@ -188,19 +230,21 @@ function extractConversation(
 }
 
 function extractMessages(
-  responseData: any
+  responseData: unknown
 ): Message[] {
+  const data = responseData as any;
+
   const possibleValues = [
-    responseData?.data,
-    responseData?.data?.data,
-    responseData?.messages,
-    responseData?.data?.messages,
-    responseData,
+    data?.data?.messages,
+    data?.data?.data,
+    data?.data,
+    data?.messages,
+    data,
   ];
 
   for (const value of possibleValues) {
     if (Array.isArray(value)) {
-      return value;
+      return value as Message[];
     }
   }
 
@@ -208,12 +252,14 @@ function extractMessages(
 }
 
 function extractSavedMessage(
-  responseData: any
+  responseData: unknown
 ): Message | null {
+  const data = responseData as any;
+
   const possibleValues = [
-    responseData?.data,
-    responseData?.message,
-    responseData?.data?.message,
+    data?.data?.message,
+    data?.data,
+    data?.message,
   ];
 
   for (const value of possibleValues) {
@@ -257,12 +303,19 @@ function mergeMessages(
 
   return Array.from(map.values()).sort(
     (first, second) =>
-      new Date(
-        first.created_at
-      ).getTime() -
-      new Date(
-        second.created_at
-      ).getTime()
+      new Date(first.created_at).getTime() -
+      new Date(second.created_at).getTime()
+  );
+}
+
+function getRequestErrorMessage(
+  error: any,
+  fallback: string
+): string {
+  return (
+    error?.response?.data?.message ??
+    error?.message ??
+    fallback
   );
 }
 
@@ -294,16 +347,22 @@ export default function ConversationScreen() {
   const loadingRequestRef =
     useRef(false);
 
-  const [conversation, setConversation] =
-    useState<Conversation | null>(null);
+  const [
+    conversation,
+    setConversation,
+  ] = useState<Conversation | null>(
+    null
+  );
 
   const [messages, setMessages] =
     useState<Message[]>([]);
 
   const [
-    currentUserId,
-    setCurrentUserId,
-  ] = useState<number | null>(null);
+    currentUser,
+    setCurrentUser,
+  ] = useState<AuthUser | null>(
+    null
+  );
 
   const [message, setMessage] =
     useState("");
@@ -315,158 +374,268 @@ export default function ConversationScreen() {
     useState(false);
 
   const [
+    escalating,
+    setEscalating,
+  ] = useState(false);
+
+  const [
     errorMessage,
     setErrorMessage,
-  ] = useState<string | null>(null);
-
-  const loadConversation = useCallback(
-    async (
-      showLoader = false
-    ): Promise<void> => {
-      if (!conversationId) {
-        setErrorMessage(
-          "The conversation link is invalid."
-        );
-        setLoading(false);
-        return;
-      }
-
-      if (loadingRequestRef.current) {
-        return;
-      }
-
-      loadingRequestRef.current = true;
-
-      if (showLoader) {
-        setLoading(true);
-      }
-
-      try {
-        const [
-          conversationResponse,
-          messagesResponse,
-          meResponse,
-        ] = await Promise.all([
-          API.get(
-            `/conversations/${conversationId}`
-          ),
-
-          API.get(
-            `/conversations/${conversationId}/messages`
-          ),
-
-          API.get("/me").catch(() => ({
-            data: null,
-          })),
-        ]);
-
-        console.log(
-          "Conversation response:",
-          conversationResponse.data
-        );
-
-        console.log(
-          "Messages response:",
-          messagesResponse.data
-        );
-
-        const loadedConversation =
-          extractConversation(
-            conversationResponse.data
-          );
-
-        if (!loadedConversation) {
-          throw new Error(
-            "The API returned an invalid conversation."
-          );
-        }
-
-        const loadedMessages =
-          extractMessages(
-            messagesResponse.data
-          );
-
-        setConversation(
-          loadedConversation
-        );
-
-        setMessages((previous) =>
-          mergeMessages(
-            previous,
-            loadedMessages
-          )
-        );
-
-        const loadedUserId =
-          extractCurrentUserId(
-            meResponse.data
-          );
-
-        if (loadedUserId !== null) {
-          setCurrentUserId(
-            loadedUserId
-          );
-        }
-
-        setErrorMessage(null);
-      } catch (error: any) {
-        console.log(
-          "Load conversation error:",
-          {
-            url:
-              error?.config?.baseURL +
-              error?.config?.url,
-            status:
-              error?.response?.status,
-            response:
-              error?.response?.data,
-            message: error?.message,
-          }
-        );
-
-        const status =
-          error?.response?.status;
-
-        const serverMessage =
-          error?.response?.data?.message;
-
-        if (status === 401) {
-          setErrorMessage(
-            "Your session has expired. Please sign in again."
-          );
-        } else if (status === 403) {
-          setErrorMessage(
-            serverMessage ??
-              "You are not allowed to view this conversation."
-          );
-        } else if (status === 404) {
-          setErrorMessage(
-            serverMessage ??
-              "This conversation could not be found."
-          );
-        } else {
-          setErrorMessage(
-            serverMessage ??
-              error?.message ??
-              "We could not load this conversation."
-          );
-        }
-      } finally {
-        loadingRequestRef.current =
-          false;
-
-        setLoading(false);
-      }
-    },
-    [conversationId]
+  ] = useState<string | null>(
+    null
   );
+
+  const currentUserId =
+    currentUser?.id ?? null;
+
+  const conversationPurposeCode =
+    getReferenceCode(
+      conversation?.purpose
+    );
+
+  const supportStatusCode =
+    getReferenceCode(
+      conversation?.support_status ??
+        conversation?.supportStatus
+    );
+
+  const canEscalate =
+    isStaffOrAdmin(currentUser) &&
+    conversationPurposeCode ===
+      "support" &&
+    ![
+      "conversation_support_escalated",
+      "conversation_support_resolved",
+      "conversation_support_closed",
+      "escalated",
+      "resolved",
+      "closed",
+    ].includes(
+      supportStatusCode ?? ""
+    );
+
+  const loadConversation =
+    useCallback(
+      async (
+        showLoader = false
+      ): Promise<void> => {
+        if (!conversationId) {
+          setErrorMessage(
+            "The conversation link is invalid."
+          );
+          setLoading(false);
+          return;
+        }
+
+        if (
+          loadingRequestRef.current
+        ) {
+          return;
+        }
+
+        loadingRequestRef.current =
+          true;
+
+        if (showLoader) {
+          setLoading(true);
+        }
+
+        try {
+          const [
+            conversationResponse,
+            messagesResponse,
+            meResponse,
+          ] = await Promise.all([
+            API.get(
+              `/conversations/${conversationId}`
+            ),
+
+            API.get(
+              `/conversations/${conversationId}/messages`
+            ),
+
+            API.get("/me"),
+          ]);
+
+          const loadedConversation =
+            extractConversation(
+              conversationResponse.data
+            );
+
+          if (!loadedConversation) {
+            throw new Error(
+              "The API returned an invalid conversation."
+            );
+          }
+
+          const loadedMessages =
+            extractMessages(
+              messagesResponse.data
+            );
+
+          const loadedUser =
+            extractCurrentUser(
+              meResponse.data
+            );
+
+          if (!loadedUser) {
+            throw new Error(
+              "The authenticated user could not be loaded."
+            );
+          }
+
+          setConversation(
+            loadedConversation
+          );
+
+          setCurrentUser(loadedUser);
+
+          setMessages((previous) =>
+            mergeMessages(
+              previous,
+              loadedMessages
+            )
+          );
+
+          setErrorMessage(null);
+        } catch (error: any) {
+          console.log(
+            "Load conversation error:",
+            {
+              url: `${
+                error?.config?.baseURL ??
+                ""
+              }${
+                error?.config?.url ??
+                ""
+              }`,
+              status:
+                error?.response?.status,
+              response:
+                error?.response?.data,
+              message:
+                error?.message,
+            }
+          );
+
+          const status =
+            error?.response?.status;
+
+          if (status === 401) {
+            setErrorMessage(
+              "Your session has expired. Please sign in again."
+            );
+          } else if (
+            status === 403
+          ) {
+            setErrorMessage(
+              getRequestErrorMessage(
+                error,
+                "You are not allowed to view this conversation."
+              )
+            );
+          } else if (
+            status === 404
+          ) {
+            setErrorMessage(
+              getRequestErrorMessage(
+                error,
+                "This conversation could not be found."
+              )
+            );
+          } else {
+            setErrorMessage(
+              getRequestErrorMessage(
+                error,
+                "We could not load this conversation."
+              )
+            );
+          }
+        } finally {
+          loadingRequestRef.current =
+            false;
+
+          setLoading(false);
+        }
+      },
+      [conversationId]
+    );
+
+  const escalateConversation =
+    useCallback(
+      async (): Promise<void> => {
+        if (
+          !conversationId ||
+          !canEscalate ||
+          escalating
+        ) {
+          return;
+        }
+
+        Alert.alert(
+          "Escalate support case",
+          "This will make the conversation available for additional staff members to join.",
+          [
+            {
+              text: "Cancel",
+              style: "cancel",
+            },
+            {
+              text: "Escalate",
+              style: "destructive",
+              onPress: async () => {
+                setEscalating(true);
+
+                try {
+                  await API.post(
+                    `/support-conversations/${conversationId}/escalate`,
+                    {
+                      reason:
+                        "Additional staff assistance required.",
+                    }
+                  );
+
+                  Alert.alert(
+                    "Conversation escalated",
+                    "Other authorized staff members can now join this support conversation."
+                  );
+
+                  await loadConversation(
+                    false
+                  );
+                } catch (
+                  error: any
+                ) {
+                  Alert.alert(
+                    "Escalation failed",
+                    getRequestErrorMessage(
+                      error,
+                      "The conversation could not be escalated."
+                    )
+                  );
+                } finally {
+                  setEscalating(false);
+                }
+              },
+            },
+          ]
+        );
+      },
+      [
+        canEscalate,
+        conversationId,
+        escalating,
+        loadConversation,
+      ]
+    );
 
   useEffect(() => {
     void loadConversation(true);
 
-    const interval = setInterval(() => {
-      void loadConversation(false);
-    }, 5_000);
+    const interval =
+      setInterval(() => {
+        void loadConversation(false);
+      }, 5_000);
 
     return () => {
       clearInterval(interval);
@@ -479,9 +648,11 @@ export default function ConversationScreen() {
     }
 
     requestAnimationFrame(() => {
-      flatListRef.current?.scrollToEnd({
-        animated: false,
-      });
+      flatListRef.current?.scrollToEnd(
+        {
+          animated: false,
+        }
+      );
     });
   }, [messages.length]);
 
@@ -528,24 +699,26 @@ export default function ConversationScreen() {
           .toString(36)
           .slice(2, 10)}`;
 
-      const temporaryMessage: Message = {
-        id: -Date.now(),
-        message: trimmedMessage,
-        created_at:
-          new Date().toISOString(),
-        sender_id:
-          currentUserId ?? undefined,
-        sender:
-          currentUserId !== null
-            ? {
-                id: currentUserId,
-                name: "You",
-              }
-            : null,
-        message_type: "text",
-        client_message_id:
-          clientMessageId,
-      };
+      const temporaryMessage: Message =
+        {
+          id: -Date.now(),
+          message: trimmedMessage,
+          created_at:
+            new Date().toISOString(),
+          sender_id:
+            currentUserId ??
+            undefined,
+          sender:
+            currentUserId !== null
+              ? {
+                  id: currentUserId,
+                  name: "You",
+                }
+              : null,
+          message_type: "text",
+          client_message_id:
+            clientMessageId,
+        };
 
       setMessage("");
 
@@ -558,20 +731,17 @@ export default function ConversationScreen() {
       setSending(true);
 
       try {
-        const response = await API.post(
-          `/conversations/${conversationId}/messages`,
-          {
-            message: trimmedMessage,
-            message_type: "text",
-            client_message_id:
-              clientMessageId,
-          }
-        );
-
-        console.log(
-          "Send message response:",
-          response.data
-        );
+        const response =
+          await API.post(
+            `/conversations/${conversationId}/messages`,
+            {
+              message:
+                trimmedMessage,
+              message_type: "text",
+              client_message_id:
+                clientMessageId,
+            }
+          );
 
         const savedMessage =
           extractSavedMessage(
@@ -579,52 +749,63 @@ export default function ConversationScreen() {
           );
 
         if (savedMessage) {
-          setMessages((previous) => {
-            const withoutTemporary =
-              previous.filter(
-                (item) =>
-                  item.client_message_id !==
-                  clientMessageId
-              );
+          setMessages(
+            (previous) => {
+              const withoutTemporary =
+                previous.filter(
+                  (item) =>
+                    item.client_message_id !==
+                    clientMessageId
+                );
 
-            return mergeMessages(
-              withoutTemporary,
-              [savedMessage]
-            );
-          });
+              return mergeMessages(
+                withoutTemporary,
+                [savedMessage]
+              );
+            }
+          );
         } else {
-          await loadConversation(false);
+          await loadConversation(
+            false
+          );
         }
       } catch (error: any) {
         console.log(
           "Send message error:",
           {
-            url:
-              error?.config?.baseURL +
-              error?.config?.url,
+            url: `${
+              error?.config
+                ?.baseURL ?? ""
+            }${
+              error?.config?.url ??
+              ""
+            }`,
             status:
               error?.response?.status,
             response:
               error?.response?.data,
-            message: error?.message,
+            message:
+              error?.message,
           }
         );
 
-        setMessages((previous) =>
-          previous.filter(
-            (item) =>
-              item.client_message_id !==
-              clientMessageId
-          )
+        setMessages(
+          (previous) =>
+            previous.filter(
+              (item) =>
+                item.client_message_id !==
+                clientMessageId
+            )
         );
 
         setMessage(trimmedMessage);
 
         Alert.alert(
           "Message not sent",
-          error?.response?.data
-            ?.message ??
+          getRequestErrorMessage(
+            error,
             "We could not send your message. Please try again."
+          )
         );
       } finally {
         setSending(false);
@@ -640,111 +821,127 @@ export default function ConversationScreen() {
     ]
   );
 
-  const renderMessage = ({
-    item,
-  }: {
-    item: Message;
-  }) => {
-    const senderId =
-      item.sender?.id ??
-      item.sender_id ??
-      null;
+  const renderMessage =
+    useCallback(
+      ({
+        item,
+      }: {
+        item: Message;
+      }) => {
+        const senderId =
+          item.sender?.id ??
+          item.sender_id ??
+          null;
 
-    const isMine =
-      currentUserId !== null &&
-      Number(senderId) ===
-        Number(currentUserId);
+        const isMine =
+          currentUserId !== null &&
+          Number(senderId) ===
+            Number(currentUserId);
 
-    const statusCode =
-      getReferenceCode(item.status);
+        const statusCode =
+          getReferenceCode(
+            item.status
+          );
 
-    const isFlagged = [
-      "message_flagged",
-      "flagged",
-    ].includes(statusCode ?? "");
+        const isFlagged = [
+          "message_flagged",
+          "flagged",
+        ].includes(
+          statusCode ?? ""
+        );
 
-    return (
-      <View
-        style={[
-          styles.messageRow,
-          isMine
-            ? styles.messageRowMine
-            : styles.messageRowOther,
-        ]}
-      >
-        <View
-          style={[
-            styles.messageBubble,
-            isMine
-              ? styles.messageBubbleMine
-              : styles.messageBubbleOther,
-          ]}
-        >
-          {!isMine && (
-            <Text
-              style={styles.senderName}
-            >
-              {getUserName(item.sender)}
-            </Text>
-          )}
-
-          <Text
+        return (
+          <View
             style={[
-              styles.messageText,
-              isMine &&
-                styles.messageTextMine,
+              styles.messageRow,
+              isMine
+                ? styles.messageRowMine
+                : styles.messageRowOther,
             ]}
           >
-            {item.message}
-          </Text>
-
-          <Text
-            style={[
-              styles.messageTime,
-              isMine &&
-                styles.messageTimeMine,
-            ]}
-          >
-            {formatMessageTime(
-              item.created_at
-            )}
-          </Text>
-
-          {isFlagged && (
             <View
-              style={
-                styles.flaggedContainer
-              }
+              style={[
+                styles.messageBubble,
+                isMine
+                  ? styles.messageBubbleMine
+                  : styles.messageBubbleOther,
+              ]}
             >
-              <Ionicons
-                name="warning-outline"
-                size={14}
-                color="#b91c1c"
-              />
+              {!isMine && (
+                <Text
+                  style={
+                    styles.senderName
+                  }
+                >
+                  {getUserName(
+                    item.sender
+                  )}
+                </Text>
+              )}
 
               <Text
-                style={
-                  styles.flaggedText
-                }
+                style={[
+                  styles.messageText,
+                  isMine &&
+                    styles.messageTextMine,
+                ]}
               >
-                Flagged for review
+                {item.message}
               </Text>
+
+              <Text
+                style={[
+                  styles.messageTime,
+                  isMine &&
+                    styles.messageTimeMine,
+                ]}
+              >
+                {formatMessageTime(
+                  item.created_at
+                )}
+              </Text>
+
+              {isFlagged && (
+                <View
+                  style={
+                    styles.flaggedContainer
+                  }
+                >
+                  <Ionicons
+                    name="warning-outline"
+                    size={14}
+                    color="#b91c1c"
+                  />
+
+                  <Text
+                    style={
+                      styles.flaggedText
+                    }
+                  >
+                    Flagged for review
+                  </Text>
+                </View>
+              )}
             </View>
-          )}
-        </View>
-      </View>
+          </View>
+        );
+      },
+      [currentUserId]
     );
-  };
 
   if (loading) {
     return (
-      <SafeAreaView style={styles.center}>
+      <SafeAreaView
+        style={styles.center}
+      >
         <ActivityIndicator
           size="large"
           color="#2563eb"
         />
 
-        <Text style={styles.loadingText}>
+        <Text
+          style={styles.loadingText}
+        >
           Loading conversation...
         </Text>
       </SafeAreaView>
@@ -753,19 +950,25 @@ export default function ConversationScreen() {
 
   if (errorMessage) {
     return (
-      <SafeAreaView style={styles.center}>
+      <SafeAreaView
+        style={styles.center}
+      >
         <Ionicons
           name="chatbubble-ellipses-outline"
           size={60}
           color="#94a3b8"
         />
 
-        <Text style={styles.errorTitle}>
+        <Text
+          style={styles.errorTitle}
+        >
           Conversation unavailable
         </Text>
 
         <Text
-          style={styles.errorMessage}
+          style={
+            styles.errorMessage
+          }
         >
           {errorMessage}
         </Text>
@@ -773,7 +976,9 @@ export default function ConversationScreen() {
         <TouchableOpacity
           style={styles.retryButton}
           onPress={() => {
-            void loadConversation(true);
+            void loadConversation(
+              true
+            );
           }}
         >
           <Text
@@ -787,7 +992,9 @@ export default function ConversationScreen() {
 
         <TouchableOpacity
           style={styles.backButton}
-          onPress={() => router.back()}
+          onPress={() =>
+            router.back()
+          }
         >
           <Text
             style={
@@ -802,11 +1009,41 @@ export default function ConversationScreen() {
   }
 
   return (
-    <SafeAreaView style={styles.safeArea}>
+    <SafeAreaView
+      style={styles.safeArea}
+    >
       <Stack.Screen
         options={{
           title: conversationTitle,
           headerBackTitle: "Chats",
+          headerRight: canEscalate
+            ? () => (
+                <TouchableOpacity
+                  onPress={() => {
+                    void escalateConversation();
+                  }}
+                  disabled={
+                    escalating
+                  }
+                  style={
+                    styles.headerAction
+                  }
+                >
+                  {escalating ? (
+                    <ActivityIndicator
+                      size="small"
+                      color="#dc2626"
+                    />
+                  ) : (
+                    <Ionicons
+                      name="arrow-up-circle-outline"
+                      size={25}
+                      color="#dc2626"
+                    />
+                  )}
+                </TouchableOpacity>
+              )
+            : undefined,
         }}
       />
 
@@ -824,7 +1061,9 @@ export default function ConversationScreen() {
         }
       >
         <View
-          style={styles.securityNotice}
+          style={
+            styles.securityNotice
+          }
         >
           <Ionicons
             name="shield-checkmark-outline"
@@ -842,6 +1081,33 @@ export default function ConversationScreen() {
             identity documents in chat.
           </Text>
         </View>
+
+        {supportStatusCode ===
+          "conversation_support_escalated" ||
+        supportStatusCode ===
+          "escalated" ? (
+          <View
+            style={
+              styles.escalatedNotice
+            }
+          >
+            <Ionicons
+              name="alert-circle-outline"
+              size={17}
+              color="#b45309"
+            />
+
+            <Text
+              style={
+                styles.escalatedNoticeText
+              }
+            >
+              This support conversation
+              has been escalated. Other
+              authorized staff can join.
+            </Text>
+          </View>
+        ) : null}
 
         <FlatList
           ref={flatListRef}
@@ -861,7 +1127,9 @@ export default function ConversationScreen() {
             false
           }
           onContentSizeChange={() => {
-            if (messages.length > 0) {
+            if (
+              messages.length > 0
+            ) {
               flatListRef.current?.scrollToEnd(
                 {
                   animated: false,
@@ -882,13 +1150,17 @@ export default function ConversationScreen() {
               />
 
               <Text
-                style={styles.emptyTitle}
+                style={
+                  styles.emptyTitle
+                }
               >
                 Start the conversation
               </Text>
 
               <Text
-                style={styles.emptyText}
+                style={
+                  styles.emptyText
+                }
               >
                 Send a message to begin
                 this secure chat.
@@ -929,7 +1201,9 @@ export default function ConversationScreen() {
               onChangeText={setMessage}
               placeholder="Type a message..."
               placeholderTextColor="#94a3b8"
-              style={styles.messageInput}
+              style={
+                styles.messageInput
+              }
               multiline
               maxLength={5000}
               editable={!sending}
@@ -987,6 +1261,13 @@ const styles = StyleSheet.create({
     justifyContent: "center",
     padding: 24,
     backgroundColor: "#f8fafc",
+  },
+
+  headerAction: {
+    minWidth: 38,
+    height: 38,
+    alignItems: "center",
+    justifyContent: "center",
   },
 
   loadingText: {
@@ -1053,6 +1334,25 @@ const styles = StyleSheet.create({
     color: "#075985",
     fontSize: 11,
     fontWeight: "600",
+    lineHeight: 16,
+  },
+
+  escalatedNotice: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 8,
+    paddingHorizontal: 14,
+    paddingVertical: 9,
+    borderBottomWidth: 1,
+    borderBottomColor: "#fde68a",
+    backgroundColor: "#fffbeb",
+  },
+
+  escalatedNoticeText: {
+    flex: 1,
+    color: "#92400e",
+    fontSize: 11,
+    fontWeight: "700",
     lineHeight: 16,
   },
 
