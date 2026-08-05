@@ -34,73 +34,166 @@ export default function Navbar() {
 
   // Protected routes that should redirect to login if not authenticated
   const protectedRoutes = [
-    "/upload", "/appointment", "/profile", "/dashboard",
-    "/(tabs)/profile", "/(tabs)/dashboard", "/appointment/create",
-    "/appointment/view", "/appointment/appointments", "/appointment/requests",
-  ];
+  "/upload",
+  "/appointment",
+  "/profile",
+  "/dashboard",
+  "/(tabs)/profile",
+  "/(tabs)/dashboard",
+  "/(tabs)/chat",
+];
 
-  const goTo = (path: string) => {
-    setMenuVisible(false);
-    setShowAppointmentSubmenu(false);
+const isProtectedRoute = (
+  path: string
+): boolean => {
+  return protectedRoutes.some(
+    (protectedPath) =>
+      path === protectedPath ||
+      path.startsWith(
+        `${protectedPath}/`
+      )
+  );
+};
 
-    const basePath = path.split("?")[0];
+const goTo = (path: string) => {
+  setMenuVisible(false);
+  setShowAppointmentSubmenu(
+    false
+  );
 
-    // Redirect to login if trying to access protected route while not authenticated
-    if (protectedRoutes.includes(basePath) && !isAuthenticated) {
-      router.push("/auth/LoginScreen");
-      return;
-    }
+  const basePath =
+    path.split("?")[0];
 
-    router.push(path);
-  };
-
-  // ==================== MENU DEFINITIONS ====================
-
-  const PUBLIC_MENU: MenuItem[] = [
-    { label: "Home", path: "/(tabs)/home" },
-    { label: "Properties", path: "/(tabs)/properties" },
-    { label: "How It Works", path: "/(tabs)/how-it-works" },
-    { label: "About Us", path: "/(tabs)/about" },
-    { label: "Policies", path: "/(tabs)/policies" },
-    { label: "FAQ", path: "/(tabs)/faq" },
-    { label: "Vacancies", path: "/(tabs)/vacancies" },
-    { label: "Contact Us", path: "/(tabs)/contact" },
-  ];
-
-  const AUTH_MENU: MenuItem[] = [
-    { label: "Dashboard", path: "/(tabs)/dashboard" },
-    { 
-      label: "Appointment", 
-      children: [
-        { label: "My Appointments", path: "/appointment/my-appointments" },
-        { label: "Create Slot", path: "/appointment/create" },
-      ]
-    },
-    { label: "Games", path: "/(tabs)/games" },
-    { label: "Chat", path: "/(tabs)/chat/index" },
-    { label: "Wallet", path: "/dashboard/wallet" },
-    { label: "Profile", path: "/profile" },
-  ];
-
-  const AGENT_MENU: MenuItem[] = [ /* your agent menu */ ];
-  const STAFF_MENU: MenuItem[] = [ /* your staff menu */ ];
-  const ADMIN_MENU: MenuItem[] = [ /* your admin menu */ ];
-
-  // Build active menu based on auth + role
-  let activeMenu: MenuItem[] = [...PUBLIC_MENU];
-
-  if (isAuthenticated) {
-    if (role === "Agent") {
-      activeMenu = [...PUBLIC_MENU, ...AGENT_MENU];
-    } else if (role === "Staff") {
-      activeMenu = [...PUBLIC_MENU, ...STAFF_MENU];
-    } else if (role === "Admin") {
-      activeMenu = [...PUBLIC_MENU, ...ADMIN_MENU];
-    } else {
-      activeMenu = [...PUBLIC_MENU, ...AUTH_MENU];
-    }
+  if (
+    isProtectedRoute(basePath) &&
+    !isAuthenticated
+  ) {
+    router.push(
+      "/auth/LoginScreen"
+    );
+    return;
   }
 
+  router.push(path as any);
+};
+
+const PUBLIC_MENU: MenuItem[] = [
+  {
+    label: "Home",
+    path: "/(tabs)/home",
+  },
+  {
+    label: "Properties",
+    path: "/(tabs)/properties",
+  },
+  {
+    label: "How It Works",
+    path: "/(tabs)/how-it-works",
+  },
+  {
+    label: "About Us",
+    path: "/(tabs)/about",
+  },
+  {
+    label: "Policies",
+    path: "/(tabs)/policies",
+  },
+  {
+    label: "FAQ",
+    path: "/(tabs)/faq",
+  },
+  {
+    label: "Vacancies",
+    path: "/(tabs)/vacancies",
+  },
+  {
+    label: "Contact Us",
+    path: "/(tabs)/contact",
+  },
+];
+
+const AUTH_MENU: MenuItem[] = [
+  {
+    label: "Dashboard",
+    path: "/(tabs)/dashboard",
+  },
+  {
+    label: "Appointment",
+    children: [
+      {
+        label: "My Appointments",
+        path: "/appointment/my-appointments",
+      },
+      {
+        label: "Create Slot",
+        path: "/appointment/create",
+      },
+    ],
+  },
+  {
+    label: "Games",
+    path: "/(tabs)/games",
+  },
+  {
+    label: "Chat",
+    path: "/(tabs)/chat",
+  },
+  {
+    label: "Wallet",
+    path: "/dashboard/wallet",
+  },
+  {
+    label: "Profile",
+    path: "/profile",
+  },
+];
+
+const AGENT_MENU: MenuItem[] = [];
+
+const STAFF_MENU: MenuItem[] = [
+  {
+    label: "Staff Dashboard",
+    path: "/(tabs)/dashboard",
+  },
+];
+
+const ADMIN_MENU: MenuItem[] = [
+  {
+    label: "Admin Dashboard",
+    path: "/(tabs)/dashboard",
+  },
+];
+
+let activeMenu: MenuItem[] = [
+  ...PUBLIC_MENU,
+];
+
+if (isAuthenticated) {
+  if (role === "Agent") {
+    activeMenu = [
+      ...PUBLIC_MENU,
+      ...AUTH_MENU,
+      ...AGENT_MENU,
+    ];
+  } else if (role === "Staff") {
+    activeMenu = [
+      ...PUBLIC_MENU,
+      ...AUTH_MENU,
+      ...STAFF_MENU,
+    ];
+  } else if (role === "Admin") {
+    activeMenu = [
+      ...PUBLIC_MENU,
+      ...AUTH_MENU,
+      ...ADMIN_MENU,
+    ];
+  } else {
+    activeMenu = [
+      ...PUBLIC_MENU,
+      ...AUTH_MENU,
+    ];
+  }
+}
   // ==================== NOTIFICATIONS & REFERRAL ====================
 
   const shareReferral = async () => {
@@ -226,7 +319,7 @@ const MobileMenu = ({ activeMenu, isAuthenticated, menuVisible, setMenuVisible, 
           )}
 
 
-          <View style={{height: 50}} />
+          <View style={{height: 60}} />
         </ScrollView>
       </View>
     </View>
