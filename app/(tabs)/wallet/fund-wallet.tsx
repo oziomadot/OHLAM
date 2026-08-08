@@ -8,10 +8,12 @@ import {
 } from "react-native";
 
 import API from "@/src/services/api";
+import usePreventScreenCapture from "@/hooks/usePreventScreenCapture";
 
 export default function FundWalletScreen() {
   const [loading, setLoading] = useState(true);
   const [account, setAccount] = useState<any>(null);
+  usePreventScreenCapture(true);
 
   useEffect(() => {
     loadWallet();

@@ -25,6 +25,7 @@ import {
   TouchableOpacity,
   View,
 } from "react-native";
+import usePreventScreenCapture from "@/hooks/usePreventScreenCapture";
 
 type ReferenceValue = {
   id?: number;
@@ -320,6 +321,8 @@ function getRequestErrorMessage(
 }
 
 export default function ConversationScreen() {
+usePreventScreenCapture(true);
+
   const router = useRouter();
 
   const params = useLocalSearchParams<{

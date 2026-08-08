@@ -15,6 +15,7 @@ import API, { BASE_URL } from "@/src/services/api";
 import Navbar from "components/Navbar";
 import FilterBar from "components/FilterBar";
 import ScreenWrapper from "components/ScreenWrapper";
+import usePreventScreenCapture from "@/hooks/usePreventScreenCapture";
 
 
 const categories = [
@@ -30,6 +31,8 @@ const IndexScreen = () => {
   const [refreshing, setRefreshing] = useState(false);
 
   const router = useRouter();
+
+  usePreventScreenCapture(true);
 
   useFocusEffect(
     useCallback(() => {
@@ -198,6 +201,7 @@ const IndexScreen = () => {
     const unavailable =
       statusLabel.toLowerCase().includes("sold") ||
       statusLabel.toLowerCase().includes("rented");
+
 
     return (
       <TouchableOpacity

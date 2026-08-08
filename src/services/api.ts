@@ -2319,12 +2319,10 @@ async verifyIdCard(formData: FormData) {
 
 
   async getDashboardSummary() {
-
     const response = await API.get("/dashboard/summary");
-
     return response.data;
-
   }
+
 
 
 
@@ -2337,33 +2335,14 @@ async verifyIdCard(formData: FormData) {
 
 
   async testPreAuthToken() {
-
   const preAuthToken = await getItemSafe("pre_auth_token");
-
-
-
   if (!preAuthToken) {
-
     throw new Error("No pre-auth token stored.");
-
   }
-
-
-
   const response = await API.get("/pre-auth-test", {
-
-    headers: {
-
-      Authorization: `Bearer ${preAuthToken}`,
-
-    },
-
+    headers: {Authorization: `Bearer ${preAuthToken}`, },
   });
-
-
-
   return response.data;
-
 }
 
 

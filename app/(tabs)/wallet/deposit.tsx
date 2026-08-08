@@ -3,10 +3,12 @@ import { View, Text, TouchableOpacity, StyleSheet, Alert } from "react-native";
 import { useRouter } from "expo-router";
 import API from "@/src/services/api";
 import { getItem } from "../../utils/storage";
+import usePreventScreenCapture from "@/hooks/usePreventScreenCapture";
 
 export default function PropertyDepositScreen() {
   const router = useRouter();
   const [loading, setLoading] = useState(false);
+  usePreventScreenCapture(true);
 
   const startDeposit = async () => {
     setLoading(true);

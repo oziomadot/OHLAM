@@ -15,7 +15,7 @@ export default {
     },
 
     android: {
-      package: "com.oramexglobal.ohlam",
+      package: "com.oramexglobals.ohlam",
       versionCode: 1,
       permissions: [
         "CAMERA",

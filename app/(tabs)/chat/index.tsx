@@ -20,6 +20,7 @@ import {
   TouchableOpacity,
   View,
 } from "react-native";
+import usePreventScreenCapture from "@/hooks/usePreventScreenCapture";
 
 type UserSummary = {
   id: number;
@@ -380,6 +381,7 @@ function getErrorMessage(
 
 export default function ChatIndexScreen() {
   const router = useRouter();
+  usePreventScreenCapture(true);
 
   const [
     conversations,

@@ -143,6 +143,10 @@ const CreateProperty = () => {
   const { getCurrentLocation } = usePropertyLocation(setValue, showAlert);
 
   const { onSubmit } = usePropertySubmit({
+
+
+
+    
     selectedPropertyType,
     selectedListingRoleName,
     images,
@@ -156,6 +160,36 @@ const CreateProperty = () => {
     setLoading,
   });
 
+  
+const submitProperty = handleSubmit(async (data) => {
+  if (
+    selectedPropertyType === 2 ||
+    selectedPropertyType === 3
+  ) {
+    const hasImage =
+      !!images?.wholeBuilding?.uri;
+
+    const hasVideo =
+      !!video &&
+      (
+        !!video.uri ||
+        !!video.name
+      );
+
+    if (!hasImage && !hasVideo) {
+      showAlert(
+        "Property Media Required",
+        selectedPropertyType === 3
+          ? "Please upload at least one image of the land or one land video."
+          : "Please upload at least one property image or one property video."
+      );
+
+      return;
+    }
+  }
+
+  await onSubmit(data);
+});
 
   useEffect(() => {
   const checkAccess = async () => {
@@ -426,10 +460,9 @@ const CreateProperty = () => {
               <View style={{ marginTop: 20 }}>
                 <Button
                   title="Submit Property"
-                  onPress={handleSubmit(onSubmit)}
+                  onPress={submitProperty}
                   disabled={loading}
                 />
-              </View>
             </View>
           </BlurView>
         </ImageBackground>

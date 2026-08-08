@@ -14,6 +14,7 @@ import { useRouter, useLocalSearchParams } from "expo-router";
 import API from "@/src/services/api";
 import Navbar from "components/Navbar";
 import ScreenWrapper from "components/ScreenWrapper";
+import usePreventScreenCapture from "@/hooks/usePreventScreenCapture";
 
 const baseOrigin = () =>
   (API?.defaults?.baseURL || "").replace(/\/$/, "").replace(/\/api\/?$/, "");
@@ -52,14 +53,18 @@ const Section = ({ title, children }: any) => (
 export default function PropertyDetailScreen() {
   const { id } = useLocalSearchParams();
   const router = useRouter();
-
+  usePreventScreenCapture(true);
   const [property, setProperty] = useState<any>(null);
   const [loading, setLoading] = useState(true);
 
+  const propertyId = Array.isArray(id) ? id[0] : id;
+
   const fetchProperty = async () => {
+    if (!propertyId) return;
+
     try {
       setLoading(true);
-      const res = await API.getProperty(id);
+      const res = await API.getProperty(propertyId);
       setProperty(res.data?.property || res.data);
     } catch (error: any) {
       console.log("PROPERTY DETAIL ERROR:", error?.response?.data || error?.message);
@@ -70,8 +75,8 @@ export default function PropertyDetailScreen() {
   };
 
   useEffect(() => {
-    if (id) fetchProperty();
-  }, [id]);
+    if (propertyId) fetchProperty();
+  }, [propertyId]);
 
   const images = useMemo(() => {
     if (!property?.media) return [];
@@ -90,7 +95,7 @@ export default function PropertyDetailScreen() {
         title,
         uri: storageUrl(path),
       }))
-      .filter((item) => item.uri);
+      .filter((item): item is { title: any; uri: string } => !!item.uri);
   }, [property]);
 
   if (loading) {

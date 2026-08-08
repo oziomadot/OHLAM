@@ -1,4 +1,3 @@
-import AsyncStorage from "@react-native-async-storage/async-storage";
 import API from "@/src/services/api";
 import { router } from "expo-router";
 
@@ -29,7 +28,22 @@ export function usePropertySubmit({
   showAlert,
   setLoading,
 }: Args) {
+  const hasFile = (file: any) => {
+    if (!file) return false;
+
+    return Boolean(
+      file.uri ||
+      file.name
+    );
+  };
+
   const validateMedia = () => {
+    /*
+     * RENTAL
+     *
+     * Keep your existing rule:
+     * all required rental images must exist.
+     */
     if (selectedPropertyType === 1) {
       const required = [
         "wholeBuilding",
@@ -40,173 +54,366 @@ export function usePropertySubmit({
       ];
 
       for (const key of required) {
-        if (!images[key]) {
+        if (!hasFile(images?.[key])) {
           showAlert(
             "Missing Media",
-            `Please upload ${key.replace(/([A-Z])/g, " $1").toLowerCase()}`
+            `Please upload ${key
+              .replace(/([A-Z])/g, " $1")
+              .toLowerCase()}`
           );
+
           return false;
         }
       }
     }
 
+    /*
+     * HOUSE FOR SALE
+     *
+     * Image OR video is required.
+     * Both are allowed.
+     */
     if (selectedPropertyType === 2) {
-      if (!images.wholeBuilding) {
-        showAlert("Missing Image", "Please upload whole building photo.");
-        return false;
-      }
+      const hasImage =
+        hasFile(images?.wholeBuilding);
 
-      if (!video) {
-        showAlert("Missing Video", "Please upload property video.");
+      const hasVideo =
+        hasFile(video);
+
+      if (!hasImage && !hasVideo) {
+        showAlert(
+          "Missing Property Media",
+          "Please upload at least one property image or one property video."
+        );
+
         return false;
       }
     }
 
-    if (selectedPropertyType === 3 && !video) {
-      showAlert("Missing Video", "Please upload land video.");
-      return false;
+    /*
+     * LAND FOR SALE
+     *
+     * Image OR video is required.
+     * Both are allowed.
+     */
+    if (selectedPropertyType === 3) {
+      const hasImage =
+        hasFile(images?.wholeBuilding);
+
+      const hasVideo =
+        hasFile(video);
+
+      if (!hasImage && !hasVideo) {
+        showAlert(
+          "Missing Land Media",
+          "Please upload at least one image of the land or one land video."
+        );
+
+        return false;
+      }
     }
 
     return true;
   };
 
-  const onSubmit = async (formData: any) => {
-    if (!validateMedia()) return;
+  const appendFile = (
+    data: FormData,
+    fieldName: string,
+    file: any,
+    defaultName: string,
+    defaultType: string
+  ) => {
+    if (!file) return;
 
+    /*
+     * Web:
+     * if this is an actual File object,
+     * append it directly.
+     */
     if (
-      ["landlord", "developer"].includes(selectedListingRoleName) &&
-      !proofDocument
+      typeof File !== "undefined" &&
+      file instanceof File
     ) {
-      showAlert("Missing Document", "Please upload the required proof document.");
+      data.append(
+        fieldName,
+        file
+      );
+
       return;
     }
 
-    if (!formData.latitude || !formData.longitude) {
+    /*
+     * Android / iOS / Expo:
+     * React Native FormData expects:
+     * uri, name, type
+     */
+    if (!file.uri) {
+      return;
+    }
+
+    data.append(
+      fieldName,
+      {
+        uri: file.uri,
+        name:
+          file.name ||
+          defaultName,
+
+        type:
+          file.type ||
+          defaultType,
+      } as any
+    );
+  };
+
+  const onSubmit = async (formData: any) => {
+    if (!validateMedia()) {
+      return;
+    }
+
+    /*
+     * Landlords and developers still require
+     * their supporting proof document.
+     */
+    if (
+      [
+        "landlord",
+        "developer",
+      ].includes(
+        selectedListingRoleName
+      ) &&
+      !proofDocument
+    ) {
+      showAlert(
+        "Missing Document",
+        "Please upload the required proof document."
+      );
+
+      return;
+    }
+
+    if (
+      !formData.latitude ||
+      !formData.longitude
+    ) {
       showAlert(
         "Missing Location",
         "Please capture the GPS location of the property."
       );
+
       return;
     }
 
     setLoading(true);
 
     try {
-      const data = new FormData();
+      const data =
+        new FormData();
 
-      Object.entries(formData).forEach(([key, val]) => {
-        if (typeof val === "boolean") {
-          data.append(key, val ? "1" : "0");
-        } else if (val !== undefined && val !== null && typeof val !== "object") {
-          data.append(key, String(val).replace(/,/g, ""));
+      /*
+       * Append normal form fields.
+       */
+      Object.entries(
+        formData
+      ).forEach(
+        ([key, val]) => {
+          if (
+            typeof val ===
+            "boolean"
+          ) {
+            data.append(
+              key,
+              val ? "1" : "0"
+            );
+
+            return;
+          }
+
+          if (
+            val === undefined ||
+            val === null ||
+            typeof val ===
+              "object"
+          ) {
+            return;
+          }
+
+          data.append(
+            key,
+            String(val)
+              .replace(
+                /,/g,
+                ""
+              )
+          );
         }
-      });
+      );
 
-      // Object.entries(images).forEach(([key, file]: any) => {
-      //   if (!file) return;
+      /*
+       * Append all selected images.
+       *
+       * No else-if here:
+       * image and video may both exist.
+       */
+      Object.entries(
+        images || {}
+      ).forEach(
+        ([key, file]: any) => {
+          if (!hasFile(file)) {
+            return;
+          }
 
-      //   data.append(key, {
-      //     uri: file.uri,
-      //     name: file.name || `${key}.jpg`,
-      //     type: file.type || "image/jpeg",
-      //   } as any);
-      // });
+          appendFile(
+            data,
+            key,
+            file,
+            `${key}.jpg`,
+            "image/jpeg"
+          );
+        }
+      );
 
-      // if (video) {
-      //   data.append("video", {
-      //     uri: video.uri,
-      //     name: video.name || "video.mp4",
-      //     type: video.type || "video/mp4",
-      //   } as any);
-      // }
-
-Object.entries(images).forEach(([key, file]: any) => {
-  if (!file || !file.uri) return;
-  data.append(
-    key,
-    {
-      uri: file.uri,
-      name: file.name || `${key}.jpg`,
-      type: file.type || "image/jpeg",
-    } as any
-  );
-});
-
-if (video?.uri) {
-  data.append(
-    "video",
-    {
-      uri: video.uri,
-      name: video.name || "video.mp4",
-      type: video.type || "video/mp4",
-    } as any
-  );
-}
-
-
-
-      if (proofDocument) {
-        data.append("proof_document", {
-          uri: proofDocument.uri,
-          name: proofDocument.name,
-          type: proofDocument.type,
-        } as any);
+      /*
+       * Append main property video independently.
+       *
+       * Therefore:
+       * image only  -> image uploaded
+       * video only  -> video uploaded
+       * both        -> both uploaded
+       */
+      if (hasFile(video)) {
+        appendFile(
+          data,
+          "video",
+          video,
+          "property-video.mp4",
+          "video/mp4"
+        );
       }
 
-      if (floorPlan) {
-        data.append("floor_plan", {
-          uri: floorPlan.uri,
-          name: floorPlan.name,
-          type: floorPlan.type,
-        } as any);
+      /*
+       * Private proof document.
+       */
+      if (
+        hasFile(
+          proofDocument
+        )
+      ) {
+        appendFile(
+          data,
+          "proof_document",
+          proofDocument,
+          "proof_document.pdf",
+          proofDocument?.type ||
+            "application/pdf"
+        );
       }
 
-      if (threeSixtyVideo) {
-        data.append("three_sixty_video", {
-          uri: threeSixtyVideo.uri,
-          name: threeSixtyVideo.name,
-          type: threeSixtyVideo.type,
-        } as any);
+      /*
+       * Optional floor plan.
+       */
+      if (
+        hasFile(
+          floorPlan
+        )
+      ) {
+        appendFile(
+          data,
+          "floor_plan",
+          floorPlan,
+          "floor_plan.pdf",
+          floorPlan?.type ||
+            "application/pdf"
+        );
       }
 
-      const res = await API.createProperty(data);
+      /*
+       * Optional 360 video.
+       */
+      if (
+        hasFile(
+          threeSixtyVideo
+        )
+      ) {
+        appendFile(
+          data,
+          "three_sixty_video",
+          threeSixtyVideo,
+          "360_video.mp4",
+          "video/mp4"
+        );
+      }
+
+      const res =
+        await API.createProperty(
+          data
+        );
 
       reset();
       resetFiles();
 
-      if (res.flagged) {
+      if (
+        res.flagged ||
+        res.under_investigation
+      ) {
         showAlert(
           "Under Review",
-          "This property has been flagged. Please contact management."
+          res.message ||
+            "This property requires review."
         );
 
-        //next route is dashboard
+        router.replace(
+          "/(tabs)/dashboard"
+        );
 
-        router.replace('/(tabs)/dashboard');
-      } else {
-        showAlert("Success", res.message || "Property saved successfully");
-         router.replace('/(tabs)/dashboard');
+        return;
       }
-    } catch (err: any) {
-      const responseData = err.response?.data;
-      console.error("Upload error:", responseData || err.message || err);
 
-      const validationErrors = responseData?.errors;
-      const firstErrorMessage = validationErrors
-        ? Object.values(validationErrors).flat()[0]
-        : null;
+      showAlert(
+        "Success",
+        res.message ||
+          "Property saved successfully"
+      );
+
+      router.replace(
+        "/(tabs)/dashboard"
+      );
+    } catch (err: any) {
+      const responseData =
+        err.response?.data;
+
+      console.error(
+        "Upload error:",
+        responseData ||
+          err.message ||
+          err
+      );
+
+      const validationErrors =
+        responseData?.errors;
+
+      const firstErrorMessage =
+        validationErrors
+          ? Object.values(
+              validationErrors
+            ).flat()[0]
+          : null;
 
       showAlert(
         "Error",
-        firstErrorMessage ||
-          responseData?.message ||
-          err.message ||
-          "Something went wrong while saving property"
+        String(
+          firstErrorMessage ||
+            responseData?.message ||
+            err.message ||
+            "Something went wrong while saving property"
+        )
       );
     } finally {
       setLoading(false);
     }
   };
 
-  return { onSubmit };
+  return {
+    onSubmit,
+  };
 }
