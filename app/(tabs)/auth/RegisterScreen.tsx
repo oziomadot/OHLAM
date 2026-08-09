@@ -19,7 +19,7 @@ import ScreenWrapper from "components/ScreenWrapper";
 import TermsModal from "components/TermsModal";
 import { setItemSafe, getItemSafe } from "@/utils/storage";
 import { getFriendlyApiError } from "@/src/utils/apiError";
-
+import { getReferralCode } from "@/src/services/referralService";
 import { useLocalSearchParams } from "expo-router";
 
 
@@ -45,6 +45,7 @@ const RegistrationScreen = () => {
   const [alertVisible, setAlertVisible] = useState(false);
   const [alertMessage, setAlertMessage] = useState("");
   const [alertTitle, setAlertTitle] = useState("");
+  
 
   function showAlert(title: string, message: string) {
     setAlertTitle(title);
@@ -55,15 +56,67 @@ const RegistrationScreen = () => {
   const { ref } = useLocalSearchParams();
 
 
+
+  useEffect(() => {
+  const loadReferral = async () => {
+    try {
+      /*
+       * Priority 1:
+       * Referral coming directly from an Expo/deep link.
+       *
+       * Example:
+       * /auth/register?ref=OHLAM-A92K4
+       */
+      const urlReferral =
+        typeof ref === "string"
+          ? ref.trim()
+          : Array.isArray(ref)
+            ? String(ref[0] ?? "").trim()
+            : "";
+
+      if (urlReferral) {
+        setValue("referral_id", urlReferral, {
+          shouldValidate: true,
+          shouldDirty: false,
+        });
+
+        return;
+      }
+
+      /*
+       * Priority 2:
+       * Referral recovered from Google Play Install Referrer
+       * and stored by referralService.
+       */
+      const savedReferral =
+        await getReferralCode();
+
+      if (savedReferral) {
+        setValue(
+          "referral_id",
+          savedReferral.trim(),
+          {
+            shouldValidate: true,
+            shouldDirty: false,
+          }
+        );
+      }
+    } catch (error) {
+      console.error(
+        "Failed loading referral:",
+        error
+      );
+    }
+  };
+
+  loadReferral();
+}, [ref, setValue]);
   
     
   // ✅ On form submit
   const onSubmit = async (data: any) => {
 
-
- console.log(
-    "[REGISTER] onSubmit reached"
-  );
+    console.log("[REGISTER] onSubmit reached");
 
 
 
@@ -79,15 +132,6 @@ const RegistrationScreen = () => {
     setLoading(true);
     try {
       const payload = { ...data, agree_terms: true };
-
-      let storedRef: string | null = null;
-      if (Platform.OS === "web") {
-        storedRef = window?.localStorage?.getItem("referral_id");
-      } else {
-        storedRef = await getItemSafe("referral_id");
-      }
-      if (storedRef) payload.ref = storedRef;
-
       if (payload.dob instanceof Date) {
         payload.dob = payload.dob.toISOString().split("T")[0];
       }
@@ -99,8 +143,7 @@ const RegistrationScreen = () => {
 
       if (!user?.id || !user?.email) {
         throw new Error(
-          "Registration succeeded, but the user information is incomplete."
-        );
+          "Registration succeeded, but the user information is incomplete.");
       }
 
       /*
@@ -134,10 +177,7 @@ const RegistrationScreen = () => {
       
         catch (error: unknown) {
   if (__DEV__) {
-    console.log(
-      "[REGISTER] Error:",
-      error
-    );
+    console.log("[REGISTER] Error:", error);
   }
 
   const friendlyError = getFriendlyApiError(
@@ -395,26 +435,35 @@ const RegistrationScreen = () => {
        
 
         {/* Referrer ID (always visible but optional) */}
-        <FormField label="Referrer ID">
-        <Controller
-  control={control}
-  name="referral_id"
-  render={({
-    field: {
-      onChange,
-      value,
-    },
-  }) => (
-    <TextInput
-      placeholder="Enter Oramex ID of referrer"
-      style={styles.input}
-      value={value}
-      onChangeText={
-        onChange
-      }
-    />
-  )}
-/></FormField>
+        <FormField
+  label="Referrer ID (optional)"
+  error={errors.referral_id}
+>
+  <Controller
+    control={control}
+    name="referral_id"
+    defaultValue=""
+    render={({
+      field: {
+        onChange,
+        onBlur,
+        value,
+      },
+    }) => (
+      <TextInput
+        placeholder="OHLAM ID of referrer"
+        style={styles.input}
+        value={value ?? ""}
+        onBlur={onBlur}
+        autoCapitalize="characters"
+        autoCorrect={false}
+        onChangeText={(text) =>
+          onChange(text.trimStart())
+        }
+      />
+    )}
+  />
+</FormField>
 
         {/* Terms */}
         <View style={{ flexDirection: "row", alignItems: "center", marginVertical: 12 }}>

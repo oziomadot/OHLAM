@@ -81,6 +81,7 @@
     "react-native-logs": "^5.5.0",
     "react-native-maps": "1.27.2",
     "react-native-paper": "^5.14.5",
+    "react-native-play-install-referrer": "^1.1.9",
     "react-native-qrcode-svg": "^6.3.21",
     "react-native-reanimated": "4.5.0",
     "react-native-safe-area-context": "~5.7.0",

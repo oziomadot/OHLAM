@@ -88,20 +88,28 @@ const CreateProperty = () => {
     formState: { errors },
   } = useForm({
     defaultValues: {
-      user_id: user?.id || "",
-      propertyTypes: "",
-      state_id: "",
-      area_id: "",
-      amount: "",
-      agent_fee: "",
-      address: "",
-      meeting_place: "",
-      fence_id: "",
-      listing_role_id: "",
-      latitude: "",
-      longitude: "",
-      virtual_tour_url: "",
-    },
+  user_id: user?.id || "",
+  propertyTypes: "",
+  state_id: "",
+  area_id: "",
+  amount: "",
+  agent_fee: "",
+
+  caution_fee: "",
+  legal_fee: "",
+  security_fee: "",
+  cleaning_fee: "",
+  additional_fee: "",
+  additional_fee_description: "",
+
+  address: "",
+  meeting_place: "",
+  fence_id: "",
+  listing_role_id: "",
+  latitude: "",
+  longitude: "",
+  virtual_tour_url: "",
+},
   });
 
   const selectedPropertyType = parseInt(watch("propertyTypes"), 10);
@@ -347,7 +355,7 @@ const submitProperty = handleSubmit(async (data) => {
                       value={String(field.value || "")}
                       onChangeText={(text) => handleMoneyChange(text, "amount")}
                       onBlur={() => handleMoneyBlur("amount")}
-                      placeholder="Enter amount"
+                      placeholder="Enter the Rental/Selling amount"
                     />
                     {errors.amount && (
                       <Text style={styles.error}>{errors.amount.message}</Text>
@@ -374,6 +382,113 @@ const submitProperty = handleSubmit(async (data) => {
                 )}
               />
 
+              <Text style={styles.label}>Legal / Tenancy Agreement fee</Text>
+              <Controller
+                control={control}
+                name="legal_fee"
+                render={({ field }) => (
+                  <TextInput
+                    placeholder="Legal / Tenancy Agreement fee"
+                    editable={false}
+                    style={styles.input}
+                    value={
+                      field.value
+                        ? String(field.value).replace(/\B(?=(\d{3})+(?!\d))/g, ",")
+                        : ""
+                    }
+                  />
+                )}
+              />
+
+              <Text style={styles.subTitle}>Other Charges</Text>
+
+<Text style={styles.label}>Additional Fee</Text>
+
+<Controller
+  control={control}
+  name="additional_fee"
+  render={({ field }) => (
+    <TextInput
+      placeholder="Enter any additional fee"
+      keyboardType="numeric"
+      style={styles.input}
+      value={field.value}
+      onChangeText={(text) =>
+        handleMoneyChange(text, "additional_fee")
+      }
+      onBlur={() => handleMoneyBlur("additional_fee")}
+    />
+  )}
+/>
+
+{!!watch("additional_fee") &&
+  Number(
+    String(watch("additional_fee")).replace(/,/g, "")
+  ) > 0 && (
+    <>
+      <Text style={styles.label}>
+        What is this additional fee for?
+      </Text>
+
+      <Controller
+        control={control}
+        name="additional_fee_description"
+        rules={{
+          validate: (value) => {
+            const additionalFee = Number(
+              String(watch("additional_fee") || "0").replace(/,/g, "")
+            );
+
+            if (additionalFee > 0 && !String(value || "").trim()) {
+              return "Please explain what the additional fee is for";
+            }
+
+            return true;
+          },
+        }}
+        render={({ field }) => (
+          <>
+            <TextInput
+              placeholder="Example: Estate service charge for waste collection and security"
+              style={[
+                styles.input,
+                {
+                  minHeight: 90,
+                  textAlignVertical: "top",
+                },
+                errors.additional_fee_description &&
+                  styles.inputError,
+              ]}
+              multiline
+              maxLength={500}
+              value={field.value}
+              onChangeText={field.onChange}
+            />
+
+            {errors.additional_fee_description && (
+              <Text style={styles.error}>
+                {errors.additional_fee_description.message}
+              </Text>
+            )}
+          </>
+        )}
+      />
+
+      <View style={styles.feeNotice}>
+        <Text style={styles.feeNoticeTitle}>
+          About additional charges
+        </Text>
+
+        <Text style={styles.feeNoticeText}>
+          Additional charges are declared by the property
+          lister and are not OHLAM fees. OHLAM has not
+          independently determined that the charge is legally
+          required. Renters should review the reason for the
+          charge before agreeing to pay.
+        </Text>
+      </View>
+    </>
+  )}
               <Text style={styles.label}>Address</Text>
               <Controller
                 control={control}
@@ -463,7 +578,8 @@ const submitProperty = handleSubmit(async (data) => {
                   onPress={submitProperty}
                   disabled={loading}
                 />
-            </View>
+              </View>
+              </View>
           </BlurView>
         </ImageBackground>
       
@@ -567,6 +683,27 @@ const styles = StyleSheet.create({
     alignItems: "center",
     marginVertical: 6,
   },
+  
+
+feeNotice: {
+  padding: 12,
+  borderWidth: 1,
+  borderColor: "#D6D6D6",
+  borderRadius: 8,
+  marginBottom: 15,
+  backgroundColor: "rgba(255, 255, 255, 0.55)",
+},
+
+feeNoticeTitle: {
+  fontSize: 15,
+  fontWeight: "bold",
+  marginBottom: 5,
+},
+
+feeNoticeText: {
+  fontSize: 13,
+  lineHeight: 19,
+},
 });
 
 export default CreateProperty;

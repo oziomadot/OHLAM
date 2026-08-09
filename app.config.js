@@ -3,7 +3,7 @@ export default {
     name: "OHLAM",
     slug: "OHLAM",
     scheme: "ohlam",
-    version: "1.0.0",
+    version: "1.0.1",
 
 
      "runtimeVersion": {
@@ -16,7 +16,7 @@ export default {
 
     android: {
       package: "com.oramexglobals.ohlam",
-      versionCode: 1,
+      versionCode: 2,
       permissions: [
         "CAMERA",
         "READ_MEDIA_IMAGES",

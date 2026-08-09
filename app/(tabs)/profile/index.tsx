@@ -9,12 +9,12 @@ import {
   ActivityIndicator,
   Platform,
   Alert,
+  Share,
 } from "react-native";
 import { useAuth } from "@/context/AuthContext";
 import { useRouter } from "expo-router";
 import { Ionicons } from "@expo/vector-icons";
 import * as Clipboard from "expo-clipboard";
-import * as Sharing from "expo-sharing";
 import QRCode from "react-native-qrcode-svg";
 
 import Navbar from "components/Navbar";
@@ -61,12 +61,12 @@ export default function ProfileScreen() {
     "Not available";
 
   const referralLink = useMemo(() => {
-    if (!referralCode) return "";
+  if (!referralCode) return "";
 
-    return `https://oramexhouseandland.com/app/register?ref=${encodeURIComponent(
-      referralCode
-    )}`;
-  }, [referralCode]);
+  return `https://api.oramexhouseandland.com/r/${encodeURIComponent(
+    referralCode
+  )}`;
+}, [referralCode]);
 
   const copyReferralLink = async () => {
     if (!referralLink) return;
@@ -76,15 +76,30 @@ export default function ProfileScreen() {
   };
 
   const shareReferralLink = async () => {
-    if (!referralLink) return;
+  if (!referralLink) {
+    Alert.alert("Referral unavailable", "Your referral code is not available.");
+    return;
+  }
 
-    try {
-      await Sharing.shareAsync(referralLink);
-    } catch {
-      await Clipboard.setStringAsync(referralLink);
-      Alert.alert("Copied", "Referral link copied to clipboard.");
-    }
-  };
+  try {
+    await Share.share({
+      title: "Join OHLAM",
+      message:
+        `Join me on OHLAM — a smarter and safer way to find, rent, buy and manage property.\n\n` +
+        `Use my referral code: ${referralCode}\n\n` +
+        `Download OHLAM here:\n${referralLink}`,
+    });
+  } catch (error) {
+    console.error("Referral share error:", error);
+
+    await Clipboard.setStringAsync(referralLink);
+
+    Alert.alert(
+      "Link Copied",
+      "Sharing could not be opened, so the referral link was copied instead."
+    );
+  }
+};
 
   const handleDeleteAccount = () => {
     Alert.alert(
