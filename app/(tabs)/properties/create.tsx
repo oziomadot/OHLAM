@@ -389,15 +389,16 @@ const submitProperty = handleSubmit(async (data) => {
                 render={({ field }) => (
                   <TextInput
                     placeholder="Legal / Tenancy Agreement fee"
-                    editable={false}
-                    style={styles.input}
-                    value={
-                      field.value
-                        ? String(field.value).replace(/\B(?=(\d{3})+(?!\d))/g, ",")
-                        : ""
-                    }
-                  />
-                )}
+                    keyboardType="numeric"
+                      style={styles.input}
+                      value={field.value}
+                      onChangeText={(text) =>
+                        handleMoneyChange(text, "legal_fee")
+                      }
+                      onBlur={() => handleMoneyBlur("legal_fee")}
+                    />
+                  )}
+                
               />
 
               <Text style={styles.subTitle}>Other Charges</Text>
