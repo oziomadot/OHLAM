@@ -172,47 +172,26 @@ export async function verifyNewDeviceFace(formData: FormData) {
 
   console.log("[verifyNewDeviceFace] formData", formData);
 
-  const preAuthToken =
-
-    await getItemSafe("pre_auth_token");
-
-
+  const preAuthToken = await getItemSafe("pre_auth_token");
 
   if (!preAuthToken) {
-
     throw new Error(
-
       "Device verification session is missing."
-
     );
 
   }
-
 
 
   const url = `${BASE_URL}/auth/device/verify-face`;
 
   console.log("[verifyNewDeviceFace] POST", url);
 
-
-
-  const response = await API.post(
-
-    "/auth/device/verify-face",
-
-    formData,
-
-    {
-
-      headers: {
-
-        Authorization: `Bearer ${preAuthToken}`,
-
-      },
-
-    }
-
-  );
+  const response = await API.post("/auth/device/verify-face", formData, {
+    headers: {
+      Authorization: `Bearer ${preAuthToken}`,
+      Accept: "application/json",
+    },
+  });
 
 
 

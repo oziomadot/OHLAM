@@ -177,9 +177,31 @@ export default function FaceLivenessScreen() {
     console.log("[FACE] Multipart form prepared");
 
     if (mode === "device-verification") {
-  const device = await getDeviceDetails();
+  const pendingUserId =
+    await getItemSafe("pending_user_id");
 
-  appendDeviceDetails(formData, device);
+  if (!pendingUserId) {
+    throw new Error(
+      "Your device verification session is missing the user ID. Please log in again."
+    );
+  }
+
+  formData.append(
+    "user_id",
+    String(pendingUserId)
+  );
+
+  const device =
+    await getDeviceDetails();
+
+  appendDeviceDetails(
+    formData,
+    device
+  );
+
+  console.log("[DEVICE VERIFY] user_id:", pendingUserId);
+
+  console.log("[DEVICE VERIFY] installation_id:", device?.installation_id);
 
   const response = await verifyNewDeviceFace(formData);
 
