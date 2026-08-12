@@ -15,6 +15,7 @@ import API from "@/src/services/api";
 import Navbar from "components/Navbar";
 import ScreenWrapper from "components/ScreenWrapper";
 import usePreventScreenCapture from "@/hooks/usePreventScreenCapture";
+import { useAuth } from "@/context/AuthContext";
 
 const baseOrigin = () =>
   (API?.defaults?.baseURL || "").replace(/\/$/, "").replace(/\/api\/?$/, "");
@@ -58,7 +59,7 @@ export default function PropertyDetailScreen() {
   const [loading, setLoading] = useState(true);
 
   const propertyId = Array.isArray(id) ? id[0] : id;
-
+  const { isAuthenticated } = useAuth();
   const fetchProperty = async () => {
     if (!propertyId) return;
 
@@ -73,6 +74,58 @@ export default function PropertyDetailScreen() {
       setLoading(false);
     }
   };
+
+
+  const handleInterested =
+  async () => {
+    if (
+      !isAuthenticated
+    ) {
+      router.push({
+        pathname:
+          "/login",
+
+        params: {
+          redirectTo:
+            `/home/property/${property.id}`,
+        },
+      });
+
+      return;
+    }
+
+    try {
+      await API.storePropertyInterest(
+        property.id
+      );
+
+      router.push({
+        pathname:
+          "/appointment/customer/create",
+
+        params: {
+          property_id:
+            String(
+              property.id
+            ),
+        },
+      });
+
+    } catch (
+      error: any
+    ) {
+      Alert.alert(
+        "Unable to continue",
+
+        error?.response
+          ?.data
+          ?.message ||
+          "Could not register your interest in this property."
+      );
+    }
+  };
+
+
 
   useEffect(() => {
     if (propertyId) fetchProperty();
@@ -287,11 +340,22 @@ export default function PropertyDetailScreen() {
         <View style={styles.buttonContainer}>
           {canContact ? (
             <TouchableOpacity
-              style={[styles.btn, styles.btnPrimary]}
-              onPress={() => router.push(`/interestform/${property.id}`)}
-            >
-              <Text style={styles.btnText}>I AM INTERESTED</Text>
-            </TouchableOpacity>
+  style={[
+    styles.btn,
+    styles.btnPrimary,
+  ]}
+  onPress={
+    handleInterested
+  }
+>
+  <Text
+    style={
+      styles.btnText
+    }
+  >
+    I AM INTERESTED
+  </Text>
+</TouchableOpacity>
           ) : (
             <View style={styles.unavailableBox}>
               <Text style={styles.unavailableTitle}>Property Not Available</Text>

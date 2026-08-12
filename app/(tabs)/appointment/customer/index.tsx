@@ -20,7 +20,7 @@ export default function CustomerAppointmentView() {
 
   const loadAppointments = async () => {
     try {
-      const res = await API.get('/customer/interested-appointments');
+      const res = await API.get<{ data: any[] }>('/customer/interested-appointments');
       setAppointments(res.data.data);
     } catch (error) {
       Alert.alert('Error', 'Could not load appointments.');

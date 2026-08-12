@@ -790,13 +790,9 @@ class ApiService {
 
 
   const response = await API.post("/login", {
-
     email,
-
     password,
-
     ...device,
-
   });
 
 
@@ -2314,16 +2310,99 @@ async verifyIdCard(formData: FormData) {
 
 
   async testPreAuthToken() {
-  const preAuthToken = await getItemSafe("pre_auth_token");
-  if (!preAuthToken) {
-    throw new Error("No pre-auth token stored.");
+      const preAuthToken = await getItemSafe("pre_auth_token");
+      if (!preAuthToken) {
+        throw new Error("No pre-auth token stored.");
+      }
+      const response = await API.get("/pre-auth-test", {
+        headers: {Authorization: `Bearer ${preAuthToken}`, },
+      });
+      return response.data;
+    }
+
+
+  async getAppointmentDashboard() {
+    return API.get("/appointments/dashboard");
   }
-  const response = await API.get("/pre-auth-test", {
-    headers: {Authorization: `Bearer ${preAuthToken}`, },
-  });
-  return response.data;
+
+ async getAppointmentEligibility(propertyId: string | number) {
+  return API.get(
+    `/property/${propertyId}/appointment-eligibility`
+  );
 }
 
+async getPropertyAvailableSlots(propertyId: string | number, date: string) {
+  return API.get(`/properties/${propertyId}/available-slots`, {
+    params: {
+      date,
+    },
+  });
+}
+
+async createAppointment(payload: {
+  property_id: string | number;
+  appointment_date: string;
+  start_time: string;
+  end_time: string;
+  customer_note?: string | null;
+}) {
+  return API.post("/appointments", payload);
+}
+
+
+async getAppointmentBookableProperties() {
+  return API.get("/appointments/bookable-properties");
+}
+
+async storePropertyInterest(
+  propertyId: string | number
+) {
+  return API.post(
+    `/properties/${propertyId}/interest`
+  );
+}
+
+
+
+
+
+
+async acceptAppointment(
+  appointmentId: string | number
+) {
+  return API.post(
+    `/appointments/${appointmentId}/accept`
+  );
+}
+
+async rejectAppointment(
+  appointmentId: string | number,
+  listerNote?: string
+) {
+  return API.post(
+    `/appointments/${appointmentId}/reject`,
+    {
+      lister_note:
+        listerNote || null,
+    }
+  );
+}
+
+async cancelAppointment(
+  appointmentId: string | number
+) {
+  return API.post(
+    `/appointments/${appointmentId}/cancel`
+  );
+}
+
+async completeAppointment(
+  appointmentId: string | number
+) {
+  return API.post(
+    `/appointments/${appointmentId}/complete`
+  );
+}
 
 
 }

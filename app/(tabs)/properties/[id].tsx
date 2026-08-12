@@ -32,7 +32,7 @@ export default function PropertyDetailsScreen() {
 
       console.log("Loading full property details");
 
-      const res = await API.get(`/properties/${id}`);
+      const res = await API.get<any>(`/properties/${id}`);
 
       setProperty(res.data?.property || res.data);
     } catch (error: any) {
