@@ -938,22 +938,11 @@ export default function AppointmentIndexScreen() {
 
   const sortedAppointments =
     useMemo(() => {
-      return [
-        ...appointments,
-      ].sort(
-        (
-          a,
-          b
-        ) => {
-          const aDate =
-            getAppointmentDate(
-              a
-            );
+      return [ ...appointments,].sort(
+        (a, b) => {
+          const aDate = getAppointmentDate(a);
 
-          const bDate =
-            getAppointmentDate(
-              b
-            );
+          const bDate = getAppointmentDate(b);
 
           if (
             !aDate &&
@@ -1097,12 +1086,9 @@ export default function AppointmentIndexScreen() {
        * lister/view.tsx
        */
 
-      if (
-        role === "lister"
-      ) {
+      if (role === "lister") {
         router.push({
-          pathname:
-            "/appointment/lister/view" as never,
+          pathname: "/appointment/lister/view" as never,
 
           params: {
             appointmentId,
@@ -1175,12 +1161,9 @@ export default function AppointmentIndexScreen() {
       );
     };
 
-  const openListerRequests =
-    () => {
-      router.push(
-        "/appointment/lister/request" as never
-      );
-    };
+  const openListerRequests = () => {
+    router.push('/appointment/lister/request');
+  };
 
   /*
   |--------------------------------------------------------------------------

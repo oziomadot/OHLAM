@@ -1928,17 +1928,10 @@ async verifyIdCard(formData: FormData) {
 
 
   // Property endpoints
-
-
-
   async getProperties(filters: Record<string, unknown> = {}) {
-
     return API.get("/properties", {
-
       params: filters,
-
     });
-
   }
 
 

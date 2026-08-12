@@ -67,39 +67,55 @@ const IndexScreen = () => {
   };
 
   const getImageUrl = (item: any) => {
-    const raw =
-      item?.media?.wholeBuilding ||
-      item?.wholeBuilding ||
-      item?.media?.sittingRoom ||
-      item?.media?.SittingRoom ||
-      item?.sittingRoom ||
-      item?.SittingRoom ||
-      item?.media?.kitchenImage ||
-      item?.media?.kitchen_image ||
-      item?.media?.kitchen ||
-      item?.kitchenImage ||
-      item?.kitchen_image ||
-      item?.media?.room ||
-      item?.room ||
-      item?.media?.toilet ||
-      item?.media?.toiletImage ||
-      item?.toilet ||
-      item?.image;
+  const media = item?.media;
 
-    if (!raw) {
-      if (__DEV__) console.log('No image found for item:', item.id);
-      return null;
+  const raw =
+    media?.whole_building_url ||
+    media?.sitting_room_url ||
+    media?.kitchen_url ||
+    media?.room_url ||
+    media?.toilet_url ||
+
+    media?.wholeBuilding ||
+    media?.sittingRoom ||
+    media?.kitchen ||
+    media?.room ||
+    media?.toilet ||
+
+    null;
+
+  if (!raw) {
+    if (__DEV__) {
+      console.log(
+        "No property image found:",
+        item?.id,
+        media
+      );
     }
 
-    const baseOrigin = BASE_URL.replace(/\/api\/?$/, "");
-    const image =
-      typeof raw === "string" && raw.startsWith("http")
-        ? raw
-        : `${baseOrigin}/storage/${raw.replace(/^\/+/, "")}`;
+    return null;
+  }
 
-    if (__DEV__) console.log('Using image URL:', image);
-    return image;
-  };
+  /*
+   * Laravel should normally return an absolute
+   * *_url value. This fallback keeps compatibility
+   * with old local-storage records.
+   */
+  if (
+    typeof raw === "string" &&
+    raw.startsWith("http")
+  ) {
+    return raw;
+  }
+
+  const baseOrigin =
+    BASE_URL.replace(/\/api\/?$/, "");
+
+  return `${baseOrigin}/storage/${String(raw).replace(
+    /^\/+/,
+    ""
+  )}`;
+};
 
   const getSafeLocation = (item: any) => {
     const area = item?.area?.name || item?.popular_name;

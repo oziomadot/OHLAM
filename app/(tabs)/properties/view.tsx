@@ -1,228 +1,862 @@
-import React, { useEffect, useState } from "react";
+import React, { useCallback, useEffect, useState } from "react";
 import {
-  View,
-  Text,
-  TouchableOpacity,
-  StyleSheet,
-  ScrollView,
   ActivityIndicator,
   Alert,
+  RefreshControl,
+  ScrollView,
+  StyleSheet,
+  Text,
+  TouchableOpacity,
+  View,
 } from "react-native";
+import { Ionicons } from "@expo/vector-icons";
 import { useRouter } from "expo-router";
+
 import ScreenWrapper from "components/ScreenWrapper";
 import Protected from "components/Protected";
-import API from "@/src/services/api";
-import { useAuth } from "@/context/AuthContext";
 import PropertyAction from "components/action";
+import API from "@/src/services/api";
 
 type MyProperty = {
   id: number;
   address?: string;
-  property_type?: string | { id: number; name: string; [key: string]: any };
-  propertyType?: { id: number; name: string; [key: string]: any };
+
+  property_type?:
+    | string
+    | {
+        id: number;
+        name: string;
+        [key: string]: any;
+      };
+
+  propertyType?: {
+    id: number;
+    name: string;
+    [key: string]: any;
+  };
+
   category?: string;
   amount?: number | string;
   created_at?: string;
-  status?: string | { id: number; name: string; [key: string]: any };
-  registration_status?: { id: number; name: string; display_name?: string; [key: string]: any };
+
+  status?:
+    | string
+    | {
+        id: number;
+        name: string;
+        code?: string;
+        display_name?: string;
+        [key: string]: any;
+      };
+
+  registration_status?: {
+    id: number;
+    name: string;
+    code?: string;
+    display_name?: string;
+    [key: string]: any;
+  };
 };
 
 export default function MyProperties() {
   const router = useRouter();
+
   const [properties, setProperties] = useState<MyProperty[]>([]);
   const [loading, setLoading] = useState(true);
-  const { user } = useAuth();
-  const userId = user?.id;
+  const [refreshing, setRefreshing] = useState(false);
 
-  const loadProperties = async () => {
+  const loadProperties = useCallback(async (showLoader = true) => {
     try {
-      setLoading(true);
-      const res = await API.myProperties();
-      const list = res.data?.properties || res.data || [];
-
-      if (list.length > 0) {
-        setProperties(list);
-      } else {
-        Alert.alert("Message", "You have no properties listed yet");
+      if (showLoader) {
+        setLoading(true);
       }
 
+      const res = await API.myProperties();
+
+      const list =
+        res.data?.properties ??
+        res.data?.data ??
+        res.data ??
+        [];
+
+      setProperties(Array.isArray(list) ? list : []);
     } catch (error: any) {
-      Alert.alert("Error", error?.response?.data?.message || "Failed to load properties");
+      Alert.alert(
+        "Error",
+        error?.response?.data?.message ||
+          "Failed to load your properties."
+      );
     } finally {
-      setLoading(false);
+      if (showLoader) {
+        setLoading(false);
+      }
     }
-  };
+  }, []);
 
   useEffect(() => {
     loadProperties();
-  }, []);
+  }, [loadProperties]);
 
-  const requestDelete = (property: MyProperty) => {
-    router.push({
-      pathname: "/(tabs)/properties/delete-reason",
-      params: { id: String(property.id) },
-    } as any);
+  const onRefresh = async () => {
+    try {
+      setRefreshing(true);
+      await loadProperties(false);
+    } finally {
+      setRefreshing(false);
+    }
   };
 
   const formatPrice = (amount?: number | string) => {
-    if (!amount) return "₦0";
-    return `₦${Number(amount).toLocaleString()}`;
+    if (
+      amount === undefined ||
+      amount === null ||
+      amount === ""
+    ) {
+      return "₦0";
+    }
+
+    const value = Number(amount);
+
+    if (Number.isNaN(value)) {
+      return "₦0";
+    }
+
+    return `₦${value.toLocaleString()}`;
   };
 
   const formatDate = (date?: string) => {
-    if (!date) return "-";
-    return new Date(date).toLocaleDateString();
+    if (!date) {
+      return "-";
+    }
+
+    const parsed = new Date(date);
+
+    if (Number.isNaN(parsed.getTime())) {
+      return "-";
+    }
+
+    return parsed.toLocaleDateString();
+  };
+
+  const getPropertyType = (item: MyProperty) => {
+    if (
+      item.propertyType &&
+      typeof item.propertyType === "object"
+    ) {
+      return item.propertyType.name;
+    }
+
+    if (
+      item.property_type &&
+      typeof item.property_type === "object"
+    ) {
+      return item.property_type.name;
+    }
+
+    if (typeof item.property_type === "string") {
+      return item.property_type;
+    }
+
+    return item.category || "Property";
+  };
+
+  const getStatusName = (item: MyProperty) => {
+    if (
+      item.registration_status &&
+      typeof item.registration_status === "object"
+    ) {
+      return (
+        item.registration_status.display_name ||
+        item.registration_status.name ||
+        "Unknown"
+      );
+    }
+
+    if (item.status && typeof item.status === "object") {
+      return (
+        item.status.display_name ||
+        item.status.name ||
+        "Unknown"
+      );
+    }
+
+    if (typeof item.status === "string") {
+      return item.status;
+    }
+
+    return "Available";
+  };
+
+  const openAppointments = (propertyId: number) => {
+    router.push(
+      `/(tabs)/properties/appointments/${propertyId}` as any
+    );
+  };
+
+  const openCreateProperty = () => {
+    router.push("/(tabs)/properties/create" as any);
   };
 
   return (
     <Protected>
       <ScreenWrapper>
-        <View style={styles.header}>
-          <View>
-            <Text style={styles.title}>My Listed Properties</Text>
-            <Text style={styles.subtitle}>Manage your property listings professionally.</Text>
+        <View style={styles.screen}>
+          {/* Header */}
+          <View style={styles.header}>
+            <View style={styles.headerTextContainer}>
+              <Text style={styles.title}>
+                My Listed Properties
+              </Text>
+
+              <Text style={styles.subtitle}>
+                Manage listings, appointments and property
+                actions.
+              </Text>
+            </View>
+
+            <TouchableOpacity
+              style={styles.uploadButton}
+              onPress={openCreateProperty}
+              activeOpacity={0.85}
+            >
+              <Ionicons
+                name="add"
+                size={20}
+                color="#ffffff"
+              />
+
+              <Text style={styles.uploadButtonText}>
+                Upload
+              </Text>
+            </TouchableOpacity>
           </View>
 
-          <TouchableOpacity
-            style={styles.uploadBtn}
-            onPress={() => router.push("/(tabs)/properties/create")}
-          >
-            <Text style={styles.uploadText}>Upload</Text>
-          </TouchableOpacity>
-        </View>
+          {/* Summary */}
+          {!loading && (
+            <View style={styles.summaryCard}>
+              <View>
+                <Text style={styles.summaryLabel}>
+                  Total Properties
+                </Text>
 
-        {loading ? (
-          <ActivityIndicator size="large" color="#2563eb" style={{ marginTop: 40 }} />
-        ) : (
-          <ScrollView horizontal>
-            <View>
-              <View style={[styles.row, styles.headRow]}>
-                <Text style={[styles.cell, styles.no]}>No</Text>
-                <Text style={[styles.cell, styles.address]}>Address</Text>
-                <Text style={[styles.cell, styles.type]}>Type</Text>
-                <Text style={[styles.cell, styles.price]}>Price</Text>
-                <Text style={[styles.cell, styles.date]}>Date Listed</Text>
-                <Text style={[styles.cell, styles.status]}>Status</Text>
-                <Text style={[styles.cell, styles.appointment]}>Appointment</Text>
-                <Text style={[styles.cell, styles.actions]}>Actions</Text>
-              
+                <Text style={styles.summaryValue}>
+                  {properties.length}
+                </Text>
               </View>
 
+              <Ionicons
+                name="business-outline"
+                size={28}
+                color="#2563eb"
+              />
+            </View>
+          )}
+
+          {loading ? (
+            <View style={styles.loadingContainer}>
+              <ActivityIndicator
+                size="large"
+                color="#2563eb"
+              />
+
+              <Text style={styles.loadingText}>
+                Loading your properties...
+              </Text>
+            </View>
+          ) : (
+            <ScrollView
+              showsVerticalScrollIndicator={false}
+              contentContainerStyle={
+                styles.scrollContent
+              }
+              refreshControl={
+                <RefreshControl
+                  refreshing={refreshing}
+                  onRefresh={onRefresh}
+                />
+              }
+            >
               {properties.length === 0 ? (
-                <View style={styles.empty}>
-                  <Text style={styles.emptyText}>No property uploaded yet.</Text>
+                <View style={styles.emptyCard}>
+                  <View style={styles.emptyIcon}>
+                    <Ionicons
+                      name="home-outline"
+                      size={38}
+                      color="#64748b"
+                    />
+                  </View>
+
+                  <Text style={styles.emptyTitle}>
+                    No properties yet
+                  </Text>
+
+                  <Text style={styles.emptyText}>
+                    You have not uploaded any property
+                    listings yet.
+                  </Text>
+
+                  <TouchableOpacity
+                    style={styles.emptyUploadButton}
+                    onPress={openCreateProperty}
+                  >
+                    <Ionicons
+                      name="add-circle-outline"
+                      size={19}
+                      color="#ffffff"
+                    />
+
+                    <Text
+                      style={
+                        styles.emptyUploadButtonText
+                      }
+                    >
+                      Upload Property
+                    </Text>
+                  </TouchableOpacity>
                 </View>
               ) : (
-                (properties as MyProperty[]).map((item, index) => (
-                  <View key={item.id} style={styles.row}>
-                    <Text style={[styles.cell, styles.no]}>{index + 1}</Text>
-                    <Text style={[styles.cell, styles.address]} numberOfLines={2}>
-                      {item.address || "-"}
-                    </Text>
-                    <Text style={[styles.cell, styles.type]}>
-                      {(typeof item.propertyType === 'object' ? item.propertyType?.name : null)
-                        || (typeof item.property_type === 'object' ? (item.property_type as any)?.name : item.property_type)
-                        || item.category || "-"}
-                    </Text>
-                    <Text style={[styles.cell, styles.price]}>{formatPrice(item.amount)}</Text>
-                    <Text style={[styles.cell, styles.date]}>{formatDate(item.created_at)}</Text>
-                    <Text style={[styles.cell, styles.status]}>
-                      {(typeof item.registration_status === 'object' ? item.registration_status?.display_name || item.registration_status?.name : null)
-                        || (typeof item.status === 'object' ? (item.status as any)?.name : item.status)
-                        || "available"}
-                    </Text>
-
-                    <View style={[styles.cell, styles.actions, styles.actionWrap]}>
-                      <TouchableOpacity
-                        style={styles.actionBtn}
-                        onPress={() => router.push(`/(tabs)/properties/appointments/${item.id}` as any)}
+                properties.map((item, index) => (
+                  <View
+                    key={item.id}
+                    style={styles.propertyCard}
+                  >
+                    {/* Card heading */}
+                    <View style={styles.cardHeader}>
+                      <View
+                        style={
+                          styles.propertyNumberContainer
+                        }
                       >
-                        <Text style={styles.actionText}>View</Text>
-                      </TouchableOpacity>
+                        <Text
+                          style={styles.propertyNumber}
+                        >
+                          {index + 1}
+                        </Text>
+                      </View>
 
-                      {/* <TouchableOpacity
-                        style={styles.actionBtn}
-                        onPress={() => router.push(`/(tabs)/properties/${item.id}` as any)}
+                      <View
+                        style={
+                          styles.cardTitleContainer
+                        }
                       >
-                        <Text style={styles.actionText}>Details</Text>
-                      </TouchableOpacity>
+                        <Text
+                          style={styles.propertyType}
+                          numberOfLines={1}
+                        >
+                          {getPropertyType(item)}
+                        </Text>
 
-                      <TouchableOpacity
-                        style={styles.actionBtn}
-                        onPress={() => router.push(`/(tabs)/properties/update/${item.id}` as any)}
-                      >
-                        <Text style={styles.actionText}>Update</Text>
-                      </TouchableOpacity>
+                        <View style={styles.addressRow}>
+                          <Ionicons
+                            name="location-outline"
+                            size={15}
+                            color="#64748b"
+                          />
 
-                      <TouchableOpacity
-                        style={[styles.actionBtn, styles.deleteBtn]}
-                        onPress={() => requestDelete(item)}
+                          <Text
+                            style={styles.address}
+                            numberOfLines={2}
+                          >
+                            {item.address ||
+                              "Address unavailable"}
+                          </Text>
+                        </View>
+                      </View>
+
+                      <View
+                        style={styles.statusBadge}
                       >
-                        <Text style={styles.deleteText}>Delete</Text>
-                      </TouchableOpacity> */}
- </View>
-                    <View style={styles.actionWrap}>
-                      <PropertyAction
-                        property={item as any}
-                        onStatusChanged={loadProperties}
-                      />
+                        <Text
+                          style={styles.statusText}
+                          numberOfLines={1}
+                        >
+                          {getStatusName(item)}
+                        </Text>
+                      </View>
                     </View>
-                   
+
+                    {/* Property details */}
+                    <View style={styles.detailsGrid}>
+                      <View style={styles.detailItem}>
+                        <Text
+                          style={styles.detailLabel}
+                        >
+                          Price
+                        </Text>
+
+                        <Text
+                          style={styles.priceValue}
+                        >
+                          {formatPrice(item.amount)}
+                        </Text>
+                      </View>
+
+                      <View style={styles.divider} />
+
+                      <View style={styles.detailItem}>
+                        <Text
+                          style={styles.detailLabel}
+                        >
+                          Date Listed
+                        </Text>
+
+                        <Text
+                          style={styles.detailValue}
+                        >
+                          {formatDate(
+                            item.created_at
+                          )}
+                        </Text>
+                      </View>
+
+                      <View style={styles.divider} />
+
+                      <View style={styles.detailItem}>
+                        <Text
+                          style={styles.detailLabel}
+                        >
+                          Property ID
+                        </Text>
+
+                        <Text
+                          style={styles.detailValue}
+                        >
+                          #{item.id}
+                        </Text>
+                      </View>
+                    </View>
+
+                    {/* Appointments */}
+                    <View
+                      style={
+                        styles.appointmentSection
+                      }
+                    >
+                      <View
+                        style={
+                          styles.sectionTitleRow
+                        }
+                      >
+                        <Ionicons
+                          name="calendar-outline"
+                          size={18}
+                          color="#0f172a"
+                        />
+
+                        <Text
+                          style={
+                            styles.sectionTitle
+                          }
+                        >
+                          Appointments
+                        </Text>
+                      </View>
+
+                      <TouchableOpacity
+                        style={
+                          styles.appointmentButton
+                        }
+                        onPress={() =>
+                          openAppointments(
+                            item.id
+                          )
+                        }
+                      >
+                        <Ionicons
+                          name="eye-outline"
+                          size={17}
+                          color="#2563eb"
+                        />
+
+                        <Text
+                          style={
+                            styles.appointmentButtonText
+                          }
+                        >
+                          View Appointments
+                        </Text>
+
+                        <Ionicons
+                          name="chevron-forward"
+                          size={17}
+                          color="#2563eb"
+                        />
+                      </TouchableOpacity>
+                    </View>
+
+                    {/* Property actions */}
+                    <View style={styles.actionsSection}>
+                      <View
+                        style={
+                          styles.sectionTitleRow
+                        }
+                      >
+                        <Ionicons
+                          name="settings-outline"
+                          size={18}
+                          color="#0f172a"
+                        />
+
+                        <Text
+                          style={
+                            styles.sectionTitle
+                          }
+                        >
+                          Property Actions
+                        </Text>
+                      </View>
+
+                      <View
+                        style={
+                          styles.propertyActionContainer
+                        }
+                      >
+                        <PropertyAction
+                          property={item as any}
+                          onStatusChanged={() =>
+                            loadProperties(false)
+                          }
+                        />
+                      </View>
+                    </View>
                   </View>
                 ))
               )}
-            </View>
-          </ScrollView>
-        )}
+
+              <View style={{ height: 30 }} />
+            </ScrollView>
+          )}
+        </View>
       </ScreenWrapper>
     </Protected>
   );
 }
 
 const styles = StyleSheet.create({
+  screen: {
+    flex: 1,
+    backgroundColor: "#f8fafc",
+  },
+
+  /*
+   * HEADER
+   */
   header: {
-    padding: 18,
-    flexDirection: "row",
-    justifyContent: "space-between",
-    alignItems: "center",
-  },
-  title: { fontSize: 24, fontWeight: "900", color: "#0f172a" },
-  subtitle: { color: "#64748b", marginTop: 4 },
-  uploadBtn: {
-    backgroundColor: "#2563eb",
-    paddingVertical: 10,
     paddingHorizontal: 16,
-    borderRadius: 12,
-  },
-  uploadText: { color: "#fff", fontWeight: "800" },
-  row: {
+    paddingTop: 16,
+    paddingBottom: 14,
     flexDirection: "row",
-    backgroundColor: "#fff",
-    borderBottomWidth: 1,
-    borderColor: "#e5e7eb",
-    minHeight: 58,
+    alignItems: "center",
+    justifyContent: "space-between",
+    gap: 12,
+  },
+
+  headerTextContainer: {
+    flex: 1,
+    minWidth: 0,
+  },
+
+  title: {
+    fontSize: 23,
+    fontWeight: "900",
+    color: "#0f172a",
+  },
+
+  subtitle: {
+    marginTop: 4,
+    color: "#64748b",
+    fontSize: 13,
+    lineHeight: 18,
+  },
+
+  uploadButton: {
+    flexShrink: 0,
+    minHeight: 42,
+    backgroundColor: "#2563eb",
+    paddingHorizontal: 14,
+    borderRadius: 11,
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "center",
+    gap: 5,
+  },
+
+  uploadButtonText: {
+    color: "#ffffff",
+    fontSize: 14,
+    fontWeight: "800",
+  },
+
+  /*
+   * SUMMARY
+   */
+  summaryCard: {
+    marginHorizontal: 16,
+    marginBottom: 16,
+    backgroundColor: "#ffffff",
+    borderRadius: 14,
+    paddingHorizontal: 16,
+    paddingVertical: 14,
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "space-between",
+    borderWidth: 1,
+    borderColor: "#e2e8f0",
+  },
+
+  summaryLabel: {
+    fontSize: 12,
+    color: "#64748b",
+    fontWeight: "600",
+  },
+
+  summaryValue: {
+    marginTop: 2,
+    fontSize: 24,
+    fontWeight: "900",
+    color: "#0f172a",
+  },
+
+  /*
+   * LOADING
+   */
+  loadingContainer: {
+    paddingTop: 60,
+    alignItems: "center",
+    justifyContent: "center",
+  },
+
+  loadingText: {
+    marginTop: 12,
+    fontSize: 13,
+    color: "#64748b",
+  },
+
+  scrollContent: {
+    paddingHorizontal: 16,
+  },
+
+  /*
+   * PROPERTY CARD
+   */
+  propertyCard: {
+    backgroundColor: "#ffffff",
+    borderRadius: 16,
+    marginBottom: 16,
+    borderWidth: 1,
+    borderColor: "#e2e8f0",
+    overflow: "hidden",
+  },
+
+  cardHeader: {
+    flexDirection: "row",
+    alignItems: "flex-start",
+    padding: 14,
+    gap: 10,
+  },
+
+  propertyNumberContainer: {
+    width: 32,
+    height: 32,
+    borderRadius: 9,
+    backgroundColor: "#eff6ff",
+    alignItems: "center",
+    justifyContent: "center",
+    flexShrink: 0,
+  },
+
+  propertyNumber: {
+    color: "#2563eb",
+    fontWeight: "900",
+    fontSize: 13,
+  },
+
+  cardTitleContainer: {
+    flex: 1,
+    minWidth: 0,
+  },
+
+  propertyType: {
+    fontSize: 16,
+    fontWeight: "800",
+    color: "#0f172a",
+  },
+
+  addressRow: {
+    flexDirection: "row",
+    alignItems: "flex-start",
+    gap: 4,
+    marginTop: 5,
+  },
+
+  address: {
+    flex: 1,
+    color: "#64748b",
+    fontSize: 12,
+    lineHeight: 17,
+  },
+
+  statusBadge: {
+    flexShrink: 1,
+    maxWidth: 110,
+    backgroundColor: "#ecfdf5",
+    borderRadius: 20,
+    paddingVertical: 5,
+    paddingHorizontal: 9,
+  },
+
+  statusText: {
+    fontSize: 10,
+    fontWeight: "800",
+    color: "#047857",
+    textTransform: "capitalize",
+  },
+
+  /*
+   * DETAILS
+   */
+  detailsGrid: {
+    minHeight: 72,
+    marginHorizontal: 14,
+    marginBottom: 14,
+    backgroundColor: "#f8fafc",
+    borderRadius: 12,
+    flexDirection: "row",
+    alignItems: "stretch",
+    paddingVertical: 12,
+  },
+
+  detailItem: {
+    flex: 1,
+    paddingHorizontal: 8,
+    justifyContent: "center",
+  },
+
+  detailLabel: {
+    color: "#94a3b8",
+    fontSize: 10,
+    fontWeight: "600",
+    marginBottom: 4,
+  },
+
+  detailValue: {
+    color: "#334155",
+    fontSize: 12,
+    fontWeight: "700",
+  },
+
+  priceValue: {
+    color: "#0f172a",
+    fontSize: 12,
+    fontWeight: "900",
+  },
+
+  divider: {
+    width: 1,
+    backgroundColor: "#e2e8f0",
+  },
+
+  /*
+   * SECTIONS
+   */
+  appointmentSection: {
+    borderTopWidth: 1,
+    borderTopColor: "#f1f5f9",
+    padding: 14,
+  },
+
+  actionsSection: {
+    borderTopWidth: 1,
+    borderTopColor: "#f1f5f9",
+    padding: 14,
+  },
+
+  sectionTitleRow: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 6,
+    marginBottom: 10,
+  },
+
+  sectionTitle: {
+    fontSize: 13,
+    fontWeight: "800",
+    color: "#0f172a",
+  },
+
+  appointmentButton: {
+    minHeight: 44,
+    borderRadius: 10,
+    backgroundColor: "#eff6ff",
+    paddingHorizontal: 12,
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 7,
+  },
+
+  appointmentButtonText: {
+    flex: 1,
+    color: "#2563eb",
+    fontSize: 13,
+    fontWeight: "800",
+  },
+
+  propertyActionContainer: {
+    width: "100%",
+  },
+
+  /*
+   * EMPTY STATE
+   */
+  emptyCard: {
+    backgroundColor: "#ffffff",
+    borderRadius: 16,
+    borderWidth: 1,
+    borderColor: "#e2e8f0",
+    paddingHorizontal: 24,
+    paddingVertical: 36,
     alignItems: "center",
   },
-  headRow: { backgroundColor: "#eff6ff" },
-  cell: { padding: 10, fontSize: 13, color: "#334155" },
-  no: { width: 50 },
-  address: { width: 220 },
-  type: { width: 150 },
-  price: { width: 120 },
-  date: { width: 120 },
-  status: { width: 110, fontWeight: "800" },
-  appointment: { width: 110 },
-  actions: { width: 430 },
-  actionWrap: { flexDirection: "row", flexWrap: "wrap", gap: 6 },
-  actionBtn: {
+
+  emptyIcon: {
+    width: 70,
+    height: 70,
+    borderRadius: 35,
     backgroundColor: "#f1f5f9",
-    paddingVertical: 7,
-    paddingHorizontal: 9,
-    borderRadius: 8,
+    alignItems: "center",
+    justifyContent: "center",
+    marginBottom: 14,
   },
-  actionText: { color: "#2563eb", fontWeight: "700", fontSize: 12 },
-  deleteBtn: { backgroundColor: "#fee2e2" },
-  deleteText: { color: "#dc2626", fontWeight: "800", fontSize: 12 },
-  empty: { padding: 30, backgroundColor: "#fff" },
-  emptyText: { color: "#64748b", textAlign: "center" },
+
+  emptyTitle: {
+    fontSize: 18,
+    fontWeight: "900",
+    color: "#0f172a",
+  },
+
+  emptyText: {
+    marginTop: 6,
+    maxWidth: 280,
+    color: "#64748b",
+    fontSize: 13,
+    lineHeight: 19,
+    textAlign: "center",
+  },
+
+  emptyUploadButton: {
+    marginTop: 18,
+    minHeight: 44,
+    backgroundColor: "#2563eb",
+    borderRadius: 10,
+    paddingHorizontal: 16,
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 6,
+  },
+
+  emptyUploadButtonText: {
+    color: "#ffffff",
+    fontWeight: "800",
+    fontSize: 13,
+  },
 });
