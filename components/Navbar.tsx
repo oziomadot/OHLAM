@@ -61,16 +61,9 @@ const goTo = (path: string) => {
     false
   );
 
-  const basePath =
-    path.split("?")[0];
-
-  if (
-    isProtectedRoute(basePath) &&
-    !isAuthenticated
-  ) {
-    router.push(
-      "/auth/LoginScreen"
-    );
+  const basePath = path.split("?")[0];
+  if (isProtectedRoute(basePath) && !isAuthenticated) {
+    router.push("/auth/LoginScreen");
     return;
   }
 
@@ -78,90 +71,58 @@ const goTo = (path: string) => {
 };
 
 const PUBLIC_MENU: MenuItem[] = [
-  {
-    label: "Home",
-    path: "/(tabs)/home",
-  },
-  {
-    label: "Properties",
-    path: "/(tabs)/properties",
-  },
-  {
-    label: "How It Works",
-    path: "/(tabs)/how-it-works",
-  },
-  {
-    label: "About Us",
-    path: "/(tabs)/about",
-  },
-  {
-    label: "Policies",
-    path: "/(tabs)/policies",
-  },
-  {
-    label: "FAQ",
-    path: "/(tabs)/faq",
-  },
-  {
-    label: "Vacancies",
-    path: "/(tabs)/vacancies",
-  },
-  {
-    label: "Contact Us",
-    path: "/(tabs)/contact",
-  },
+  {label: "Home", path: "/(tabs)/home"},
+  {label: "Properties", path: "/(tabs)/properties"},
+  {label: "How It Works", path: "/(tabs)/how-it-works"},
+  {label: "About Us", path: "/(tabs)/about"},
+  {label: "Policies", path: "/(tabs)/policies"},
+  {label: "FAQ", path: "/(tabs)/faq"},
+  {label: "Vacancies", path: "/(tabs)/vacancies"},
+  {label: "Contact Us", path: "/(tabs)/contact"},
 ];
 
 const AUTH_MENU: MenuItem[] = [
-  {
-    label: "Dashboard",
-    path: "/(tabs)/dashboard",
-  },
+  {label: "Dashboard", path: "/(tabs)/dashboard"},
   {
     label: "Appointment",
+    path: "/appointment",
     children: [
-      {
-        label: "My Appointments",
-        path: "/appointment/my-appointments",
-      },
-      {
-        label: "Create Slot",
-        path: "/appointment/create",
-      },
-    ],
-  },
-  {
-    label: "Games",
-    path: "/(tabs)/games",
-  },
-  {
-    label: "Chat",
-    path: "/(tabs)/chat",
-  },
-  {
-    label: "Wallet",
-    path: "/dashboard/wallet",
-  },
-  {
-    label: "Profile",
-    path: "/profile",
-  },
+    {
+      label: "My Appointments",
+      path: "/appointment/customer",
+    },
+    {
+      label: "Book Appointment",
+      path: "/appointment/customer/create",
+    },
+    {
+      label: "Create Availability",
+      path: "/appointment/lister/create",
+    },
+    {
+      label: "Appointment Requests",
+      path: "/appointment/lister/request",
+    },
+    {
+      label: "Manage Appointments",
+      path: "/appointment/lister/view",
+    },
+  ],
+},
+  {label: "Games", path: "/(tabs)/games"},
+  {label: "Chat", path: "/(tabs)/chat"},
+  {label: "Wallet", path: "/dashboard/wallet"},
+  {label: "Profile", path: "/profile"},
 ];
 
 const AGENT_MENU: MenuItem[] = [];
 
 const STAFF_MENU: MenuItem[] = [
-  {
-    label: "Staff Dashboard",
-    path: "/(tabs)/dashboard",
-  },
+  {label: "Staff Dashboard", path: "/(tabs)/dashboard"},
 ];
 
 const ADMIN_MENU: MenuItem[] = [
-  {
-    label: "Admin Dashboard",
-    path: "/(tabs)/dashboard",
-  },
+  {label: "Admin Dashboard", path: "/(tabs)/dashboard"},
 ];
 
 let activeMenu: MenuItem[] = [
