@@ -1123,6 +1123,7 @@ export default function PropertyDetailsScreen() {
 
       <MediaImage
         title="Toilet"
+      
         url={media.toilet_url}
         path={
           media.toilet ||
