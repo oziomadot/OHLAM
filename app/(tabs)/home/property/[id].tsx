@@ -1168,11 +1168,13 @@ export default function PropertyDetailScreen() {
           />
 
           <Row
-            label="Address"
-            value={
-              property
-                .address
-            }
+            label="Viewing Location"
+           value={[
+    property.area?.name,
+    property.state?.name,
+  ]
+    .filter(Boolean)
+    .join(", ")}
           />
 
           <Row

@@ -120,26 +120,83 @@ export default function PropertyDetailsScreen() {
       : "No";
   };
 
+  const getAvailableFloors = (rental: any): string => {
+  const floors = [
+    {
+      label: "Ground Floor",
+      value: rental.groundfloor,
+    },
+    {
+      label: "First Floor",
+      value: rental.firstfloor,
+    },
+    {
+      label: "Second Floor",
+      value: rental.secondfloor,
+    },
+    {
+      label: "Third Floor",
+      value: rental.thirdfloor,
+    },
+    {
+      label: "Fourth Floor",
+      value: rental.fourthfloor,
+    },
+  ];
+
+  const availableFloors = floors
+    .filter(
+      (floor) =>
+        floor.value === true ||
+        floor.value === 1 ||
+        floor.value === "1" ||
+        floor.value === "true"
+    )
+    .map((floor) => floor.label);
+
+  return availableFloors.length > 0
+    ? availableFloors.join(", ")
+    : "Not provided";
+};
+
   const valueText = (value: any) => {
     return value || value === 0
       ? String(value)
       : "Not provided";
   };
 
-  const imageUrl = (path: string) => {
-    if (!path) return null;
+ const resolveMediaUrl = (
+  url?: string | null,
+  path?: string | null
+) => {
+  // Preferred: Laravel/R2-generated absolute URL.
+  if (
+    url &&
+    /^https?:\/\//i.test(url)
+  ) {
+    return url;
+  }
 
-    if (path.startsWith("http")) {
-      return path;
-    }
+  if (!path) {
+    return null;
+  }
 
-    const baseOrigin = BASE_URL.replace(/\/api\/?$/, "");
+  // Already absolute.
+  if (/^https?:\/\//i.test(path)) {
+    return path;
+  }
 
-    return `${baseOrigin}/storage/${path.replace(
-      /^\/+/,
-      ""
-    )}`;
-  };
+  // Legacy Laravel public-storage fallback.
+  const baseOrigin = BASE_URL.replace(/\/api\/?$/, "");
+
+  const cleanPath = String(path).replace(/^\/+/, "");
+
+  if (cleanPath.startsWith("storage/")) {
+    return `${baseOrigin}/${cleanPath}`;
+  }
+
+  return `${baseOrigin}/storage/${cleanPath}`;
+};
 
   const openUrl = async (url?: string) => {
     if (!url) return;
@@ -208,29 +265,49 @@ export default function PropertyDetailsScreen() {
   );
 
   const MediaImage = ({
-    title,
-    path,
-  }: {
-    title: string;
-    path?: string;
-  }) => {
-    const url = imageUrl(path || "");
+  title,
+  url,
+  path,
+}: {
+  title: string;
+  url?: string | null;
+  path?: string | null;
+}) => {
+  const resolvedUrl = resolveMediaUrl(
+    url,
+    path
+  );
 
-    if (!url) return null;
+  if (!resolvedUrl) {
+    return null;
+  }
 
-    return (
-      <View style={styles.mediaBox}>
-        <Text style={styles.mediaTitle}>
-          {title}
-        </Text>
+  return (
+    <View style={styles.mediaBox}>
+      <Text style={styles.mediaTitle}>
+        {title}
+      </Text>
 
-        <Image
-          source={{ uri: url }}
-          style={styles.mediaImage}
-        />
-      </View>
-    );
-  };
+      <Image
+        source={{
+          uri: resolvedUrl,
+        }}
+        style={styles.mediaImage}
+        resizeMode="cover"
+        onError={(event) => {
+          console.log(
+            "PROPERTY IMAGE LOAD FAILED:",
+            {
+              title,
+              url: resolvedUrl,
+              error: event.nativeEvent.error,
+            }
+          );
+        }}
+      />
+    </View>
+  );
+};
 
   /**
    * Loading
@@ -516,46 +593,60 @@ export default function PropertyDetailsScreen() {
             title="Basic Information"
             icon="home-city-outline"
           >
-            <DetailRow
-              label="Property ID"
-              value={property.id}
-            />
+          <DetailRow
+    label="Property Type"
+    value={propertyType}
+  />
 
-            <DetailRow
-              label="Address"
-              value={property.address}
-            />
+  <DetailRow
+    label={
+      isRental
+        ? "Rent"
+        : "Asking Price"
+    }
+    value={money(property.amount)}
+  />
 
-            <DetailRow
-              label="State"
-              value={
-                property.state?.name ||
-                property.state_name
-              }
-            />
+  <DetailRow
+    label="State"
+    value={
+      property.state?.name ||
+      property.state_name
+    }
+  />
 
-            <DetailRow
-              label="Area"
-              value={
-                property.area?.name ||
-                property.area_name
-              }
-            />
+  <DetailRow
+    label="Area"
+    value={
+      property.area?.name ||
+      property.area_name
+    }
+  />
 
-            <DetailRow
-              label="Meeting Place"
-              value={property.meeting_place}
-            />
+  <DetailRow
+    label="Listing Role"
+    value={
+      property.listingRole?.name ||
+      property.listing_role?.name ||
+      property.listing_role_name
+    }
+  />
 
-            <DetailRow
-              label={
-                isRental
-                  ? "Rent Amount"
-                  : "Amount"
-              }
-              value={money(property.amount)}
-            />
+  <DetailRow
+    label="Status"
+    value={status}
+  />
 
+  <DetailRow
+    label="Date Listed"
+    value={
+      property.created_at
+        ? new Date(
+            property.created_at
+          ).toLocaleDateString()
+        : "Not provided"
+    }
+  />
             <DetailRow
               label="Agent Fee"
               value={money(property.agent_fee)}
@@ -569,25 +660,8 @@ export default function PropertyDetailsScreen() {
               }
             />
 
-            <DetailRow
-              label="Listing Role"
-              value={
-                property.listing_role?.name ||
-                property.registration_status?.name ||
-                property.listing_role_name
-              }
-            />
-
-            <DetailRow
-              label="Date Listed"
-              value={
-                property.created_at
-                  ? new Date(
-                      property.created_at
-                    ).toLocaleDateString()
-                  : "Not provided"
-              }
-            />
+           
+          
           </Section>
 
           {/* =====================================================
@@ -768,405 +842,324 @@ export default function PropertyDetailsScreen() {
               RENTAL DETAILS
           ====================================================== */}
 
-          {isRental && (
-            <Section
-              title="Rental Details"
-              icon="key-outline"
-            >
-              <DetailRow
-                label="Building"
-                value={
-                  rental.building?.name ||
-                  property.building?.name
-                }
-              />
+         {isRental && (
+  <Section
+    title="Rental Features"
+    icon="key-outline"
+  >
+    <DetailRow
+      label="Building Type"
+      value={rental.building_type?.name}
+    />
 
-              <DetailRow
-                label="Building Type"
-                value={
-                  rental.building_type?.name ||
-                  property.building_type?.name
-                }
-              />
+    <DetailRow
+      label="Building"
+      value={rental.building?.name}
+    />
 
-              <DetailRow
-                label="Flat Type"
-                value={
-                  rental.flat_type?.name ||
-                  property.flat_type?.name
-                }
-              />
+    <DetailRow
+      label="Flat Type"
+      value={rental.flat_type?.name}
+    />
 
-              <DetailRow
-                label="Ground Floor"
-                value={boolText(
-                  rental.groundfloor
-                )}
-              />
+<DetailRow
+  label="Available Floor"
+  value={getAvailableFloors(rental)}
+/>
+    <DetailRow
+      label="Bedrooms / Suite Rooms"
+      value={rental.suite}
+    />
 
-              <DetailRow
-                label="First Floor"
-                value={boolText(
-                  rental.firstfloor
-                )}
-              />
+    <DetailRow
+      label="Toilets"
+      value={rental.toilet}
+    />
 
-              <DetailRow
-                label="Second Floor"
-                value={boolText(
-                  rental.secondfloor
-                )}
-              />
+    <DetailRow
+      label="Kitchen"
+      value={boolText(rental.kitchen)}
+    />
 
-              <DetailRow
-                label="Third Floor"
-                value={boolText(
-                  rental.thirdfloor
-                )}
-              />
+    <DetailRow
+      label="Dining"
+      value={boolText(rental.dining)}
+    />
 
-              <DetailRow
-                label="Fourth Floor"
-                value={boolText(
-                  rental.fourthfloor
-                )}
-              />
+    <DetailRow
+      label="Electricity"
+      value={boolText(rental.electricity)}
+    />
 
-              <DetailRow
-                label="Dining"
-                value={boolText(rental.dining)}
-              />
+    <DetailRow
+      label="Parking"
+      value={boolText(rental.car_parking_space)}
+    />
 
-              <DetailRow
-                label="Electricity"
-                value={boolText(
-                  rental.electricity
-                )}
-              />
+    <DetailRow
+      label="POP Ceiling"
+      value={rental.pop?.name}
+    />
 
-              <DetailRow
-                label="Car Parking Space"
-                value={boolText(
-                  rental.car_parking_space
-                )}
-              />
+    <DetailRow
+      label="Meter Type"
+      value={
+        rental.typeof_meter?.name
+      }
+    />
 
-              <DetailRow
-                label="Kitchen"
-                value={boolText(rental.kitchen)}
-              />
+    <DetailRow
+      label="Water Tank"
+      value={
+        rental.overhead_tank?.name ||
+        rental.overheadtank?.name
+      }
+    />
 
-              <DetailRow
-                label="Kitchen Cabinet"
-                value={boolText(
-                  rental.kitchen_cabinet
-                )}
-              />
+    <DetailRow
+      label="Well"
+      value={rental.well?.name}
+    />
 
-              <DetailRow
-                label="Wardrobe"
-                value={boolText(
-                  rental.wardrobe
-                )}
-              />
+    <DetailRow
+      label="Security"
+      value={rental.security?.name}
+    />
 
-              <DetailRow
-                label="Wardrobe Cabinet"
-                value={boolText(
-                  rental.wardrobe_cabinet
-                )}
-              />
-
-              <DetailRow
-                label="Compound Cleaner"
-                value={boolText(
-                  rental.compound_cleaner
-                )}
-              />
-
-              <DetailRow
-                label="Suite Rooms"
-                value={firstValue(
-                  rental.suite,
-                  property.suite
-                )}
-              />
-
-              <DetailRow
-                label="POP"
-                value={
-                  rental.pop?.name ||
-                  property.pop?.name
-                }
-              />
-
-              <DetailRow
-                label="Type of Meter"
-                value={
-                  rental.typeof_meter?.name ||
-                  property.typeof_meter?.name
-                }
-              />
-
-              <DetailRow
-                label="Overhead Tank"
-                value={
-                  rental.overhead_tank?.name ||
-                  property.overhead_tank?.name
-                }
-              />
-
-              <DetailRow
-                label="Well"
-                value={
-                  rental.well?.name ||
-                  property.well?.name
-                }
-              />
-
-              <DetailRow
-                label="Security"
-                value={
-                  rental.security?.name ||
-                  property.security?.name
-                }
-              />
-
-              <DetailRow
-                label="Number of Toilet"
-                value={firstValue(
-                  rental.toilet,
-                  property.toilet
-                )}
-              />
-
-              <DetailRow
-                label="Rent Payment Method"
-                value={
-                  rental.rentpayment_method
-                    ?.name ||
-                  property.rentpayment_method
-                    ?.name
-                }
-              />
-            </Section>
-          )}
+    <DetailRow
+      label="Rent Payment Method"
+      value={
+        rental.rentpayment_method?.name ||
+        rental.rentpaymentmethod?.name
+      }
+    />
+  </Section>
+)}
 
           {/* =====================================================
               HOUSE SALE DETAILS
           ====================================================== */}
 
           {isHouseSale && (
-            <Section
-              title="House Sale Details"
-              icon="home-modern"
-            >
-              <DetailRow
-                label="Building Type"
-                value={
-                  houseSale.building_type
-                    ?.name ||
-                  property.building_type?.name
-                }
-              />
+  <Section
+    title="House Details"
+    icon="home-modern"
+  >
+    <DetailRow
+      label="Building Type"
+      value={
+        houseSale
+          .building_type
+          ?.name
+      }
+    />
 
-              <DetailRow
-                label="Building"
-                value={
-                  houseSale.building?.name ||
-                  property.building?.name
-                }
-              />
+    <DetailRow
+      label="Building"
+      value={
+        houseSale
+          .building
+          ?.name
+      }
+    />
 
-              <DetailRow
-                label="Number of Units"
-                value={
-                  houseSale.number_of_units ||
-                  property.number_of_units
-                }
-              />
+    <DetailRow
+      label="Number of Units"
+      value={
+        houseSale
+          .number_of_units
+      }
+    />
 
-              <DetailRow
-                label="Status of Building"
-                value={
-                  houseSale.building_status
-                    ?.name ||
-                  property.building_status
-                    ?.name
-                }
-              />
+    <DetailRow
+      label="Building Condition"
+      value={
+        houseSale
+          .building_status
+          ?.name
+      }
+    />
 
-              <DetailRow
-                label="Measurement"
-                value={
-                  houseSale.measurement ||
-                  property.measurement
-                }
-              />
+    <DetailRow
+      label="Measurement"
+      value={
+        houseSale.measurement
+      }
+    />
 
-              <DetailRow
-                label="Proof of Ownership"
-                value={boolText(
-                  firstValue(
-                    houseSale.proof_of_ownership,
-                    property.proof_of_ownership
-                  )
-                )}
-              />
+    <DetailRow
+      label="Proof of Ownership Declared"
+      value={
+        boolText(
+          houseSale
+            .proof_of_ownership
+        )
+      }
+    />
 
-              <DetailRow
-                label="C of O"
-                value={boolText(
-                  firstValue(
-                    houseSale.c_of_o,
-                    property.c_of_o
-                  )
-                )}
-              />
-            </Section>
-          )}
-
-          {/* =====================================================
+    <DetailRow
+      label="C of O Declared"
+      value={
+        boolText(
+          houseSale.c_of_o
+        )
+      }
+    />
+  </Section>
+)}          {/* =====================================================
               LAND SALE DETAILS
           ====================================================== */}
 
           {isLandSale && (
-            <Section
-              title="Land Sale Details"
-              icon="map-marker-radius-outline"
-            >
-              <DetailRow
-                label="Measurement"
-                value={
-                  landSale.measurement ||
-                  property.measurement
-                }
-              />
+  <Section
+    title="Land Details"
+    icon="map-marker-radius-outline"
+  >
+    <DetailRow
+      label="Land Measurement"
+      value={
+        landSale.measurement
+      }
+    />
 
-              <DetailRow
-                label="Security Type"
-                value={
-                  landSale.security?.name ||
-                  property.security?.name
-                }
-              />
+    <DetailRow
+      label="Access Road"
+      value={
+        boolText(
+          landSale.access_road
+        )
+      }
+    />
 
-              <DetailRow
-                label="Security Fee"
-                value={money(
-                  firstValue(
-                    landSale.security_fee,
-                    property.security_fee
-                  )
-                )}
-              />
+    <DetailRow
+      label="Security"
+      value={
+        landSale
+          .security
+          ?.name
+      }
+    />
 
-              <DetailRow
-                label="Access Road"
-                value={boolText(
-                  firstValue(
-                    landSale.access_road,
-                    property.access_road
-                  )
-                )}
-              />
+    <DetailRow
+      label="Survey Plan Declared"
+      value={
+        boolText(
+          landSale.survey_plan
+        )
+      }
+    />
 
-              <DetailRow
-                label="Survey Plan"
-                value={boolText(
-                  firstValue(
-                    landSale.survey_plan,
-                    property.survey_plan
-                  )
-                )}
-              />
+    <DetailRow
+      label="C of O Declared"
+      value={
+        boolText(
+          landSale.cofo ??
+          landSale.c_of_o
+        )
+      }
+    />
 
-              <DetailRow
-                label="C of O"
-                value={boolText(
-                  firstValue(
-                    landSale.c_of_o,
-                    property.c_of_o
-                  )
-                )}
-              />
-            </Section>
-          )}
-
+    {numberValue(
+      landSale.security_fee
+    ) > 0 && (
+      <DetailRow
+        label="Security Fee"
+        value={
+          money(
+            landSale.security_fee
+          )
+        }
+      />
+    )}
+  </Section>
+)}
           {/* =====================================================
               MEDIA
           ====================================================== */}
 
           <Section
-            title="Media"
-            icon="image-multiple-outline"
-          >
-            <MediaImage
-              title="Whole Building"
-              path={
-                media.wholeBuilding ||
-                media.whole_building ||
-                property.wholeBuilding
-              }
-            />
+  title="Property Photos"
+  icon="image-multiple-outline"
+>
+  <MediaImage
+    title={
+      isLandSale
+        ? "Land / Site"
+        : "Whole Building"
+    }
+    url={media.whole_building_url}
+    path={
+      media.wholeBuilding ||
+      media.whole_building
+    }
+  />
 
-            <MediaImage
-              title="Sitting Room"
-              path={
-                media.sittingRoom ||
-                media.sitting_room ||
-                property.sittingRoom
-              }
-            />
+  {isRental && (
+    <>
+      <MediaImage
+        title="Sitting Room"
+        url={media.sitting_room_url}
+        path={
+          media.sittingRoom ||
+          media.sitting_room
+        }
+      />
 
-            <MediaImage
-              title="Kitchen"
-              path={
-                media.kitchenImage ||
-                media.kitchen_image ||
-                property.kitchenImage
-              }
-            />
+      <MediaImage
+        title="Kitchen"
+        url={media.kitchen_url}
+        path={
+          media.kitchen ||
+          media.kitchenImage ||
+          media.kitchen_image
+        }
+      />
 
-            <MediaImage
-              title="Room"
-              path={
-                media.room ||
-                property.room
-              }
-            />
+      <MediaImage
+        title="Room"
+        url={media.room_url}
+        path={media.room}
+      />
 
-            <MediaImage
-              title="Toilet"
-              path={
-                media.toiletImage ||
-                media.toilet_image ||
-                property.toiletImage
-              }
-            />
+      <MediaImage
+        title="Toilet"
+        url={media.toilet_url}
+        path={
+          media.toilet ||
+          media.toiletImage ||
+          media.toilet_image
+        }
+      />
+    </>
+  )}
 
-            {media.video || property.video ? (
-              <TouchableOpacity
-                style={styles.linkBtn}
-                onPress={() =>
-                  openUrl(
-                    imageUrl(
-                      media.video ||
-                        property.video
-                    ) || ""
-                  )
-                }
-              >
-                <Text style={styles.linkText}>
-                  Open Property Video
-                </Text>
-              </TouchableOpacity>
-            ) : (
-              <Text style={styles.muted}>
-                No property video uploaded.
-              </Text>
-            )}
-          </Section>
+  {(media.video_url || media.video) && (
+    <TouchableOpacity
+      style={styles.linkBtn}
+      onPress={() =>
+        openUrl(
+          resolveMediaUrl(
+            media.video_url,
+            media.video
+          ) || ""
+        )
+      }
+    >
+      <Text style={styles.linkText}>
+        Open Property Video
+      </Text>
+    </TouchableOpacity>
+  )}
+
+  {!media.wholeBuilding &&
+    !media.whole_building_url &&
+    !media.video &&
+    !media.video_url && (
+      <Text style={styles.muted}>
+        No property media available.
+      </Text>
+    )}
+</Section>
 
           {/* =====================================================
               ENHANCEMENTS
@@ -1202,7 +1195,8 @@ export default function PropertyDetailsScreen() {
                 style={styles.linkBtn}
                 onPress={() =>
                   openUrl(
-                    imageUrl(
+                    resolveMediaUrl(
+                      documents.floor_plan_url,
                       documents.floor_plan ||
                         property.floor_plan
                     ) || ""
@@ -1225,7 +1219,8 @@ export default function PropertyDetailsScreen() {
                 style={styles.linkBtn}
                 onPress={() =>
                   openUrl(
-                    imageUrl(
+                    resolveMediaUrl(
+                      documents.three_sixty_video_url,
                       documents.three_sixty_video ||
                         property.three_sixty_video
                     ) || ""
@@ -1267,7 +1262,8 @@ export default function PropertyDetailsScreen() {
                 style={styles.linkBtn}
                 onPress={() =>
                   openUrl(
-                    imageUrl(
+                    resolveMediaUrl(
+                      documents.proof_document_url,
                       documents.proof_document ||
                         property.proof_document
                     ) || ""
@@ -1343,9 +1339,11 @@ export default function PropertyDetailsScreen() {
             <TouchableOpacity
               style={styles.linkBtn}
               onPress={() => {
-                router.push(
-                  `/properties/index`
-                );
+                // router.push(
+                //   `/properties/index`
+                // );
+router.back();
+
               }}
             >
               <Text style={styles.linkText}>
