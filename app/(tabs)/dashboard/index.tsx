@@ -91,7 +91,7 @@ export default function Dashboard() {
 
   const quickActions = useMemo(() => {
     const actions = [
-      ["Fund Account", "Add money to wallet", "wallet-plus", "/(tabs)/dashboard/wallet/fund-wallet"],
+      ["Fund Account", "Add money to wallet", "wallet-plus", "/(tabs)/wallet/fund-wallet"],
       ["Upload Property", "List rent, sale or land", "home-plus", "/(tabs)/properties/create"],
     ];
 
