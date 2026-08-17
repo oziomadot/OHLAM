@@ -12,22 +12,14 @@ import {
   View,
 } from "react-native";
 
-import {
-  MaterialCommunityIcons,
-} from "@expo/vector-icons";
+import { MaterialCommunityIcons } from "@expo/vector-icons";
 
-import API, {
-  WalletFundingAccount,
-} from "@/src/services/api";
+import API, { WalletFundingAccount } from "@/src/services/api";
 
-import usePreventScreenCapture
-  from "@/hooks/usePreventScreenCapture";
+import usePreventScreenCapture from "@/hooks/usePreventScreenCapture";
 
 export default function FundWalletScreen() {
-  const [
-    loading,
-    setLoading,
-  ] = useState(true);
+  const [loading, setLoading,  ] = useState(true);
 
   const [
     creating,
@@ -152,11 +144,7 @@ export default function FundWalletScreen() {
             color="#2563eb"
           />
 
-          <Text
-            style={
-              styles.emptyTitle
-            }
-          >
+          <Text style={ styles.emptyTitle}>
             Funding account not
             created
           </Text>

@@ -97,40 +97,64 @@ export default function WalletScreen() {
   usePreventScreenCapture(true);
 
   const loadWallet = useCallback(
-    async (
-      silent = false
-    ) => {
-      try {
-        if (!silent) {
-          setLoading(true);
-        }
-
-        const response =
-          await API.getWalletStatement();
-
-        setData(
-          response ?? null
-        );
-      } catch (error: any) {
-        console.error(
-          "Wallet error:",
-          error?.response?.data ??
-            error
-        );
-
-        Alert.alert(
-          "Wallet unavailable",
-          error?.response?.data
-            ?.message ??
-            "Unable to load your wallet."
-        );
-      } finally {
-        setLoading(false);
-        setRefreshing(false);
+  async (silent = false) => {
+    try {
+      if (!silent) {
+        setLoading(true);
       }
-    },
-    []
-  );
+
+      const response =
+        await API.getWalletStatement();
+
+      console.log(
+        "WALLET API RESPONSE:",
+        JSON.stringify(
+          response,
+          null,
+          2
+        )
+      );
+
+      /*
+       * Laravel returns:
+       *
+       * {
+       *   success: true,
+       *   data: {
+       *     wallet: {...},
+       *     funding_account: {...}
+       *   }
+       * }
+       *
+       * So store response.data.
+       */
+      const walletData =
+        response?.data ??
+        response;
+
+      setData(
+        walletData ?? null
+      );
+    } catch (error: any) {
+      console.error(
+        "Wallet error:",
+        error?.response?.data ??
+          error
+      );
+
+      Alert.alert(
+        "Wallet unavailable",
+        error?.response?.data
+          ?.message ??
+          "Unable to load your wallet."
+      );
+    } finally {
+      setLoading(false);
+      setRefreshing(false);
+    }
+  },
+  []
+);
 
   useFocusEffect(
     useCallback(() => {
