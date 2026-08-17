@@ -579,6 +579,65 @@ export function extractAuthToken(
 
 
 
+export type WalletTransaction = {
+  id: number;
+  type: string;
+  direction: "credit" | "debit";
+  balance_bucket:
+    | "available"
+    | "locked"
+    | "escrow"
+    | string;
+  amount: string | number;
+  reference?: string;
+  description?: string;
+  processed_at?: string;
+  created_at?: string;
+};
+
+export type WalletTransactionsResponse = {
+  success?: boolean;
+  message?: string;
+  data: {
+    data: WalletTransaction[];
+    current_page?: number;
+    first_page_url?: string;
+    from?: number;
+    last_page?: number;
+    last_page_url?: string;
+    next_page_url?: string | null;
+    path?: string;
+    per_page?: number;
+    prev_page_url?: string | null;
+    to?: number;
+    total?: number;
+  };
+};
+
+export type WalletSummary = {
+  id?: number;
+  available_balance: string | number;
+  locked_balance: string | number;
+  escrow_balance: string | number;
+  coin_balance: string | number;
+  currency?: string;
+};
+
+export type WalletFundingAccount = {
+  account_name: string;
+  account_number: string;
+  bank_name: string;
+};
+
+export type WalletDetailsResponse = {
+  success: boolean;
+  data: {
+    wallet?: WalletSummary;
+    funding_account?: WalletFundingAccount | null;
+    bank_account?: WalletFundingAccount | null;
+  };
+};
+
 
 
 class ApiService {
@@ -2116,11 +2175,11 @@ async verifyIdCard(formData: FormData) {
 
 
 
-  async getWalletStatement() {
+  async getWalletStatement(): Promise<WalletDetailsResponse["data"]> {
 
-    const response = await API.get("/wallet/statement");
+    const response = await API.get<WalletDetailsResponse>("/wallet");
 
-    return response.data;
+    return response.data.data;
 
   }
 
@@ -2397,6 +2456,89 @@ async completeAppointment(
   );
 }
 
+
+
+
+
+async getWalletTransactions(params?: {
+  page?: number;
+  type?: string;
+  balance_bucket?: "available" | "locked" | "escrow";
+}): Promise<WalletTransactionsResponse> {
+  const query = new URLSearchParams();
+
+  if (params?.page) {
+    query.append(
+      "page",
+      String(params.page)
+    );
+  }
+
+  if (params?.type) {
+    query.append(
+      "type",
+      params.type
+    );
+  }
+
+  if (params?.balance_bucket) {
+    query.append(
+      "balance_bucket",
+      params.balance_bucket
+    );
+  }
+
+  const suffix =
+    query.toString()
+      ? `?${query.toString()}`
+      : "";
+
+  const response = await this.get<WalletTransactionsResponse>(
+    `/wallet/transactions${suffix}`
+  );
+
+  return response.data;
+}
+
+async getWalletEscrow() {
+  const response =
+    await this.get(
+      "/wallet/escrow"
+    );
+
+  return response.data;
+}
+
+async createWalletFundingAccount(): Promise<{
+  message?: string;
+  account?: WalletFundingAccount | null;
+  funding_account?: WalletFundingAccount | null;
+}> {
+  const response =
+    await this.post<{
+      message?: string;
+      account?: WalletFundingAccount | null;
+      funding_account?: WalletFundingAccount | null;
+    }>(
+      "/wallet/create-virtual-account"
+    );
+
+  return response.data;
+}
+
+async createPropertyDeposit(
+  interestId: number
+): Promise<{ message?: string }> {
+  const response =
+    await this.post<{ message?: string }>(
+      "/property-deposits",
+      {
+        interest_id: interestId,
+      }
+    );
+
+  return response.data;
+}
 
 }
 
