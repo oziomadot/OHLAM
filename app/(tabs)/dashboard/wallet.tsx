@@ -75,16 +75,19 @@ export default function Wallet() {
         <View style={styles.actions}>
           <TouchableOpacity style={styles.primaryButton}>
             <Text style={styles.primaryText}
-            onPress={() => router.push("/(tabs)/wallet/fund-wallet")}
+            onPress={() => router.push("/wallet/fund-wallet")}
             >Fund Wallet</Text>
           </TouchableOpacity>
 
-          <TouchableOpacity style={styles.secondaryButton}>
+          <TouchableOpacity style={styles.secondaryButton}
+          >
             <Text style={styles.secondaryText}>Transaction History</Text>
           </TouchableOpacity>
+           <View style={{ height: 100 }} />
         </View>
       </ScrollView>
     </Protected>
+   
   );
 }
 
