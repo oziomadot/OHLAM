@@ -222,7 +222,7 @@ const saveAvailability = async () => {
 
       <TouchableOpacity
         style={styles.secondaryButton}
-        onPress={() => router.push('/appointments/lister/view')}
+        onPress={() => router.push('/appointment/lister/view')}
       >
         <Text style={styles.secondaryText}>View Availability Calendar</Text>
       </TouchableOpacity>

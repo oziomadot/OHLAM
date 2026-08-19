@@ -1157,7 +1157,7 @@ export default function AppointmentIndexScreen() {
   const openBookedAppointments =
     () => {
       router.push(
-        "/appointment/customer/index" as never
+        "/appointment/customer" as never
       );
     };
 
