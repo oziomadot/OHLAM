@@ -41,15 +41,28 @@ export default function CreateListerAvailability() {
   }, []);
 
   const checkAccess = async () => {
-    try {
-      const res = await API.get('/lister/can-create-availability');
-      setCanCreate(res.data.can_create);
-    } catch (error: any) {
-      Alert.alert('Error', 'Could not check availability permission.');
-    } finally {
-      setLoading(false);
-    }
-  };
+  try {
+    const res = await API.canCreateAvailability();
+
+    setCanCreate(
+      res.can_create
+    );
+  } catch (error: any) {
+    console.log(
+      'CAN CREATE AVAILABILITY ERROR:',
+      error.response?.data ||
+        error.message
+    );
+
+    Alert.alert(
+      'Error',
+      error.response?.data?.message ||
+        'Could not check availability permission.'
+    );
+  } finally {
+    setLoading(false);
+  }
+};
 
   const updateDay = (index: number, field: string, value: any) => {
     const updated = [...availability];
@@ -60,35 +73,85 @@ export default function CreateListerAvailability() {
     setAvailability(updated);
   };
 
-  const saveAvailability = async () => {
-    const selected = availability
-      .filter((item) => item.enabled)
-      .map((item) => ({
-        day_of_week: item.value,
-        start_time: item.start_time,
-        end_time: item.end_time,
-      }));
+const saveAvailability = async () => {
+  const selected = availability
+    .filter(
+      (item) =>
+        item.enabled
+    )
+    .map(
+      (item) => ({
+        day_of_week:
+          item.value,
 
-    if (selected.length === 0) {
-      Alert.alert('Required', 'Please select at least one available day.');
-      return;
-    }
+        start_time:
+          item.start_time,
 
-    try {
-      const res = await API.post('/lister/availability', {
-        availability: selected,
+        end_time:
+          item.end_time,
+      })
+    );
+
+  if (
+    selected.length === 0
+  ) {
+    Alert.alert(
+      'Required',
+      'Please select at least one available day.'
+    );
+
+    return;
+  }
+
+  try {
+    const res =
+      await API.createAvailability({
+        availability:
+          selected,
       });
 
-      Alert.alert('Success', res.data.message);
-      router.push('/appointments/lister/view');
-    } catch (error: any) {
-      Alert.alert(
-        'Error',
-        error.response?.data?.message || 'Could not save availability.'
-      );
-    }
-  };
+    Alert.alert(
+      'Success',
+      res.message ||
+        'Availability saved successfully.'
+    );
 
+    router.push(
+      '/appointment/lister/view'
+    );
+  } catch (
+    error: any
+  ) {
+    console.log(
+      'CREATE AVAILABILITY ERROR:',
+      error.response?.data ||
+        error.message ||
+        error
+    );
+
+    const responseData =
+      error.response?.data;
+
+    const validationErrors =
+      responseData?.errors;
+
+    const firstError =
+      validationErrors
+        ? Object.values(
+            validationErrors
+          ).flat()[0]
+        : null;
+
+    Alert.alert(
+      'Error',
+      String(
+        firstError ||
+          responseData?.message ||
+          'Could not save availability.'
+      )
+    );
+  }
+};
   if (loading) {
     return (
       <View style={styles.center}>

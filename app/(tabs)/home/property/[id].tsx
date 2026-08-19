@@ -907,14 +907,42 @@ export default function PropertyDetailScreen() {
       )
     );
 
-  const additionalFeeDescription =
+  const additionalFeeItems =
     firstValue(
-      rental
-        .additional_fee_description,
-
       property
-        .additional_fee_description
-    );
+        .additional_fee_items,
+      property
+        .additional_fees,
+      rental
+        .additional_fee_items,
+      rental
+        .additional_fees
+    ) || [];
+
+  const additionalExpenses =
+    firstValue(
+      property
+        .additional_expenses,
+      rental
+        .additional_expenses
+    ) || [];
+
+  const additionalFeeBreakdownTotal =
+    Array.isArray(
+      additionalFeeItems
+    )
+      ? additionalFeeItems.reduce(
+          (
+            total: number,
+            item: any
+          ) =>
+            total +
+            numberValue(
+              item?.amount
+            ),
+          0
+        )
+      : 0;
 
   const totalMoveInCost =
     rentAmount +
@@ -1347,7 +1375,7 @@ export default function PropertyDetailScreen() {
             </View>
 
             {/* ===============================================
-                ADDITIONAL FEE REASON
+                ADDITIONAL FEE BREAKDOWN
             ================================================ */}
 
             {additionalFee >
@@ -1375,27 +1403,115 @@ export default function PropertyDetailScreen() {
                   >
                     Additional
                     Fee
+                    Breakdown
                   </Text>
                 </View>
 
-                <Text
-                  style={
-                    styles.additionalFeeLabel
-                  }
-                >
-                  Reason
-                  provided by
-                  lister
-                </Text>
+                {Array.isArray(
+                  additionalFeeItems
+                ) &&
+                additionalFeeItems.length >
+                  0 ? (
+                  <>
+                    <View
+                      style={
+                        styles.feeTableHeader
+                      }
+                    >
+                      <Text
+                        style={[
+                          styles.feeTableHeaderText,
+                          styles.feeReasonColumn,
+                        ]}
+                      >
+                        Reason
+                      </Text>
 
-                <Text
-                  style={
-                    styles.additionalFeeReason
-                  }
-                >
-                  {additionalFeeDescription ||
-                    "No reason was supplied for this additional fee."}
-                </Text>
+                      <Text
+                        style={[
+                          styles.feeTableHeaderText,
+                          styles.feeAmountColumn,
+                        ]}
+                      >
+                        Amount
+                      </Text>
+                    </View>
+
+                    {additionalFeeItems.map(
+                      (
+                        item: any,
+                        index: number
+                      ) => (
+                        <View
+                          key={
+                            item?.id ||
+                            `additional-fee-${index}`
+                          }
+                          style={
+                            styles.feeTableRow
+                          }
+                        >
+                          <Text
+                            style={[
+                              styles.feeTableReason,
+                              styles.feeReasonColumn,
+                            ]}
+                          >
+                            {item?.reason ||
+                              "Not provided"}
+                          </Text>
+
+                          <Text
+                            style={[
+                              styles.feeTableAmount,
+                              styles.feeAmountColumn,
+                            ]}
+                          >
+                            {money(
+                              item?.amount
+                            )}
+                          </Text>
+                        </View>
+                      )
+                    )}
+
+                    <View
+                      style={
+                        styles.feeBreakdownTotalRow
+                      }
+                    >
+                      <Text
+                        style={
+                          styles.feeBreakdownTotalLabel
+                        }
+                      >
+                        Breakdown
+                        Total
+                      </Text>
+
+                      <Text
+                        style={
+                          styles.feeBreakdownTotalValue
+                        }
+                      >
+                        {money(
+                          additionalFeeBreakdownTotal
+                        )}
+                      </Text>
+                    </View>
+                  </>
+                ) : (
+                  <Text
+                    style={
+                      styles.additionalFeeReason
+                    }
+                  >
+                    No detailed
+                    breakdown was
+                    supplied for this
+                    additional fee.
+                  </Text>
+                )}
 
                 <View
                   style={
@@ -1413,15 +1529,118 @@ export default function PropertyDetailScreen() {
                       styles.additionalFeeWarningText
                     }
                   >
-                    This is a
+                    These are
                     lister-declared
-                    charge. It is
-                    not an OHLAM
-                    fee.
+                    charges. They are
+                    not OHLAM fees.
+                    Review every charge
+                    before agreeing to
+                    pay.
                   </Text>
                 </View>
               </View>
             )}
+
+            {Array.isArray(
+              additionalExpenses
+            ) &&
+              additionalExpenses.length >
+                0 && (
+                <View
+                  style={
+                    styles.additionalExpenseBox
+                  }
+                >
+                  <View
+                    style={
+                      styles.additionalFeeHeading
+                    }
+                  >
+                    <MaterialCommunityIcons
+                      name="package-variant-closed"
+                      size={22}
+                      color="#1d4ed8"
+                    />
+
+                    <Text
+                      style={
+                        styles.additionalExpenseTitle
+                      }
+                    >
+                      Additional
+                      Expenses /
+                      Required Items
+                    </Text>
+                  </View>
+
+                  <Text
+                    style={
+                      styles.additionalExpenseIntro
+                    }
+                  >
+                    These requirements
+                    may not have a fixed
+                    monetary value.
+                  </Text>
+
+                  {additionalExpenses.map(
+                    (
+                      item: any,
+                      index: number
+                    ) => (
+                      <View
+                        key={
+                          item?.id ||
+                          `additional-expense-${index}`
+                        }
+                        style={
+                          styles.additionalExpenseRow
+                        }
+                      >
+                        <MaterialCommunityIcons
+                          name="check-circle-outline"
+                          size={18}
+                          color="#2563eb"
+                        />
+
+                        <Text
+                          style={
+                            styles.additionalExpenseText
+                          }
+                        >
+                          {item?.description ||
+                            item?.name ||
+                            "Required item"}
+                        </Text>
+                      </View>
+                    )
+                  )}
+
+                  <View
+                    style={
+                      styles.additionalExpenseWarning
+                    }
+                  >
+                    <MaterialCommunityIcons
+                      name="information-outline"
+                      size={20}
+                      color="#1e40af"
+                    />
+
+                    <Text
+                      style={
+                        styles.additionalExpenseWarningText
+                      }
+                    >
+                      These are
+                      lister-declared
+                      requirements and
+                      are not OHLAM
+                      charges.
+                    </Text>
+                  </View>
+                </View>
+              )}
 
             <View
               style={
@@ -1751,16 +1970,6 @@ export default function PropertyDetailScreen() {
               }
             />
 
-            {additionalFee >
-              0 && (
-              <Row
-                label="Additional Fee Reason"
-                value={
-                  additionalFeeDescription ||
-                  "Not provided"
-                }
-              />
-            )}
           </Section>
         )}
 
@@ -2517,6 +2726,160 @@ const styles =
         "700",
       fontSize: 12,
       lineHeight: 18,
+    },
+
+
+    feeTableHeader: {
+      flexDirection:
+        "row",
+      paddingBottom: 7,
+      borderBottomWidth: 1,
+      borderBottomColor:
+        "#fde68a",
+    },
+
+    feeTableHeaderText: {
+      color:
+        "#92400e",
+      fontSize: 12,
+      fontWeight:
+        "900",
+      textTransform:
+        "uppercase",
+    },
+
+    feeReasonColumn: {
+      flex: 1.7,
+    },
+
+    feeAmountColumn: {
+      flex: 1,
+      textAlign:
+        "right",
+    },
+
+    feeTableRow: {
+      flexDirection:
+        "row",
+      paddingVertical: 9,
+      borderBottomWidth: 1,
+      borderBottomColor:
+        "#fef3c7",
+      gap: 10,
+    },
+
+    feeTableReason: {
+      color:
+        "#451a03",
+      fontSize: 13,
+      lineHeight: 19,
+      fontWeight:
+        "700",
+    },
+
+    feeTableAmount: {
+      color:
+        "#78350f",
+      fontSize: 13,
+      fontWeight:
+        "900",
+    },
+
+    feeBreakdownTotalRow: {
+      marginTop: 8,
+      paddingTop: 9,
+      flexDirection:
+        "row",
+      justifyContent:
+        "space-between",
+    },
+
+    feeBreakdownTotalLabel: {
+      color:
+        "#78350f",
+      fontWeight:
+        "900",
+    },
+
+    feeBreakdownTotalValue: {
+      color:
+        "#78350f",
+      fontWeight:
+        "900",
+      fontSize: 15,
+    },
+
+    additionalExpenseBox: {
+      marginTop: 14,
+      backgroundColor:
+        "#eff6ff",
+      borderWidth: 1,
+      borderColor:
+        "#bfdbfe",
+      borderRadius: 14,
+      padding: 13,
+    },
+
+    additionalExpenseTitle: {
+      color:
+        "#1e3a8a",
+      fontWeight:
+        "900",
+      fontSize: 16,
+      flex: 1,
+    },
+
+    additionalExpenseIntro: {
+      color:
+        "#475569",
+      fontSize: 12,
+      lineHeight: 18,
+      marginBottom: 10,
+    },
+
+    additionalExpenseRow: {
+      flexDirection:
+        "row",
+      alignItems:
+        "flex-start",
+      gap: 8,
+      paddingVertical: 8,
+      borderBottomWidth: 1,
+      borderBottomColor:
+        "#dbeafe",
+    },
+
+    additionalExpenseText: {
+      flex: 1,
+      color:
+        "#1e3a8a",
+      fontSize: 13,
+      lineHeight: 19,
+      fontWeight:
+        "700",
+    },
+
+    additionalExpenseWarning: {
+      marginTop: 11,
+      flexDirection:
+        "row",
+      gap: 7,
+      alignItems:
+        "flex-start",
+      backgroundColor:
+        "#dbeafe",
+      padding: 10,
+      borderRadius: 10,
+    },
+
+    additionalExpenseWarningText: {
+      flex: 1,
+      color:
+        "#1e40af",
+      fontSize: 12,
+      lineHeight: 18,
+      fontWeight:
+        "700",
     },
 
     costNotice: {

@@ -33,6 +33,14 @@ import RentalFields from "components/properties/RentalFields";
 
 
 
+type AdditionalFeeItem = {
+  reason: string;
+  amount: string;
+};
+
+type AdditionalExpenseItem = {
+  description: string;
+};
 
 const CreateProperty = () => {
 
@@ -46,6 +54,14 @@ const CreateProperty = () => {
   const [alertVisible, setAlertVisible] = useState(false);
   const [alertTitle, setAlertTitle] = useState("");
   const [alertMessage, setAlertMessage] = useState("");
+
+  const [additionalFeeItems, setAdditionalFeeItems] = useState<AdditionalFeeItem[]>([
+    { reason: "", amount: "" },
+  ]);
+
+  const [additionalExpenses, setAdditionalExpenses] = useState<AdditionalExpenseItem[]>([
+    { description: "" },
+  ]);
 
   const showAlert = (title: string, message: string) => {
     setAlertTitle(title);
@@ -100,7 +116,8 @@ const CreateProperty = () => {
   security_fee: "",
   cleaning_fee: "",
   additional_fee: "",
-  additional_fee_description: "",
+  additional_fee_items: [] as AdditionalFeeItem[],
+  additional_expenses: [] as AdditionalExpenseItem[],
 
   address: "",
   meeting_place: "",
@@ -150,6 +167,136 @@ const CreateProperty = () => {
 
   const { getCurrentLocation } = usePropertyLocation(setValue, showAlert);
 
+
+  const moneyToNumber = (value: string | number | null | undefined) => {
+    const cleaned = String(value ?? "").replace(/,/g, "").trim();
+    const amount = Number(cleaned);
+    return Number.isFinite(amount) ? amount : 0;
+  };
+
+  const formatMoney = (value: string | number) => {
+    const cleaned = String(value ?? "").replace(/,/g, "");
+    if (!cleaned) return "";
+
+    const amount = Number(cleaned);
+    if (!Number.isFinite(amount)) return "";
+
+    return amount.toLocaleString("en-NG", {
+      maximumFractionDigits: 2,
+    });
+  };
+
+  const additionalFeeTotal = additionalFeeItems.reduce(
+    (total, item) => total + moneyToNumber(item.amount),
+    0
+  );
+
+  const declaredAdditionalFee = moneyToNumber(watch("additional_fee"));
+
+  const additionalFeeMatches =
+    declaredAdditionalFee === 0
+      ? additionalFeeTotal === 0
+      : additionalFeeTotal === declaredAdditionalFee;
+
+  const updateAdditionalFeeItem = (
+    index: number,
+    field: keyof AdditionalFeeItem,
+    value: string
+  ) => {
+    setAdditionalFeeItems((current) => {
+      const next = [...current];
+
+      if (field === "amount") {
+        const cleaned = value.replace(/,/g, "");
+
+        if (cleaned !== "" && !/^\d*(\.\d{0,2})?$/.test(cleaned)) {
+          return current;
+        }
+
+        next[index] = {
+          ...next[index],
+          amount: cleaned,
+        };
+      } else {
+        next[index] = {
+          ...next[index],
+          reason: value,
+        };
+      }
+
+      return next;
+    });
+  };
+
+  const addAdditionalFeeRow = () => {
+    setAdditionalFeeItems((current) => [
+      ...current,
+      { reason: "", amount: "" },
+    ]);
+  };
+
+  const removeAdditionalFeeRow = (index: number) => {
+    setAdditionalFeeItems((current) => {
+      if (current.length === 1) {
+        return [{ reason: "", amount: "" }];
+      }
+
+      return current.filter((_, itemIndex) => itemIndex !== index);
+    });
+  };
+
+  const updateAdditionalExpense = (index: number, description: string) => {
+    setAdditionalExpenses((current) => {
+      const next = [...current];
+      next[index] = { description };
+      return next;
+    });
+  };
+
+  const addAdditionalExpenseRow = () => {
+    setAdditionalExpenses((current) => [
+      ...current,
+      { description: "" },
+    ]);
+  };
+
+  const removeAdditionalExpenseRow = (index: number) => {
+    setAdditionalExpenses((current) => {
+      if (current.length === 1) {
+        return [{ description: "" }];
+      }
+
+      return current.filter((_, itemIndex) => itemIndex !== index);
+    });
+  };
+
+  useEffect(() => {
+    setValue(
+      "additional_fee_items",
+      additionalFeeItems
+        .map((item) => ({
+          reason: item.reason.trim(),
+          amount: String(moneyToNumber(item.amount)),
+        }))
+        .filter(
+          (item) =>
+            item.reason.length > 0 ||
+            moneyToNumber(item.amount) > 0
+        )
+    );
+  }, [additionalFeeItems, setValue]);
+
+  useEffect(() => {
+    setValue(
+      "additional_expenses",
+      additionalExpenses
+        .map((item) => ({
+          description: item.description.trim(),
+        }))
+        .filter((item) => item.description.length > 0)
+    );
+  }, [additionalExpenses, setValue]);
+
   const { onSubmit } = usePropertySubmit({
 
 
@@ -170,6 +317,75 @@ const CreateProperty = () => {
 
   
 const submitProperty = handleSubmit(async (data) => {
+  const additionalFee = moneyToNumber(data.additional_fee);
+
+  const feeRows = additionalFeeItems
+    .map((item) => ({
+      reason: item.reason.trim(),
+      amount: moneyToNumber(item.amount),
+    }))
+    .filter((item) => item.reason.length > 0 || item.amount > 0);
+
+  if (additionalFee > 0) {
+    if (feeRows.length === 0) {
+      showAlert(
+        "Additional Fee Breakdown Required",
+        "Please add at least one reason and amount for the additional fee."
+      );
+      return;
+    }
+
+    const incompleteRow = feeRows.some(
+      (item) => !item.reason || item.amount <= 0
+    );
+
+    if (incompleteRow) {
+      showAlert(
+        "Complete Additional Fee Rows",
+        "Every additional fee row must have both a reason and an amount greater than zero."
+      );
+      return;
+    }
+
+    const rowTotal = feeRows.reduce(
+      (total, item) => total + item.amount,
+      0
+    );
+
+    if (Math.abs(rowTotal - additionalFee) > 0.009) {
+      showAlert(
+        "Additional Fee Total Does Not Match",
+        `The additional fee is ₦${formatMoney(additionalFee)}, but the breakdown totals ₦${formatMoney(rowTotal)}. Please correct the amounts before submitting.`
+      );
+      return;
+    }
+  } else {
+    const hasFeeRowValue = feeRows.some(
+      (item) => item.reason || item.amount > 0
+    );
+
+    if (hasFeeRowValue) {
+      showAlert(
+        "Additional Fee Is Missing",
+        "You entered an additional fee breakdown, but the Additional Fee total is zero. Enter the total additional fee or remove the breakdown rows."
+      );
+      return;
+    }
+  }
+
+  const expenseRows = additionalExpenses
+    .map((item) => ({
+      description: item.description.trim(),
+    }))
+    .filter((item) => item.description.length > 0);
+
+  data.additional_fee_items = feeRows.map((item) => ({
+    reason: item.reason,
+    amount: String(item.amount),
+  }));
+
+  data.additional_expenses = expenseRows;
+
   if (
     selectedPropertyType === 2 ||
     selectedPropertyType === 3
@@ -410,10 +626,10 @@ const submitProperty = handleSubmit(async (data) => {
   name="additional_fee"
   render={({ field }) => (
     <TextInput
-      placeholder="Enter any additional fee"
+      placeholder="Enter total additional monetary fee"
       keyboardType="numeric"
       style={styles.input}
-      value={field.value}
+      value={String(field.value || "")}
       onChangeText={(text) =>
         handleMoneyChange(text, "additional_fee")
       }
@@ -422,74 +638,142 @@ const submitProperty = handleSubmit(async (data) => {
   )}
 />
 
-{!!watch("additional_fee") &&
-  Number(
-    String(watch("additional_fee")).replace(/,/g, "")
-  ) > 0 && (
-    <>
-      <Text style={styles.label}>
-        What is this additional fee for?
+{declaredAdditionalFee > 0 && (
+  <View style={styles.breakdownCard}>
+    <Text style={styles.breakdownTitle}>
+      Additional Fee Breakdown
+    </Text>
+
+    <Text style={styles.helperText}>
+      Explain every monetary charge. The total below must equal the
+      Additional Fee above.
+    </Text>
+
+    <View style={styles.tableHeader}>
+      <Text style={[styles.tableHeaderText, styles.reasonColumn]}>
+        Reason
+      </Text>
+      <Text style={[styles.tableHeaderText, styles.amountColumn]}>
+        Amount (₦)
+      </Text>
+      <View style={styles.actionColumn} />
+    </View>
+
+    {additionalFeeItems.map((item, index) => (
+      <View key={`fee-${index}`} style={styles.tableRow}>
+        <TextInput
+          style={[styles.tableInput, styles.reasonColumn]}
+          placeholder="e.g. Estate development levy"
+          value={item.reason}
+          onChangeText={(value) =>
+            updateAdditionalFeeItem(index, "reason", value)
+          }
+          maxLength={255}
+        />
+
+        <TextInput
+          style={[styles.tableInput, styles.amountColumn]}
+          placeholder="0"
+          keyboardType="numeric"
+          value={item.amount ? formatMoney(item.amount) : ""}
+          onChangeText={(value) =>
+            updateAdditionalFeeItem(index, "amount", value)
+          }
+        />
+
+        <View style={styles.actionColumn}>
+          <Button
+            title="−"
+            onPress={() => removeAdditionalFeeRow(index)}
+          />
+        </View>
+      </View>
+    ))}
+
+    <View style={styles.rowButton}>
+      <Button
+        title="+ Add Fee Row"
+        onPress={addAdditionalFeeRow}
+      />
+    </View>
+
+    <View style={styles.totalBox}>
+      <Text style={styles.totalText}>
+        Declared Additional Fee: ₦{formatMoney(declaredAdditionalFee)}
+      </Text>
+      <Text style={styles.totalText}>
+        Breakdown Total: ₦{formatMoney(additionalFeeTotal)}
       </Text>
 
-      <Controller
-        control={control}
-        name="additional_fee_description"
-        rules={{
-          validate: (value) => {
-            const additionalFee = Number(
-              String(watch("additional_fee") || "0").replace(/,/g, "")
-            );
+      <Text
+        style={
+          additionalFeeMatches
+            ? styles.matchText
+            : styles.mismatchText
+        }
+      >
+        {additionalFeeMatches
+          ? "✓ The fee breakdown matches the declared additional fee."
+          : `Difference: ₦${formatMoney(
+              Math.abs(declaredAdditionalFee - additionalFeeTotal)
+            )}`}
+      </Text>
+    </View>
 
-            if (additionalFee > 0 && !String(value || "").trim()) {
-              return "Please explain what the additional fee is for";
-            }
+    <View style={styles.feeNotice}>
+      <Text style={styles.feeNoticeTitle}>
+        About additional monetary charges
+      </Text>
 
-            return true;
-          },
-        }}
-        render={({ field }) => (
-          <>
-            <TextInput
-              placeholder="Example: Estate service charge for waste collection and security"
-              style={[
-                styles.input,
-                {
-                  minHeight: 90,
-                  textAlignVertical: "top",
-                },
-                errors.additional_fee_description &&
-                  styles.inputError,
-              ]}
-              multiline
-              maxLength={500}
-              value={field.value}
-              onChangeText={field.onChange}
-            />
+      <Text style={styles.feeNoticeText}>
+        Additional charges are declared by the property lister and are
+        not OHLAM fees. OHLAM has not independently determined that a
+        charge is legally required. Buyers and renters should review each
+        charge before agreeing to pay.
+      </Text>
+    </View>
+  </View>
+)}
 
-            {errors.additional_fee_description && (
-              <Text style={styles.error}>
-                {errors.additional_fee_description.message}
-              </Text>
-            )}
-          </>
-        )}
+<Text style={styles.label}>Additional Expenses / Required Items</Text>
+
+<Text style={styles.helperText}>
+  Add non-monetary or customary items the buyer or renter is expected
+  to provide. Examples: drinks, food items, materials, Nri Ala,
+  community/customary requirements, or similar obligations. Do not put
+  a guessed money value here when the requirement is normally provided
+  as an item.
+</Text>
+
+<View style={styles.breakdownCard}>
+  {additionalExpenses.map((item, index) => (
+    <View key={`expense-${index}`} style={styles.expenseRow}>
+      <TextInput
+        style={[styles.input, styles.expenseInput]}
+        placeholder="e.g. 2 cartons of drinks for customary land process"
+        value={item.description}
+        onChangeText={(value) =>
+          updateAdditionalExpense(index, value)
+        }
+        multiline
+        maxLength={500}
       />
 
-      <View style={styles.feeNotice}>
-        <Text style={styles.feeNoticeTitle}>
-          About additional charges
-        </Text>
-
-        <Text style={styles.feeNoticeText}>
-          Additional charges are declared by the property
-          lister and are not OHLAM fees. OHLAM has not
-          independently determined that the charge is legally
-          required. Renters should review the reason for the
-          charge before agreeing to pay.
-        </Text>
+      <View style={styles.expenseRemoveButton}>
+        <Button
+          title="Remove"
+          onPress={() => removeAdditionalExpenseRow(index)}
+        />
       </View>
-    </>
-  )}
+    </View>
+  ))}
+
+  <Button
+    title="+ Add Expense / Required Item"
+    onPress={addAdditionalExpenseRow}
+  />
+</View>
+
               <Text style={styles.label}>Address</Text>
               <Controller
                 control={control}
@@ -685,6 +969,114 @@ const styles = StyleSheet.create({
     marginVertical: 6,
   },
   
+
+
+breakdownCard: {
+  borderWidth: 1,
+  borderColor: "#D6D6D6",
+  borderRadius: 10,
+  padding: 12,
+  marginBottom: 15,
+  backgroundColor: "rgba(255, 255, 255, 0.40)",
+},
+
+breakdownTitle: {
+  fontSize: 16,
+  fontWeight: "bold",
+  marginBottom: 6,
+},
+
+helperText: {
+  fontSize: 13,
+  lineHeight: 19,
+  marginBottom: 10,
+},
+
+tableHeader: {
+  flexDirection: "row",
+  alignItems: "center",
+  marginBottom: 5,
+},
+
+tableHeaderText: {
+  fontSize: 13,
+  fontWeight: "bold",
+},
+
+tableRow: {
+  flexDirection: "row",
+  alignItems: "center",
+  marginBottom: 8,
+},
+
+tableInput: {
+  borderWidth: 1,
+  borderColor: "#E8E8E8",
+  borderRadius: 8,
+  padding: 9,
+  marginRight: 6,
+  color: "#000",
+  backgroundColor: "rgba(255, 255, 255, 0.65)",
+},
+
+reasonColumn: {
+  flex: 1.6,
+},
+
+amountColumn: {
+  flex: 1,
+},
+
+actionColumn: {
+  width: 42,
+},
+
+rowButton: {
+  marginTop: 4,
+  marginBottom: 12,
+},
+
+totalBox: {
+  padding: 10,
+  borderWidth: 1,
+  borderColor: "#D6D6D6",
+  borderRadius: 8,
+  marginBottom: 12,
+},
+
+totalText: {
+  fontSize: 14,
+  fontWeight: "600",
+  marginBottom: 4,
+},
+
+matchText: {
+  fontSize: 13,
+  fontWeight: "bold",
+  marginTop: 4,
+  color: "green",
+},
+
+mismatchText: {
+  fontSize: 13,
+  fontWeight: "bold",
+  marginTop: 4,
+  color: "red",
+},
+
+expenseRow: {
+  marginBottom: 12,
+},
+
+expenseInput: {
+  minHeight: 72,
+  textAlignVertical: "top",
+  marginBottom: 6,
+},
+
+expenseRemoveButton: {
+  alignSelf: "flex-end",
+},
 
 feeNotice: {
   padding: 12,

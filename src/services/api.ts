@@ -2540,6 +2540,37 @@ async createPropertyDeposit(
   return response.data;
 }
 
+
+async canCreateAvailability(): Promise<{ can_create: boolean; message?: string }> {
+  const response = await this.get<{ can_create: boolean; message?: string }>(
+    '/lister/can-create-availability'
+  )
+
+  return response.data;
+}
+
+async createAvailability(
+  payload: {
+    availability: {
+      day_of_week: number;
+      start_time: string;
+      end_time: string;
+    }[];
+  }
+): Promise<{ message?: string }> {
+  const response = await this.post<{ message?: string }>(
+    '/lister/availability',
+    payload
+  )
+
+  return response.data;
+}
+
+
+
+
+
+
 }
 
 

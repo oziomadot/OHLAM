@@ -15,6 +15,15 @@ type Args = {
   setLoading: (value: boolean) => void;
 };
 
+type AdditionalFeeItem = {
+  reason: string;
+  amount: string | number;
+};
+
+type AdditionalExpenseItem = {
+  description: string;
+};
+
 export function usePropertySubmit({
   selectedPropertyType,
   selectedListingRoleName,
@@ -37,14 +46,135 @@ export function usePropertySubmit({
     );
   };
 
+  const moneyToNumber = (
+    value: string | number | null | undefined
+  ) => {
+    const cleaned = String(
+      value ?? ""
+    )
+      .replace(/,/g, "")
+      .trim();
+
+    if (!cleaned) {
+      return 0;
+    }
+
+    const parsed = Number(cleaned);
+
+    return Number.isFinite(parsed)
+      ? parsed
+      : 0;
+  };
+
+  const validateAdditionalCharges = (
+    formData: any
+  ) => {
+    const declaredAdditionalFee =
+      moneyToNumber(
+        formData.additional_fee
+      );
+
+    const feeItems: AdditionalFeeItem[] =
+      Array.isArray(
+        formData.additional_fee_items
+      )
+        ? formData.additional_fee_items
+        : [];
+
+    const cleanedFeeItems =
+      feeItems
+        .map((item) => ({
+          reason: String(
+            item?.reason ?? ""
+          ).trim(),
+
+          amount:
+            moneyToNumber(
+              item?.amount
+            ),
+        }))
+        .filter(
+          (item) =>
+            item.reason !== "" ||
+            item.amount > 0
+        );
+
+    if (
+      declaredAdditionalFee > 0
+    ) {
+      if (
+        cleanedFeeItems.length === 0
+      ) {
+        showAlert(
+          "Additional Fee Breakdown Required",
+          "Please provide at least one reason and amount for the additional fee."
+        );
+
+        return false;
+      }
+
+      const invalidRow =
+        cleanedFeeItems.some(
+          (item) =>
+            !item.reason ||
+            item.amount <= 0
+        );
+
+      if (invalidRow) {
+        showAlert(
+          "Invalid Additional Fee Row",
+          "Every additional fee row must contain a reason and an amount greater than zero."
+        );
+
+        return false;
+      }
+
+      const breakdownTotal =
+        cleanedFeeItems.reduce(
+          (
+            total,
+            item
+          ) =>
+            total +
+            item.amount,
+          0
+        );
+
+      if (
+        Math.abs(
+          breakdownTotal -
+            declaredAdditionalFee
+        ) > 0.009
+      ) {
+        showAlert(
+          "Additional Fee Total Does Not Match",
+          `The declared additional fee is ₦${declaredAdditionalFee.toLocaleString(
+            "en-NG"
+          )}, but the breakdown total is ₦${breakdownTotal.toLocaleString(
+            "en-NG"
+          )}.`
+        );
+
+        return false;
+      }
+    } else if (
+      cleanedFeeItems.length > 0
+    ) {
+      showAlert(
+        "Additional Fee Is Missing",
+        "You entered additional fee rows, but the Additional Fee total is zero."
+      );
+
+      return false;
+    }
+
+    return true;
+  };
+
   const validateMedia = () => {
-    /*
-     * RENTAL
-     *
-     * Keep your existing rule:
-     * all required rental images must exist.
-     */
-    if (selectedPropertyType === 1) {
+    if (
+      selectedPropertyType === 1
+    ) {
       const required = [
         "wholeBuilding",
         "sittingRoom",
@@ -53,12 +183,21 @@ export function usePropertySubmit({
         "toiletImage",
       ];
 
-      for (const key of required) {
-        if (!hasFile(images?.[key])) {
+      for (
+        const key of required
+      ) {
+        if (
+          !hasFile(
+            images?.[key]
+          )
+        ) {
           showAlert(
             "Missing Media",
             `Please upload ${key
-              .replace(/([A-Z])/g, " $1")
+              .replace(
+                /([A-Z])/g,
+                " $1"
+              )
               .toLowerCase()}`
           );
 
@@ -67,20 +206,21 @@ export function usePropertySubmit({
       }
     }
 
-    /*
-     * HOUSE FOR SALE
-     *
-     * Image OR video is required.
-     * Both are allowed.
-     */
-    if (selectedPropertyType === 2) {
+    if (
+      selectedPropertyType === 2
+    ) {
       const hasImage =
-        hasFile(images?.wholeBuilding);
+        hasFile(
+          images?.wholeBuilding
+        );
 
       const hasVideo =
         hasFile(video);
 
-      if (!hasImage && !hasVideo) {
+      if (
+        !hasImage &&
+        !hasVideo
+      ) {
         showAlert(
           "Missing Property Media",
           "Please upload at least one property image or one property video."
@@ -90,20 +230,21 @@ export function usePropertySubmit({
       }
     }
 
-    /*
-     * LAND FOR SALE
-     *
-     * Image OR video is required.
-     * Both are allowed.
-     */
-    if (selectedPropertyType === 3) {
+    if (
+      selectedPropertyType === 3
+    ) {
       const hasImage =
-        hasFile(images?.wholeBuilding);
+        hasFile(
+          images?.wholeBuilding
+        );
 
       const hasVideo =
         hasFile(video);
 
-      if (!hasImage && !hasVideo) {
+      if (
+        !hasImage &&
+        !hasVideo
+      ) {
         showAlert(
           "Missing Land Media",
           "Please upload at least one image of the land or one land video."
@@ -125,11 +266,6 @@ export function usePropertySubmit({
   ) => {
     if (!file) return;
 
-    /*
-     * Web:
-     * if this is an actual File object,
-     * append it directly.
-     */
     if (
       typeof File !== "undefined" &&
       file instanceof File
@@ -142,11 +278,6 @@ export function usePropertySubmit({
       return;
     }
 
-    /*
-     * Android / iOS / Expo:
-     * React Native FormData expects:
-     * uri, name, type
-     */
     if (!file.uri) {
       return;
     }
@@ -166,15 +297,92 @@ export function usePropertySubmit({
     );
   };
 
-  const onSubmit = async (formData: any) => {
-    if (!validateMedia()) {
+  const appendAdditionalFeeItems = (
+    data: FormData,
+    items: AdditionalFeeItem[]
+  ) => {
+    items
+      .map((item) => ({
+        reason: String(
+          item?.reason ?? ""
+        ).trim(),
+
+        amount:
+          moneyToNumber(
+            item?.amount
+          ),
+      }))
+      .filter(
+        (item) =>
+          item.reason !== "" ||
+          item.amount > 0
+      )
+      .forEach(
+        (
+          item,
+          index
+        ) => {
+          data.append(
+            `additional_fee_items[${index}][reason]`,
+            item.reason
+          );
+
+          data.append(
+            `additional_fee_items[${index}][amount]`,
+            String(
+              item.amount
+            )
+          );
+        }
+      );
+  };
+
+  const appendAdditionalExpenses = (
+    data: FormData,
+    items: AdditionalExpenseItem[]
+  ) => {
+    items
+      .map((item) => ({
+        description:
+          String(
+            item?.description ??
+              ""
+          ).trim(),
+      }))
+      .filter(
+        (item) =>
+          item.description !== ""
+      )
+      .forEach(
+        (
+          item,
+          index
+        ) => {
+          data.append(
+            `additional_expenses[${index}][description]`,
+            item.description
+          );
+        }
+      );
+  };
+
+  const onSubmit = async (
+    formData: any
+  ) => {
+    if (
+      !validateMedia()
+    ) {
       return;
     }
 
-    /*
-     * Landlords and developers still require
-     * their supporting proof document.
-     */
+    if (
+      !validateAdditionalCharges(
+        formData
+      )
+    ) {
+      return;
+    }
+
     if (
       [
         "landlord",
@@ -211,12 +419,23 @@ export function usePropertySubmit({
         new FormData();
 
       /*
-       * Append normal form fields.
+       * Normal scalar fields only.
+       *
+       * Arrays are appended separately below.
        */
       Object.entries(
         formData
       ).forEach(
         ([key, val]) => {
+          if (
+            key ===
+              "additional_fee_items" ||
+            key ===
+              "additional_expenses"
+          ) {
+            return;
+          }
+
           if (
             typeof val ===
             "boolean"
@@ -249,17 +468,31 @@ export function usePropertySubmit({
         }
       );
 
-      /*
-       * Append all selected images.
-       *
-       * No else-if here:
-       * image and video may both exist.
-       */
+      appendAdditionalFeeItems(
+        data,
+        Array.isArray(
+          formData.additional_fee_items
+        )
+          ? formData.additional_fee_items
+          : []
+      );
+
+      appendAdditionalExpenses(
+        data,
+        Array.isArray(
+          formData.additional_expenses
+        )
+          ? formData.additional_expenses
+          : []
+      );
+
       Object.entries(
         images || {}
       ).forEach(
         ([key, file]: any) => {
-          if (!hasFile(file)) {
+          if (
+            !hasFile(file)
+          ) {
             return;
           }
 
@@ -273,15 +506,9 @@ export function usePropertySubmit({
         }
       );
 
-      /*
-       * Append main property video independently.
-       *
-       * Therefore:
-       * image only  -> image uploaded
-       * video only  -> video uploaded
-       * both        -> both uploaded
-       */
-      if (hasFile(video)) {
+      if (
+        hasFile(video)
+      ) {
         appendFile(
           data,
           "video",
@@ -291,9 +518,6 @@ export function usePropertySubmit({
         );
       }
 
-      /*
-       * Private proof document.
-       */
       if (
         hasFile(
           proofDocument
@@ -309,9 +533,6 @@ export function usePropertySubmit({
         );
       }
 
-      /*
-       * Optional floor plan.
-       */
       if (
         hasFile(
           floorPlan
@@ -327,9 +548,6 @@ export function usePropertySubmit({
         );
       }
 
-      /*
-       * Optional 360 video.
-       */
       if (
         hasFile(
           threeSixtyVideo
@@ -341,6 +559,24 @@ export function usePropertySubmit({
           threeSixtyVideo,
           "360_video.mp4",
           "video/mp4"
+        );
+      }
+
+      /*
+       * Useful while wiring Laravel.
+       * Remove later if you no longer need it.
+       */
+      if (__DEV__) {
+        console.log(
+          "PROPERTY ADDITIONAL FEES:",
+          formData
+            .additional_fee_items
+        );
+
+        console.log(
+          "PROPERTY ADDITIONAL EXPENSES:",
+          formData
+            .additional_expenses
         );
       }
 
@@ -378,7 +614,9 @@ export function usePropertySubmit({
       router.replace(
         "/(tabs)/dashboard"
       );
-    } catch (err: any) {
+    } catch (
+      err: any
+    ) {
       const responseData =
         err.response?.data;
 
