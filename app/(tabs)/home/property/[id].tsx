@@ -427,7 +427,7 @@ export default function PropertyDetailScreen() {
       ) {
         router.push({
           pathname:
-            "/login",
+            "/auth/login",
 
           params: {
             redirectTo:
@@ -841,36 +841,45 @@ export default function PropertyDetailScreen() {
         .amount
     );
 
-  const agentFee =
-    numberValue(
-      firstValue(
-        rental
-          .agent_fee,
-
-        property
-          .agent_fee
-      )
+  const agentFee = numberValue(
+      firstValue(rental.agent_fee, property.agent_fee)
     );
 
-  const legalFee =
-    numberValue(
-      firstValue(
-        rental
-          .legal_fee,
+    const buyerAgentFeePercentage =
+  numberValue(
+    property.buyer_agent_fee_percentage
+  );
 
-        property
-          .legal_fee
+const buyerAgentFee =
+  numberValue(
+    firstValue(
+      property.buyer_agent_fee,
+      property.agent_fee
+    )
+  );
+
+const sellerAgentFeePercentage =
+  numberValue(
+    property.seller_agent_fee_percentage
+  );
+
+const sellerAgentFee =
+  numberValue(
+    property.seller_agent_fee
+  );
+
+  const legalFee = numberValue(
+      firstValue(
+        rental.legal_fee,
+        property.legal_fee
       )
     );
 
   const cautionFee =
     numberValue(
       firstValue(
-        rental
-          .caution_fee,
-
-        property
-          .caution_fee
+        rental.caution_fee,
+        property.caution_fee
       )
     );
 
@@ -1323,12 +1332,20 @@ export default function PropertyDetailScreen() {
                 }
               />
 
-              <CostRow
-                label="Agent Fee"
-                value={
-                  agentFee
-                }
-              />
+             <CostRow
+            label={
+              buyerAgentFeePercentage > 0
+              ? `Tenant Agency Fee (${buyerAgentFeePercentage}%)`
+              : "Tenant Agency Fee"
+              }
+              value={buyerAgentFee}
+/>
+
+
+
+
+
+
 
               <CostRow
                 label="Legal / Tenancy Agreement Fee"
@@ -1671,6 +1688,100 @@ export default function PropertyDetailScreen() {
             </View>
           </View>
         )}
+
+
+{(isHouseSale || isLandSale) && (
+  <View style={styles.costCard}>
+    <View style={styles.costHeader}>
+      <View style={styles.costIcon}>
+        <MaterialCommunityIcons
+          name="cash-multiple"
+          size={24}
+          color="#166534"
+        />
+      </View>
+
+      <View style={{ flex: 1 }}>
+        <Text style={styles.costTitle}>
+          Purchase Cost Summary
+        </Text>
+
+        <Text style={styles.costSubtitle}>
+          Review the buyer-side costs before
+          expressing interest.
+        </Text>
+      </View>
+    </View>
+
+    <View style={styles.costTable}>
+      <CostRow
+        label="Property Price"
+        value={property.amount}
+      />
+
+      <CostRow
+        label={
+          buyerAgentFeePercentage > 0
+            ? `Buyer Agency Fee (${buyerAgentFeePercentage}%)`
+            : "Buyer Agency Fee"
+        }
+        value={buyerAgentFee}
+      />
+
+      <CostRow
+        label="Estimated Buyer Cost"
+        value={
+          numberValue(property.amount) +
+          buyerAgentFee
+        }
+        total
+      />
+    </View>
+
+    <View style={styles.additionalFeeBox}>
+      <Text style={styles.additionalFeeTitle}>
+        Agency Fee Arrangement
+      </Text>
+
+      <Row
+        label="Buyer"
+        value={
+          `${buyerAgentFeePercentage}% — ${money(
+            buyerAgentFee
+          )}`
+        }
+      />
+
+      <Row
+        label="Seller"
+        value={
+          `${sellerAgentFeePercentage}% — ${money(
+            sellerAgentFee
+          )}`
+        }
+      />
+
+      <View style={styles.additionalFeeWarning}>
+        <MaterialCommunityIcons
+          name="information-outline"
+          size={21}
+          color="#9a3412"
+        />
+
+        <Text
+          style={styles.additionalFeeWarningText}
+        >
+          The seller's agency fee is payable by
+          the seller and is not included in the
+          buyer's estimated purchase cost. Agency
+          fees shown here are not OHLAM fees.
+        </Text>
+      </View>
+    </View>
+  </View>
+)}
+
+
 
         {/* =====================================================
             RENTAL DETAILS

@@ -1,10 +1,12 @@
 import { NativeStackScreenProps } from '@react-navigation/native-stack';
 import { Formik } from 'formik';
-import React, { useState } from 'react';
+import React, {
+  useEffect,
+  useState,
+} from 'react';
 import { Image, KeyboardAvoidingView, Platform, ScrollView, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
 import { Button, TextInput } from 'react-native-paper';
 import * as Yup from 'yup';
-import { useAuth } from '@/context/AuthContext';
 import { Link, useRouter } from 'expo-router';
 import Navbar from 'components/Navbar';
 
@@ -21,7 +23,7 @@ const ForgotPasswordSchema = Yup.object().shape({
 const ForgotPasswordScreen = () => {
   const [isLoading, setIsLoading] = useState(false);
   const [emailSent, setEmailSent] = useState(false);
-  const { forgotPassword } = useAuth();
+  
   const router = useRouter();
   const [error, setError] = useState('');
   const [passwordConfirmation, setPasswordConfirmation] = useState('');
@@ -34,53 +36,152 @@ const [password, setPassword] = useState('');
     Alert.alert(title, message);
   };
 
-  const handleSubmit = async (values: { email: string }) => {
+  useEffect(() => {
+  const restoreResetEmail = async () => {
     try {
-      setIsLoading(true);
+      const storedEmail = await getItemSafe('forgot_password_email');
 
-      await forgotPassword(values.email);
-      const response = await API.forgetPassword(values.email);
-      if (response.success) {
-        setEmailSent(true);
-        setEmail(response.user_email);
-
-        setItemSafe('forgot_password_email', response.user_email);
-
-        showAlert("Success", "Password reset token sent successfully! Check your mail");
+      if (storedEmail) {
+        setEmail(storedEmail);
       }
     } catch (error) {
-      console.error('Forgot password error:', error);
-        showAlert("Error", error ||"Failed to send password reset token");
-    } finally {
-      setIsLoading(false);
+      console.error(
+        'Unable to restore forgot password email:',
+        error
+      );
     }
   };
 
+  restoreResetEmail();
+}, []);
+
+  const handleSubmit = async (values: { email: string }) => {
+  setError('');
+  setIsLoading(true);
+
+  try {
+    const normalizedEmail = values.email.trim().toLowerCase();
+
+    console.log('Requesting password reset for:', normalizedEmail);
+
+    const response = await API.forgetPassword(normalizedEmail);
+
+    console.log('Forgot password response:', response);
+
+    if (!response.success) {
+      showAlert(
+        'Error',
+        response.message || 'Unable to process password reset request.'
+      );
+      return;
+    }
+
+    // We already know the email the user entered.
+    // Do not depend on the server returning user_email.
+    setEmail(normalizedEmail);
+
+    await setItemSafe(
+      'forgot_password_email',
+      normalizedEmail
+    );
+
+    setEmailSent(true);
+
+    showAlert(
+      'Success',
+      'A password reset code has been sent to your email.'
+    );
+  } catch (error: any) {
+    console.error('Forgot password error:', error);
+
+    showAlert(
+      'Error',
+      error?.message ||
+        'Failed to send password reset code. Please try again.'
+    );
+  } finally {
+    setIsLoading(false);
+  }
+};
+
  const handleResetPassword = async () => {
   setError('');
-  if (password !== passwordConfirmation) {
-    setError('Passwords do not match');
+
+  const cleanToken = token.trim();
+
+  if (!cleanToken) {
+    setError('Enter the reset code sent to your email.');
     return;
   }
+
+  if (!password) {
+    setError('Enter your new password.');
+    return;
+  }
+
   if (password.length < 8) {
-    setError('Password must be at least 8 characters');
+    setError(
+      'Password must be at least 8 characters.'
+    );
     return;
   }
+
+  if (password !== passwordConfirmation) {
+    setError('Passwords do not match.');
+    return;
+  }
+
+  if (!email) {
+    setError(
+      'Your reset session is missing the email address. Please request another reset code.'
+    );
+    return;
+  }
+
   setLoading(true);
+
   try {
-console.log("Resetting password with:", { email, token, password, passwordConfirmation });
+    console.log(
+      'Submitting password reset for:',
+      email
+    );
 
-    const response = await API.resetPassword(email, token, password, passwordConfirmation);
+    /*
+     * DO NOT log password or reset token.
+     */
+    const response = await API.resetPassword(
+      email.trim().toLowerCase(),
+      cleanToken,
+      password,
+      passwordConfirmation
+    );
 
-    console.log(response);
-    if (response.success) {
-      // Success - navigate to login or auto-login
-      router.push('/(tabs)/auth/LoginScreen');
-    } else {
-      setError(response.message || 'Failed to reset password');
+    if (!response.success) {
+      setError(
+        response.message ||
+          'Failed to reset password.'
+      );
+      return;
     }
-  } catch (err) {
-    setError('Network error. Please try again.');
+
+    showAlert(
+      'Password Reset',
+      'Your password has been changed successfully. Please sign in.'
+    );
+
+    router.replace(
+      '/(tabs)/auth/LoginScreen'
+    );
+  } catch (err: any) {
+    console.error(
+      'Reset password request failed:',
+      err
+    );
+
+    setError(
+      err?.message ||
+        'Unable to reset your password. Please try again.'
+    );
   } finally {
     setLoading(false);
   }

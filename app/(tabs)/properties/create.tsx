@@ -77,14 +77,92 @@ const CreateProperty = () => {
 
   setValue(fieldName as any, cleanValue);
 
-  if (fieldName === "amount") {
-    const fee =
-      selectedPropertyType === 1
-        ? Number(cleanValue) * 0.11
-        : Number(cleanValue) * 0.05;
+ const calculateAgencyFees = (
+  amountValue: string | number,
+  propertyType: number
+) => {
+  const amount = Number(
+    String(amountValue || "").replace(/,/g, "")
+  );
 
-    setValue("agent_fee", String(fee));
+  if (!Number.isFinite(amount) || amount <= 0) {
+    setValue("agent_fee", "");
+    setValue("buyer_agent_fee_percentage", "");
+    setValue("buyer_agent_fee", "");
+    setValue("seller_agent_fee_percentage", "");
+    setValue("seller_agent_fee", "");
+    return;
   }
+
+  /*
+   * Property types:
+   *
+   * 1 = Rental
+   * 2 = House Sale
+   * 3 = Land Sale
+   */
+
+  if (propertyType === 1) {
+    const tenantPercentage = 10;
+    const tenantFee =
+      amount * (tenantPercentage / 100);
+
+    setValue(
+      "buyer_agent_fee_percentage",
+      String(tenantPercentage)
+    );
+
+    setValue(
+      "buyer_agent_fee",
+      String(tenantFee)
+    );
+
+    setValue(
+      "seller_agent_fee_percentage",
+      "0"
+    );
+
+    setValue(
+      "seller_agent_fee",
+      "0"
+    );
+
+    /*
+     * Keep legacy field for now.
+     */
+    setValue(
+      "agent_fee",
+      String(tenantFee)
+    );
+
+    return;
+  }
+
+  if (
+    propertyType === 2 || propertyType === 3
+  ) {
+    const buyerPercentage = 5;
+    const sellerPercentage = 5;
+
+    const buyerFee = amount * (buyerPercentage / 100);
+
+    const sellerFee = amount * (sellerPercentage / 100);
+
+    setValue("buyer_agent_fee_percentage", String(buyerPercentage));
+
+    setValue("buyer_agent_fee", String(buyerFee));
+
+    setValue("seller_agent_fee_percentage", String(sellerPercentage));
+
+    setValue("seller_agent_fee", String(sellerFee));
+
+    /*
+     * Legacy field:
+     * customer-facing side for compatibility.
+     */
+    setValue("agent_fee", String(buyerFee));
+  }
+};
 };
 
   const handleMoneyBlur = (fieldName: string) => {
@@ -110,6 +188,13 @@ const CreateProperty = () => {
   area_id: "",
   amount: "",
   agent_fee: "",
+
+ buyer_agent_fee_percentage: "",
+  buyer_agent_fee: "",
+  seller_agent_fee_percentage: "",
+  seller_agent_fee: "",
+
+  
 
   caution_fee: "",
   legal_fee: "",
@@ -580,23 +665,117 @@ const submitProperty = handleSubmit(async (data) => {
                 )}
               />
 
-              <Text style={styles.label}>Agent Fee</Text>
-              <Controller
-                control={control}
-                name="agent_fee"
-                render={({ field }) => (
-                  <TextInput
-                    placeholder="Agent Fee"
-                    editable={false}
-                    style={styles.input}
-                    value={
-                      field.value
-                        ? String(field.value).replace(/\B(?=(\d{3})+(?!\d))/g, ",")
-                        : ""
-                    }
-                  />
-                )}
-              />
+              {selectedPropertyType === 1 && (
+  <View style={styles.feePolicyCard}>
+    <Text style={styles.feePolicyTitle}>
+      Agency Fee
+    </Text>
+
+    <Text style={styles.feePolicyText}>
+      Tenant / Renter
+    </Text>
+
+    <View style={styles.feePolicyRow}>
+      <Text style={styles.feePolicyLabel}>
+        Percentage
+      </Text>
+
+      <Text style={styles.feePolicyValue}>
+        {watch("buyer_agent_fee_percentage") || "0"}%
+      </Text>
+    </View>
+
+    <View style={styles.feePolicyRow}>
+      <Text style={styles.feePolicyLabel}>
+        Estimated Agency Fee
+      </Text>
+
+      <Text style={styles.feePolicyValue}>
+        ₦{formatMoney(
+          watch("buyer_agent_fee") || 0
+        )}
+      </Text>
+    </View>
+
+    <Text style={styles.feePolicyNotice}>
+      The agency fee is shown separately from rent
+      and is not an OHLAM fee.
+    </Text>
+  </View>
+)}
+
+
+{(
+  selectedPropertyType === 2 ||
+  selectedPropertyType === 3
+) && (
+  <View style={styles.feePolicyCard}>
+    <Text style={styles.feePolicyTitle}>
+      Agency Fee Arrangement
+    </Text>
+
+    <Text style={styles.feePolicySection}>
+      Buyer
+    </Text>
+
+    <View style={styles.feePolicyRow}>
+      <Text style={styles.feePolicyLabel}>
+        Buyer Rate
+      </Text>
+
+      <Text style={styles.feePolicyValue}>
+        {watch("buyer_agent_fee_percentage") || "0"}%
+      </Text>
+    </View>
+
+    <View style={styles.feePolicyRow}>
+      <Text style={styles.feePolicyLabel}>
+        Buyer Agency Fee
+      </Text>
+
+      <Text style={styles.feePolicyValue}>
+        ₦{formatMoney(
+          watch("buyer_agent_fee") || 0
+        )}
+      </Text>
+    </View>
+
+    <View style={styles.feeDivider} />
+
+    <Text style={styles.feePolicySection}>
+      Seller
+    </Text>
+
+    <View style={styles.feePolicyRow}>
+      <Text style={styles.feePolicyLabel}>
+        Seller Rate
+      </Text>
+
+      <Text style={styles.feePolicyValue}>
+        {watch("seller_agent_fee_percentage") || "0"}%
+      </Text>
+    </View>
+
+    <View style={styles.feePolicyRow}>
+      <Text style={styles.feePolicyLabel}>
+        Seller Agency Fee
+      </Text>
+
+      <Text style={styles.feePolicyValue}>
+        ₦{formatMoney(
+          watch("seller_agent_fee") || 0
+        )}
+      </Text>
+    </View>
+
+    <Text style={styles.feePolicyNotice}>
+      Buyer and seller agency fees are displayed
+      separately. These are transaction-related
+      agency fees and are not OHLAM service fees.
+    </Text>
+  </View>
+)}
+
 
               <Text style={styles.label}>Legal / Tenancy Agreement fee</Text>
               <Controller
@@ -1096,6 +1275,65 @@ feeNoticeTitle: {
 feeNoticeText: {
   fontSize: 13,
   lineHeight: 19,
+},
+
+
+feePolicyCard: {
+  borderWidth: 1,
+  borderColor: "#bbf7d0",
+  borderRadius: 12,
+  padding: 14,
+  marginBottom: 15,
+  backgroundColor: "rgba(240, 253, 244, 0.85)",
+},
+
+feePolicyTitle: {
+  fontSize: 17,
+  fontWeight: "900",
+  marginBottom: 10,
+  color: "#166534",
+},
+
+feePolicySection: {
+  fontSize: 14,
+  fontWeight: "900",
+  marginBottom: 7,
+  color: "#0f172a",
+},
+
+feePolicyRow: {
+  flexDirection: "row",
+  justifyContent: "space-between",
+  paddingVertical: 6,
+},
+
+feePolicyLabel: {
+  color: "#475569",
+  fontSize: 14,
+},
+
+feePolicyValue: {
+  color: "#0f172a",
+  fontWeight: "900",
+  fontSize: 14,
+},
+
+feePolicyText: {
+  fontWeight: "800",
+  marginBottom: 7,
+},
+
+feeDivider: {
+  borderTopWidth: 1,
+  borderTopColor: "#d1fae5",
+  marginVertical: 10,
+},
+
+feePolicyNotice: {
+  fontSize: 12,
+  lineHeight: 18,
+  color: "#475569",
+  marginTop: 10,
 },
 });
 
