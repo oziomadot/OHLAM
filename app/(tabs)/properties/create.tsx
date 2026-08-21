@@ -215,6 +215,8 @@ const CreateProperty = () => {
   access_road: false,
   survey_plan: false,
   c_of_o: false,
+
+  
 },
   });
 

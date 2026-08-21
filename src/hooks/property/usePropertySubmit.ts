@@ -411,6 +411,18 @@ export function usePropertySubmit({
         formData
       ).forEach(
         ([key, val]) => {
+
+ if (
+      selectedPropertyType === 3 &&
+      [
+        "access_road",
+        "survey_plan",
+        "c_of_o",
+      ].includes(key)
+    ) {
+      return;
+    }
+
           if (
             key ===
               "additional_fee_items" ||
@@ -451,6 +463,23 @@ export function usePropertySubmit({
           );
         }
       );
+
+      if (selectedPropertyType === 3) {
+  data.set(
+    "access_road",
+    formData.access_road ? "1" : "0"
+  );
+
+  data.set(
+    "survey_plan",
+    formData.survey_plan ? "1" : "0"
+  );
+
+  data.set(
+    "c_of_o",
+    formData.c_of_o ? "1" : "0"
+  );
+}
 
       appendAdditionalFeeItems(
         data,
