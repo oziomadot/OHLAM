@@ -206,21 +206,15 @@ export function usePropertySubmit({
       }
     }
 
-    if (
-      selectedPropertyType === 2
-    ) {
+    if (selectedPropertyType === 2) {
       const hasImage =
         hasFile(
           images?.wholeBuilding
         );
 
-      const hasVideo =
-        hasFile(video);
+      const hasVideo = hasFile(video);
 
-      if (
-        !hasImage &&
-        !hasVideo
-      ) {
+      if (!hasImage && !hasVideo) {
         showAlert(
           "Missing Property Media",
           "Please upload at least one property image or one property video."
@@ -230,9 +224,7 @@ export function usePropertySubmit({
       }
     }
 
-    if (
-      selectedPropertyType === 3
-    ) {
+    if ( selectedPropertyType === 3) {
       const hasImage =
         hasFile(
           images?.wholeBuilding
@@ -282,19 +274,11 @@ export function usePropertySubmit({
       return;
     }
 
-    data.append(
-      fieldName,
-      {
-        uri: file.uri,
-        name:
-          file.name ||
-          defaultName,
-
-        type:
-          file.type ||
-          defaultType,
-      } as any
-    );
+    data.append(fieldName, {
+      uri: file.uri,
+      name: file.name || defaultName,
+      type: file.type || defaultType,
+    } as any);
   };
 
   const appendAdditionalFeeItems = (

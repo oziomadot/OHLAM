@@ -42,7 +42,15 @@ export default function LandSaleFields({
       ].map(([label, name]) => (
         <View style={styles.switch} key={name}>
           <Text style={styles.label}>{label}</Text>
-          <Switch value={!!watch(name)} onValueChange={(v) => setValue(name, v)} />
+          <Switch
+  value={!!watch(name)}
+  onValueChange={(value) =>
+    setValue(name, value, {
+      shouldDirty: true,
+      shouldValidate: true,
+    })
+  }
+/>
         </View>
       ))}
     </>

@@ -211,6 +211,10 @@ const CreateProperty = () => {
   latitude: "",
   longitude: "",
   virtual_tour_url: "",
+
+  access_road: false,
+  survey_plan: false,
+  c_of_o: false,
 },
   });
 
