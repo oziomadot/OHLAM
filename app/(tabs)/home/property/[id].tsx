@@ -31,6 +31,7 @@ import ScreenWrapper from "components/ScreenWrapper";
 
 import usePreventScreenCapture from "@/hooks/usePreventScreenCapture";
 import { useAuth } from "@/context/AuthContext";
+import MatterportViewer from "components/properties/MatterportViewer";
 
 /*
 |--------------------------------------------------------------------------
@@ -2094,20 +2095,12 @@ const sellerAgentFee =
           >
             <Row
               label="Building Type"
-              value={
-                houseSale
-                  .building_type
-                  ?.name
-              }
+              value={houseSale.building_type?.name}
             />
 
             <Row
               label="Building"
-              value={
-                houseSale
-                  .building
-                  ?.name
-              }
+              value={houseSale.building?.name}
             />
 
             <Row
@@ -2357,6 +2350,10 @@ const sellerAgentFee =
                 </Text>
               </TouchableOpacity>
             )}
+
+<MatterportViewer
+  modelId={property?.matterport_model_id}
+/>
 
             {property
               .virtual_tour_url && (
