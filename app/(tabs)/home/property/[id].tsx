@@ -33,6 +33,7 @@ import usePreventScreenCapture from "@/hooks/usePreventScreenCapture";
 import { useAuth } from "@/context/AuthContext";
 import MatterportViewer from "components/properties/MatterportViewer";
 
+
 /*
 |--------------------------------------------------------------------------
 | API BASE
@@ -63,17 +64,11 @@ const baseOrigin = () =>
 |
 */
 
-const resolveMediaUrl = (
-  url?: string | null,
-  path?: string | null
-) => {
+const resolveMediaUrl = (url?: string | null, path?: string | null) => {
   /*
    * Laravel-generated URL has priority.
    */
-  if (
-    url &&
-    /^https?:\/\//i.test(url)
-  ) {
+  if (url && /^https?:\/\//i.test(url)) {
     return url;
   }
 
@@ -84,9 +79,7 @@ const resolveMediaUrl = (
   /*
    * Existing complete URL.
    */
-  if (
-    /^https?:\/\//i.test(path)
-  ) {
+  if (/^https?:\/\//i.test(path)) {
     return path;
   }
 
@@ -768,40 +761,30 @@ export default function PropertyDetailScreen() {
     statusCode ===
       "property_under_investigation";
 
-  /*
-   * The owner should not express interest
-   * in their own listing.
-   */
-  const isOwnProperty =
-    Boolean(
-      user?.id &&
-        Number(
-          property
-            .user_id
-        ) ===
-          Number(
-            user.id
-          )
-    );
 
   /*
    * Prefer backend decision if
    * API already provides it.
    */
-  const backendCanExpressInterest =
-    property
-      .can_express_interest;
+  const currentUserId =
+  user?.id != null
+    ? Number(user.id)
+    : null;
 
-  const canContact =
-    typeof backendCanExpressInterest ===
-    "boolean"
-      ? backendCanExpressInterest
-      : (
-          isAvailable &&
-          !isFlagged &&
-          !isOwnProperty
-        );
+const propertyListerId =
+  property?.user_id != null
+    ? Number(property.user_id)
+    : null;
 
+const isOwnProperty =
+  currentUserId !== null &&
+  propertyListerId !== null &&
+  currentUserId === propertyListerId;
+
+const canContact = !isOwnProperty;
+
+
+   
   const unavailableReason =
     property
       .interest_unavailable_reason ||
@@ -1188,9 +1171,7 @@ const sellerAgentFee =
         >
           <Row
             label="Property ID"
-            value={
-              property.id
-            }
+            value={property.id}
           />
 
           <Row
