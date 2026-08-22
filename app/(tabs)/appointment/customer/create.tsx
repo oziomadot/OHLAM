@@ -255,11 +255,7 @@ function getPropertyTitle(
    * House sale
    */
 
-  if (
-    Number(
-      property.property_type_id
-    ) === 2
-  ) {
+  if (Number(property.property_type_id) === 2) {
     return (
       property.house_sale
         ?.building_type?.name ||
@@ -273,11 +269,7 @@ function getPropertyTitle(
    * Land
    */
 
-  if (
-    Number(
-      property.property_type_id
-    ) === 3
-  ) {
+  if (Number(property.property_type_id) === 3) {
     return property.land_sale
       ?.measurement
       ? `${property.land_sale.measurement} Land`
@@ -302,16 +294,10 @@ function calculateOnePercent(
     Number(
       String(
         amount ?? 0
-      ).replace(
-        /,/g,
-        ""
-      )
+      ).replace(/,/g, "")
     );
 
-  if (
-    Number.isNaN(numeric) ||
-    numeric <= 0
-  ) {
+  if (Number.isNaN(numeric) ||  numeric <= 0) {
     return 0;
   }
 
@@ -330,14 +316,11 @@ function formatSlotTime(
   const parts =
     value.split(":");
 
-  if (
-    parts.length < 2
-  ) {
+  if (parts.length < 2) {
     return value;
   }
 
-  const date =
-    new Date();
+  const date = new Date();
 
   date.setHours(
     Number(parts[0])
@@ -447,13 +430,9 @@ export default function CustomerCreateAppointment() {
       null
     );
 
-  const [
-    eligibility,
+  const [eligibility,
     setEligibility,
-  ] =
-    useState<AppointmentEligibility | null>(
-      null
-    );
+  ] = useState<AppointmentEligibility | null>(null);
 
   const [
     selectedDate,
@@ -461,13 +440,9 @@ export default function CustomerCreateAppointment() {
   ] =
     useState<string>("");
 
-  const [
-    slots,
+  const [slots,
     setSlots,
-  ] =
-    useState<AvailableSlot[]>(
-      []
-    );
+  ] = useState<AvailableSlot[]>([]);
 
   const [
     selectedSlot,
@@ -546,8 +521,7 @@ export default function CustomerCreateAppointment() {
            * customer wants.
            */
 
-          if (
-            initialPropertyId
+          if (initialPropertyId
           ) {
             const response =
               await API.getProperty(

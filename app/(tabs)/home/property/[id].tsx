@@ -414,54 +414,54 @@ export default function PropertyDetailScreen() {
   |--------------------------------------------------------------------------
   */
 
-  const handleInterested =
-    async () => {
-      if (
-        !isAuthenticated
-      ) {
-        router.push({
-          pathname:
-            "/auth/login",
 
-          params: {
-            redirectTo:
-              `/home/property/${property.id}`,
-          },
-        });
+const handleInterested = async () => {
+  if (!isAuthenticated) {
+    router.push({
+      pathname: "/auth/login",
+      params: {
+        redirectTo:
+          `/home/property/${property.id}`,
+      },
+    });
 
-        return;
-      }
+    return;
+  }
 
-      try {
-        await API.storePropertyInterest(
-          property.id
-        );
+  try {
+    const response =
+      await API.storePropertyInterest(
+        property.id
+      );
 
-        router.push({
-          pathname:
-            "/appointment/customer/create",
+    console.log(
+      "INTEREST CREATED:",
+      response?.data
+    );
 
-          params: {
-            property_id:
-              String(
-                property.id
-              ),
-          },
-        });
-      } catch (
-        error: any
-      ) {
-        Alert.alert(
-          "Unable to continue",
+    router.push({
+      pathname:
+        "/appointment/customer/create",
+      params: {
+        property_id:
+          String(property.id),
+      },
+    });
+  } catch (error: any) {
+    console.error(
+      "INTEREST ERROR:",
+      error?.response?.data ||
+        error
+    );
 
-          error
-            ?.response
-            ?.data
-            ?.message ||
-            "Could not register your interest in this property."
-        );
-      }
-    };
+    Alert.alert(
+      "Unable to continue",
+      error?.response?.data
+        ?.message ||
+        "Could not register your interest in this property."
+    );
+  }
+};
 
   /*
   |--------------------------------------------------------------------------
@@ -781,9 +781,11 @@ const isOwnProperty =
   propertyListerId !== null &&
   currentUserId === propertyListerId;
 
-const canContact = !isOwnProperty;
 
-
+const canContact =
+  isAvailable &&
+  !isFlagged &&
+  !isOwnProperty;
    
   const unavailableReason =
     property
