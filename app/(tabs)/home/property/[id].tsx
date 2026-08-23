@@ -489,7 +489,7 @@ export default function PropertyDetailScreen() {
 const handleInterested = async () => {
   if (!isAuthenticated || !user) {
     router.push({
-      pathname: "/LoginScreen",
+      pathname: "/(tabs)/auth/LoginScreen" as any,
       params: {
         redirectTo: `/home/property/${property.id}`,
         action: "interest",
