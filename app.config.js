@@ -55,7 +55,8 @@ export default {
         }
       ],
       "expo-router",
-      "expo-notifications"
+      "expo-notifications",
+      "expo-video"
     ],
 
     updates: {

@@ -24,11 +24,7 @@ import * as WebBrowser from "expo-web-browser";
 import { Formik } from "formik";
 import * as Yup from "yup";
 
-import {
-  Link,
-  useFocusEffect,
-  useRouter,
-} from "expo-router";
+import {Link, useFocusEffect, useRouter, useLocalSearchParams,} from "expo-router";
 
 import { FontAwesome } from "@expo/vector-icons";
 
@@ -226,12 +222,11 @@ export default function LoginScreen() {
     setBiometricLoginAvailable,
   ] = useState(false);
 
-  const [
-    quickLoginEmail,
-    setQuickLoginEmail,
-  ] = useState<string | null>(
-    null
-  );
+  const [quickLoginEmail, setQuickLoginEmail, ] = useState<string | null>(null);
+
+const {redirectTo, action, property_id,} = useLocalSearchParams<{ redirectTo?: string;  action?: string;
+  property_id?: string;
+}>();
 
   const [
     alertVisible,
@@ -358,6 +353,13 @@ export default function LoginScreen() {
         token,
         user
       );
+if (redirectTo) {
+  router.replace(
+    redirectTo as any
+  );
+
+  return;
+}
 
       router.replace("/home");
     };

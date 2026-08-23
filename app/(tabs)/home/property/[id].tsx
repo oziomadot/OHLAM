@@ -32,6 +32,11 @@ import ScreenWrapper from "components/ScreenWrapper";
 import usePreventScreenCapture from "@/hooks/usePreventScreenCapture";
 import { useAuth } from "@/context/AuthContext";
 import MatterportViewer from "components/properties/MatterportViewer";
+import {
+  useVideoPlayer,
+  VideoView,
+  VideoSource,
+} from "expo-video";
 
 
 /*
@@ -295,6 +300,63 @@ const CostRow = ({
   </View>
 );
 
+
+function PropertyVideo({
+  url,
+}: {
+  url: string;
+}) {
+  const videoSource: VideoSource = {
+    uri: url,
+  };
+
+  const player =
+    useVideoPlayer(
+      videoSource,
+      (videoPlayer) => {
+        videoPlayer.loop = true;
+        videoPlayer.muted = true;
+      }
+    );
+
+  return (
+    <View
+      style={
+        styles.propertyVideoBox
+      }
+    >
+      <VideoView
+        player={player}
+        style={
+          styles.propertyVideo
+        }
+        nativeControls
+        contentFit="cover"
+        allowsFullscreen
+      />
+
+      <View
+        style={
+          styles.videoLabel
+        }
+      >
+        <MaterialCommunityIcons
+          name="video"
+          size={16}
+          color="#ffffff"
+        />
+
+        <Text
+          style={
+            styles.videoLabelText
+          }
+        >
+          Property Video
+        </Text>
+      </View>
+    </View>
+  );
+}
 /*
 |--------------------------------------------------------------------------
 | SCREEN
@@ -320,13 +382,9 @@ export default function PropertyDetailScreen() {
     true
   );
 
-  const [
-    property,
-    setProperty,
-  ] =
-    useState<any>(
-      null
-    );
+  const [ property, setProperty, ] =  useState<any>( null );
+
+
 
   const [
     loading,
@@ -429,19 +487,35 @@ export default function PropertyDetailScreen() {
 
 
 const handleInterested = async () => {
-  if (!isAuthenticated) {
+  /*
+   * STEP 1:
+   * User must login before we create
+   * an Interest record.
+   */
+  if (!isAuthenticated || !user) {
     router.push({
       pathname: "/auth/login",
       params: {
-        redirectTo:
-          `/home/property/${property.id}`,
+        redirectTo: `/home/property/${property.id}`,
+        action: "interest",
+        property_id: String(property.id),
       },
     });
 
     return;
   }
 
+  /*
+   * STEP 2:
+   * User is authenticated.
+   * Register the interest.
+   */
   try {
+    console.log(
+      "CREATING INTEREST:",
+      property.id
+    );
+
     const response =
       await API.storePropertyInterest(
         property.id
@@ -452,6 +526,11 @@ const handleInterested = async () => {
       response?.data
     );
 
+    /*
+     * STEP 3:
+     * Interest successfully created.
+     * Continue to appointment creation.
+     */
     router.push({
       pathname:
         "/appointment/customer/create",
@@ -485,39 +564,20 @@ const handleInterested = async () => {
   const images =
     useMemo(
       () => {
-        if (
-          !property?.media
-        ) {
+        if (!property?.media) {
           return [];
         }
 
-        const media =
-          property.media;
+        const media =  property.media;
 
-        const candidates =
-          [
-            {
-              title:
-                "Whole Building",
-
-              url:
-                media
-                  .whole_building_url,
-
-              path:
-                media
-                  .wholeBuilding ||
-                media
-                  .whole_building,
+       const candidates = [ {
+              title: "Whole Building",
+              url: media.whole_building_url,
+              path: media.wholeBuilding || media.whole_building,
             },
 
-            {
-              title:
-                "Sitting Room",
-
-              url:
-                media
-                  .sitting_room_url,
+            { title: "Sitting Room",
+              url: media.sitting_room_url,
 
               path:
                 media
@@ -619,6 +679,8 @@ const handleInterested = async () => {
       ]
     );
 
+    
+
   /*
   |--------------------------------------------------------------------------
   | LOADING
@@ -715,6 +777,8 @@ const handleInterested = async () => {
   const media =
     property.media ||
     {};
+
+     const propertyVideoUrl =  resolveMediaUrl(media?.video_url, media?.video  );
 
   /*
   |--------------------------------------------------------------------------
@@ -1084,99 +1148,136 @@ const sellerAgentFee =
           </Text>
         </View>
 
-        {/* =====================================================
-            IMAGES
-        ====================================================== */}
+      
+{/* =====================================================
+    PROPERTY MEDIA
+====================================================== */}
 
-        <ScrollView
-          horizontal
-          showsHorizontalScrollIndicator={
-            false
-          }
-          style={
-            styles.gallery
-          }
-          contentContainerStyle={
-            styles.galleryContent
-          }
-        >
-          {images.length >
-          0 ? (
-            images.map(
-              (
-                img
-              ) => (
-                <View
-                  key={`${img.title}-${img.uri}`}
-                  style={
-                    styles.imageBox
-                  }
-                >
-                  <Image
-                    source={{
-                      uri:
-                        img.uri,
-                    }}
-                    style={
-                      styles.image
-                    }
-                    resizeMode="cover"
-                    onError={(
-                      event
-                    ) => {
-                      console.log(
-                        "PROPERTY IMAGE FAILED:",
-                        {
-                          title:
-                            img.title,
+{(
+  images.length > 0 ||
+  propertyVideoUrl
+) ? (
+  <View
+    style={
+      styles.mediaSection
+    }
+  >
+    <Text
+      style={
+        styles.mediaSectionTitle
+      }
+    >
+      Property Media
+    </Text>
 
-                          uri:
-                            img.uri,
+    {/*
+     * VIDEO
+     *
+     * If video exists, show it.
+     */}
+    {propertyVideoUrl && (
+      <PropertyVideo
+        url={
+          propertyVideoUrl
+        }
+      />
+    )}
 
-                          error:
-                            event
-                              .nativeEvent
-                              .error,
-                        }
-                      );
-                    }}
-                  />
-
-                  <Text
-                    style={
-                      styles.imageLabel
-                    }
-                  >
-                    {
-                      img.title
-                    }
-                  </Text>
-                </View>
-              )
-            )
-          ) : (
+    {/*
+     * IMAGES
+     *
+     * If images also exist,
+     * show them too.
+     */}
+    {images.length > 0 && (
+      <ScrollView
+        horizontal
+        showsHorizontalScrollIndicator={
+          false
+        }
+        style={
+          styles.gallery
+        }
+        contentContainerStyle={
+          styles.galleryContent
+        }
+      >
+        {images.map(
+          (
+            img
+          ) => (
             <View
+              key={`${img.title}-${img.uri}`}
               style={
-                styles.noImage
+                styles.imageBox
               }
             >
-              <MaterialCommunityIcons
-                name="image-off-outline"
-                size={36}
-                color="#94a3b8"
+              <Image
+                source={{
+                  uri:
+                    img.uri,
+                }}
+                style={
+                  styles.image
+                }
+                resizeMode="cover"
+                onError={(
+                  event
+                ) => {
+                  console.log(
+                    "PROPERTY IMAGE FAILED:",
+                    {
+                      title:
+                        img.title,
+
+                      uri:
+                        img.uri,
+
+                      error:
+                        event
+                          .nativeEvent
+                          .error,
+                    }
+                  );
+                }}
               />
 
               <Text
                 style={
-                  styles.noImageText
+                  styles.imageLabel
                 }
               >
-                No images
-                available
+                {
+                  img.title
+                }
               </Text>
             </View>
-          )}
-        </ScrollView>
+          )
+        )}
+      </ScrollView>
+    )}
+  </View>
+) : (
+  <View
+    style={
+      styles.noMediaBox
+    }
+  >
+    <MaterialCommunityIcons
+      name="image-off-outline"
+      size={38}
+      color="#94a3b8"
+    />
+
+    <Text
+      style={
+        styles.noImageText
+      }
+    >
+      No property media available
+    </Text>
+  </View>
+)}
 
         {/* =====================================================
             BASIC INFORMATION
@@ -2757,6 +2858,61 @@ const styles =
         "#166534",
       fontSize: 16,
     },
+
+    mediaSection: {
+  marginVertical: 10,
+},
+
+mediaSectionTitle: {
+  fontSize: 18,
+  fontWeight: "900",
+  color: "#0f172a",
+  marginBottom: 10,
+},
+
+propertyVideoBox: {
+  width: "100%",
+  height: 230,
+  backgroundColor: "#000000",
+  borderRadius: 14,
+  overflow: "hidden",
+  marginBottom: 14,
+  position: "relative",
+},
+
+propertyVideo: {
+  width: "100%",
+  height: "100%",
+},
+
+videoLabel: {
+  position: "absolute",
+  top: 10,
+  left: 10,
+  flexDirection: "row",
+  alignItems: "center",
+  gap: 5,
+  paddingHorizontal: 9,
+  paddingVertical: 5,
+  borderRadius: 999,
+  backgroundColor:
+    "rgba(15,23,42,0.78)",
+},
+
+videoLabelText: {
+  color: "#ffffff",
+  fontSize: 11,
+  fontWeight: "900",
+},
+
+noMediaBox: {
+  height: 180,
+  marginVertical: 10,
+  alignItems: "center",
+  justifyContent: "center",
+  backgroundColor: "#e2e8f0",
+  borderRadius: 14,
+},
 
     /*
      * ADDITIONAL FEE
