@@ -487,14 +487,9 @@ export default function PropertyDetailScreen() {
 
 
 const handleInterested = async () => {
-  /*
-   * STEP 1:
-   * User must login before we create
-   * an Interest record.
-   */
   if (!isAuthenticated || !user) {
     router.push({
-      pathname: "/auth/login",
+      pathname: "/login",
       params: {
         redirectTo: `/home/property/${property.id}`,
         action: "interest",
@@ -505,17 +500,7 @@ const handleInterested = async () => {
     return;
   }
 
-  /*
-   * STEP 2:
-   * User is authenticated.
-   * Register the interest.
-   */
   try {
-    console.log(
-      "CREATING INTEREST:",
-      property.id
-    );
-
     const response =
       await API.storePropertyInterest(
         property.id
@@ -526,11 +511,6 @@ const handleInterested = async () => {
       response?.data
     );
 
-    /*
-     * STEP 3:
-     * Interest successfully created.
-     * Continue to appointment creation.
-     */
     router.push({
       pathname:
         "/appointment/customer/create",
@@ -554,7 +534,6 @@ const handleInterested = async () => {
     );
   }
 };
-
   /*
   |--------------------------------------------------------------------------
   | MEDIA LIST
