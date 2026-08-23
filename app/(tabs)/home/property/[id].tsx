@@ -180,6 +180,19 @@ const firstValue = (
   return null;
 };
 
+
+
+const booleanValue = (
+  value: any
+): boolean => {
+  return (
+    value === true ||
+    value === 1 ||
+    value === "1" ||
+    value === "true"
+  );
+};
+
 /*
 |--------------------------------------------------------------------------
 | ROW
@@ -709,15 +722,15 @@ const handleInterested = async () => {
   |--------------------------------------------------------------------------
   */
 
-  const statusCode =
-    String(
-      property
-        .status
-        ?.code ||
-        ""
-    )
-      .trim()
-      .toLowerCase();
+ const statusCode =
+  String(
+    property?.status?.code ??
+    property?.status_code ??
+    property?.property_status ??
+    ""
+  )
+    .trim()
+    .toLowerCase();
 
   const statusName =
     property
@@ -740,26 +753,27 @@ const handleInterested = async () => {
    * available
    */
   const isAvailable =
-    statusCode ===
-      "property_available" ||
-    statusCode ===
-      "available";
+  [
+    "property_available",
+    "available",
+  ].includes(
+    statusCode
+  );
 
-  const isFlagged =
-    Boolean(
-      property
-        .is_hidden
-    ) ||
-    Boolean(
-      property
-        .duplicate_flagged
-    ) ||
-    statusCode ===
-      "property_flagged" ||
-    statusCode ===
-      "flagged" ||
-    statusCode ===
-      "property_under_investigation";
+ const isFlagged =
+  booleanValue(
+    property?.is_hidden
+  ) ||
+  booleanValue(
+    property?.duplicate_flagged
+  ) ||
+  [
+    "property_flagged",
+    "flagged",
+    "property_under_investigation",
+  ].includes(
+    statusCode
+  );
 
 
   /*
@@ -779,8 +793,8 @@ const propertyListerId =
 const isOwnProperty =
   currentUserId !== null &&
   propertyListerId !== null &&
-  currentUserId === propertyListerId;
-
+  currentUserId ===
+    propertyListerId;
 
 const canContact =
   isAvailable &&

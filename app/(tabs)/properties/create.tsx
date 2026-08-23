@@ -70,106 +70,96 @@ const CreateProperty = () => {
   };
 
   
- const handleMoneyChange = (text: string, fieldName: string) => {
-  const cleanValue = text.replace(/,/g, "");
 
-  if (isNaN(Number(cleanValue))) return;
-
-  setValue(fieldName as any, cleanValue);
-
- const calculateAgencyFees = (
-  amountValue: string | number,
-  propertyType: number
+  
+ const handleMoneyChange = (
+  text: string,
+  fieldName: string
 ) => {
-  const amount = Number(
-    String(amountValue || "").replace(/,/g, "")
-  );
-
-  if (!Number.isFinite(amount) || amount <= 0) {
-    setValue("agent_fee", "");
-    setValue("buyer_agent_fee_percentage", "");
-    setValue("buyer_agent_fee", "");
-    setValue("seller_agent_fee_percentage", "");
-    setValue("seller_agent_fee", "");
-    return;
-  }
+  const cleanValue =
+    text.replace(/,/g, "");
 
   /*
-   * Property types:
+   * Allow:
    *
-   * 1 = Rental
-   * 2 = House Sale
-   * 3 = Land Sale
+   * ""
+   * 100
+   * 100.5
+   * 100.50
    */
-
-  if (propertyType === 1) {
-    const tenantPercentage = 10;
-    const tenantFee =
-      amount * (tenantPercentage / 100);
-
-    setValue(
-      "buyer_agent_fee_percentage",
-      String(tenantPercentage)
-    );
-
-    setValue(
-      "buyer_agent_fee",
-      String(tenantFee)
-    );
-
-    setValue(
-      "seller_agent_fee_percentage",
-      "0"
-    );
-
-    setValue(
-      "seller_agent_fee",
-      "0"
-    );
-
-    /*
-     * Keep legacy field for now.
-     */
-    setValue(
-      "agent_fee",
-      String(tenantFee)
-    );
-
+  if (
+    cleanValue !== "" &&
+    !/^\d*(\.\d{0,2})?$/.test(
+      cleanValue
+    )
+  ) {
     return;
   }
 
+  setValue(
+    fieldName as any,
+    cleanValue,
+    {
+      shouldDirty: true,
+      shouldValidate: true,
+    }
+  );
+
+  /*
+   * Recalculate agency fees
+   * whenever property amount changes.
+   */
   if (
-    propertyType === 2 || propertyType === 3
+    fieldName === "amount"
   ) {
-    const buyerPercentage = 5;
-    const sellerPercentage = 5;
-
-    const buyerFee = amount * (buyerPercentage / 100);
-
-    const sellerFee = amount * (sellerPercentage / 100);
-
-    setValue("buyer_agent_fee_percentage", String(buyerPercentage));
-
-    setValue("buyer_agent_fee", String(buyerFee));
-
-    setValue("seller_agent_fee_percentage", String(sellerPercentage));
-
-    setValue("seller_agent_fee", String(sellerFee));
-
-    /*
-     * Legacy field:
-     * customer-facing side for compatibility.
-     */
-    setValue("agent_fee", String(buyerFee));
+    calculateAgencyFees(
+      cleanValue,
+      selectedPropertyType
+    );
   }
 };
-};
 
-  const handleMoneyBlur = (fieldName: string) => {
-  const currentValue = watch(fieldName as any);
-  if (!currentValue) return;
+  const handleMoneyBlur = (
+  fieldName: string
+) => {
+  const currentValue =
+    watch(
+      fieldName as any
+    );
 
-  const formatted = String(currentValue).replace(/\B(?=(\d{3})+(?!\d))/g, ",");
+  if (
+    !currentValue
+  ) {
+    return;
+  }
+
+  const cleanValue =
+    String(
+      currentValue
+    ).replace(/,/g, "");
+
+  const number =
+    Number(
+      cleanValue
+    );
+
+  if (
+    !Number.isFinite(
+      number
+    )
+  ) {
+    return;
+  }
+
+  const formatted =
+    number.toLocaleString(
+      "en-NG",
+      {
+        maximumFractionDigits:
+          2,
+      }
+    );
+
   setValue(fieldName as any, formatted);
 };
 
@@ -222,6 +212,134 @@ const CreateProperty = () => {
 
   const selectedPropertyType = parseInt(watch("propertyTypes"), 10);
   const selectedListingRoleId = watch("listing_role_id");
+
+  
+const calculateAgencyFees = (
+  amountValue: string | number,
+  propertyType: number
+) => {
+  const amount = Number(
+    String(amountValue || "")
+      .replace(/,/g, "")
+  );
+
+  if (
+    !Number.isFinite(amount) ||
+    amount <= 0
+  ) {
+    setValue("agent_fee", "");
+    setValue(
+      "buyer_agent_fee_percentage",
+      ""
+    );
+    setValue("buyer_agent_fee", "");
+    setValue(
+      "seller_agent_fee_percentage",
+      ""
+    );
+    setValue("seller_agent_fee", "");
+
+    return;
+  }
+
+  /*
+   * 1 = Rental
+   * 2 = House Sale
+   * 3 = Land Sale
+   */
+
+  if (propertyType === 1) {
+    const buyerPercentage = 10;
+
+    const buyerFee =
+      amount *
+      (buyerPercentage / 100);
+
+    setValue(
+      "buyer_agent_fee_percentage",
+      String(buyerPercentage)
+    );
+
+    setValue(
+      "buyer_agent_fee",
+      String(buyerFee)
+    );
+
+    setValue(
+      "seller_agent_fee_percentage",
+      "0"
+    );
+
+    setValue(
+      "seller_agent_fee",
+      "0"
+    );
+
+    // Keep old field for compatibility.
+    setValue("agent_fee", String(buyerFee));
+
+    return;
+  }
+
+  if (
+    propertyType === 2 ||
+    propertyType === 3
+  ) {
+    const buyerPercentage = 5;
+    const sellerPercentage = 5;
+
+    const buyerFee =
+      amount *
+      (buyerPercentage / 100);
+
+    const sellerFee =
+      amount *
+      (sellerPercentage / 100);
+
+    setValue(
+      "buyer_agent_fee_percentage",
+      String(buyerPercentage)
+    );
+
+    setValue(
+      "buyer_agent_fee",
+      String(buyerFee)
+    );
+
+    setValue(
+      "seller_agent_fee_percentage",
+      String(sellerPercentage)
+    );
+
+    setValue(
+      "seller_agent_fee",
+      String(sellerFee)
+    );
+
+    /*
+     * Existing legacy/customer-facing
+     * field remains.
+     */
+    setValue("agent_fee", String(buyerFee));
+  }
+};
+
+  useEffect(() => {
+  const amount =
+    watch("amount");
+
+  if (
+    selectedPropertyType &&
+    amount
+  ) {
+    calculateAgencyFees(
+      amount,
+      selectedPropertyType
+    );
+  }
+}, [
+  selectedPropertyType,
+]);
 
   const {
     states,
