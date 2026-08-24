@@ -19,7 +19,7 @@ import {
 } from "@expo/vector-icons";
 
 import {
-  router,
+  useRouter,
   useFocusEffect,
 } from "expo-router";
 
@@ -77,12 +77,18 @@ const money = (
 };
 
 export default function WalletScreen() {
+
+   const router = useRouter();
   const [
     data,
     setData,
   ] = useState<WalletResponse | null>(
     null
   );
+
+   const goTo = (route: string) => {
+    router.push(route as any);
+  };
 
   const [
     loading,
@@ -114,6 +120,8 @@ export default function WalletScreen() {
           2
         )
       );
+
+    
 
       /*
        * Laravel returns:
@@ -298,7 +306,7 @@ export default function WalletScreen() {
               styles.fundButton
             }
             onPress={() =>
-              router.push(
+              goTo(
                 "/(tabs)/wallet/fund-wallet"
               )
             }
@@ -332,8 +340,8 @@ export default function WalletScreen() {
               styles.balanceCard
             }
             onPress={() =>
-              router.push(
-                "/wallet/locked-funds"
+              goTo(
+                "/(tabs)/wallet/locked-funds"
               )
             }
           >
@@ -377,7 +385,7 @@ export default function WalletScreen() {
               styles.balanceCard
             }
             onPress={() =>
-              router.push(
+              goTo(
                 "/(tabs)/wallet/escrow"
               )
             }
@@ -508,8 +516,8 @@ export default function WalletScreen() {
           title="Fund Wallet"
           subtitle="Transfer money to your OHLAM funding account."
           onPress={() =>
-            router.push(
-              "/wallet/fund-wallet"
+            goTo(
+              "/(tabs)//wallet/fund-wallet"
             )
           }
         />
@@ -519,8 +527,8 @@ export default function WalletScreen() {
           title="Transaction History"
           subtitle="View credits, debits, locks, escrow movements and releases."
           onPress={() =>
-            router.push(
-              "/(tabs)/wallet/transactions"
+            goTo(
+              "/(tabs)/wallet/transaction"
             )
           }
         />
@@ -530,8 +538,8 @@ export default function WalletScreen() {
           title="Payout Bank Account"
           subtitle="Manage the bank account used for eligible payouts."
           onPress={() =>
-            router.push(
-              "/wallet/bank-account"
+            goTo(
+              "/(tabs)/wallet/bank-account"
             )
           }
         />
