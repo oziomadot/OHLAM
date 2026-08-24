@@ -299,7 +299,7 @@ export default function WalletScreen() {
             }
             onPress={() =>
               router.push(
-                "/wallet/fund-wallet"
+                "/(tabs)/wallet/fund-wallet"
               )
             }
           >
@@ -378,7 +378,7 @@ export default function WalletScreen() {
             }
             onPress={() =>
               router.push(
-                "/wallet/escrow"
+                "/(tabs)/wallet/escrow"
               )
             }
           >
@@ -520,7 +520,7 @@ export default function WalletScreen() {
           subtitle="View credits, debits, locks, escrow movements and releases."
           onPress={() =>
             router.push(
-              "/wallet/transactions"
+              "/(tabs)/wallet/transactions"
             )
           }
         />

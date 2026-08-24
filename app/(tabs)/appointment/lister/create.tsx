@@ -73,28 +73,45 @@ export default function CreateListerAvailability() {
     setAvailability(updated);
   };
 
-const saveAvailability = async () => {
-  const selected = availability
-    .filter(
-      (item) =>
-        item.enabled
-    )
-    .map(
-      (item) => ({
-        day_of_week:
-          item.value,
 
-        start_time:
-          item.start_time,
 
-        end_time:
-          item.end_time,
-      })
-    );
+const normalizeTime = (time: string): string | null => {
+  if (!time) {
+    return null;
+  }
+
+  const cleaned = time.trim().replace('.', ':');
+
+  const match = cleaned.match(/^(\d{1,2}):(\d{1,2})$/);
+
+  if (!match) {
+    return null;
+  }
+
+  const hours = Number(match[1]);
+  const minutes = Number(match[2]);
 
   if (
-    selected.length === 0
+    Number.isNaN(hours) ||
+    Number.isNaN(minutes) ||
+    hours < 0 ||
+    hours > 23 ||
+    minutes < 0 ||
+    minutes > 59
   ) {
+    return null;
+  }
+
+  return `${String(hours).padStart(2, '0')}:${String(minutes).padStart(
+    2,
+    '0'
+  )}`;
+};
+
+const saveAvailability = async () => {
+  const enabledDays = availability.filter((item) => item.enabled);
+
+  if (enabledDays.length === 0) {
     Alert.alert(
       'Required',
       'Please select at least one available day.'
@@ -103,25 +120,77 @@ const saveAvailability = async () => {
     return;
   }
 
+  const selected = [];
+
+  for (const item of enabledDays) {
+    const startTime = normalizeTime(item.start_time);
+    const endTime = normalizeTime(item.end_time);
+
+    if (!startTime) {
+      Alert.alert(
+        'Invalid Start Time',
+        `Please enter a valid start time for ${item.label}.\n\nExample: 09:00`
+      );
+
+      return;
+    }
+
+    if (!endTime) {
+      Alert.alert(
+        'Invalid End Time',
+        `Please enter a valid end time for ${item.label}.\n\nExample: 14:00`
+      );
+
+      return;
+    }
+
+    const startMinutes =
+      Number(startTime.split(':')[0]) * 60 +
+      Number(startTime.split(':')[1]);
+
+    const endMinutes =
+      Number(endTime.split(':')[0]) * 60 +
+      Number(endTime.split(':')[1]);
+
+    if (endMinutes <= startMinutes) {
+      Alert.alert(
+        'Invalid Time Range',
+        `The end time for ${item.label} must be later than the start time.`
+      );
+
+      return;
+    }
+
+    selected.push({
+      day_of_week: item.value,
+      start_time: startTime,
+      end_time: endTime,
+    });
+  }
+
+  console.log(
+    'CREATE AVAILABILITY PAYLOAD:',
+    JSON.stringify(
+      {
+        availability: selected,
+      },
+      null,
+      2
+    )
+  );
+
   try {
-    const res =
-      await API.createAvailability({
-        availability:
-          selected,
-      });
+    const res = await API.createAvailability({
+      availability: selected,
+    });
 
     Alert.alert(
       'Success',
-      res.message ||
-        'Availability saved successfully.'
+      res.message || 'Availability saved successfully.'
     );
 
-    router.push(
-      '/appointment/lister/view'
-    );
-  } catch (
-    error: any
-  ) {
+    router.push('/appointment/lister/view');
+  } catch (error: any) {
     console.log(
       'CREATE AVAILABILITY ERROR:',
       error.response?.data ||
@@ -129,18 +198,13 @@ const saveAvailability = async () => {
         error
     );
 
-    const responseData =
-      error.response?.data;
+    const responseData = error.response?.data;
 
-    const validationErrors =
-      responseData?.errors;
+    const validationErrors = responseData?.errors;
 
-    const firstError =
-      validationErrors
-        ? Object.values(
-            validationErrors
-          ).flat()[0]
-        : null;
+    const firstError = validationErrors
+      ? Object.values(validationErrors).flat()[0]
+      : null;
 
     Alert.alert(
       'Error',
@@ -152,6 +216,8 @@ const saveAvailability = async () => {
     );
   }
 };
+
+
   if (loading) {
     return (
       <View style={styles.center}>
@@ -196,20 +262,42 @@ const saveAvailability = async () => {
                 <Text>Start</Text>
                 <TextInput
                   value={item.start_time}
-                  onChangeText={(text) => updateDay(index, 'start_time', text)}
-                  placeholder="10:00"
-                  style={styles.input}
-                />
+                      onChangeText={(text) =>
+                      updateDay(index, 'start_time', text)
+                        }
+                        onBlur={() => {
+                          const normalized = normalizeTime(item.start_time);
+
+                          if (normalized) {
+                            updateDay(index, 'start_time', normalized);
+                          }
+                        }}
+                        placeholder="10:00"
+                        maxLength={5}
+                        keyboardType="numbers-and-punctuation"
+                        style={styles.input}
+                      />
               </View>
 
               <View style={styles.inputGroup}>
                 <Text>End</Text>
                 <TextInput
-                  value={item.end_time}
-                  onChangeText={(text) => updateDay(index, 'end_time', text)}
-                  placeholder="14:00"
-                  style={styles.input}
-                />
+                    value={item.end_time}
+                    onChangeText={(text) =>
+                      updateDay(index, 'end_time', text)
+                    }
+                    onBlur={() => {
+                      const normalized = normalizeTime(item.end_time);
+
+                      if (normalized) {
+                        updateDay(index, 'end_time', normalized);
+                      }
+                    }}
+                    placeholder="14:00"
+                    maxLength={5}
+                    keyboardType="numbers-and-punctuation"
+                    style={styles.input}
+                  />
               </View>
             </View>
           )}
