@@ -551,7 +551,6 @@ export default function WithdrawScreen() {
               onPress={() =>
                 router.push(
                   "/(tabs)/wallet/bank-account"
-                    as any
                 )
               }
             >
@@ -572,7 +571,6 @@ export default function WithdrawScreen() {
             onPress={() =>
               router.push(
                 "/(tabs)/wallet/bank-account"
-                  as any
               )
             }
           >

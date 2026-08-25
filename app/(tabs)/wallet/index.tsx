@@ -225,8 +225,7 @@ const loadWallet = useCallback(
     loadWallet(true);
   };
 
-  const wallet =
-    data?.wallet ?? data;
+  const wallet = data?.wallet;
 
   if (
     loading &&
