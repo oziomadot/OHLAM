@@ -306,9 +306,7 @@ export default function WalletScreen() {
               styles.fundButton
             }
             onPress={() =>
-              goTo(
-                "/(tabs)/wallet/fund-wallet"
-              )
+              goTo("/(tabs)/wallet/fund-wallet")
             }
           >
             <MaterialCommunityIcons
