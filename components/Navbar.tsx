@@ -177,16 +177,16 @@ if (isAuthenticated) {
 }
   // // ==================== NOTIFICATIONS & REFERRAL ====================
 
-  // const shareReferral = async () => {
-  //   if (!user?.referral_code) return;
-  //   try {
-  //     const link = `https://play.google.com/store/apps/details?id=com.oramexapp&referrer=referral_code%3D${user.referral_code}`;
-  //     await Clipboard.setStringAsync(link);
-  //     await Sharing.shareAsync(link);
-  //   } catch {
-  //     Alert.alert("Error", "Unable to share referral link");
-  //   }
-  // };
+  const shareReferral = async () => {
+    if (!user?.referral_code) return;
+    try {
+      const link = `https://play.google.com/store/apps/details?id=com.oramexapp&referrer=referral_code%3D${user.referral_code}`;
+      await Clipboard.setStringAsync(link);
+      await Sharing.shareAsync(link);
+    } catch {
+      Alert.alert("Error", "Unable to share referral link");
+    }
+  };
 
   // ==================== RENDER ====================
 
@@ -204,13 +204,13 @@ if (isAuthenticated) {
       </View>
 
       {/* Web Menu */}
-      {/* {isWeb ? (
+      {isWeb ? (
         <WebMenu 
           activeMenu={activeMenu} 
           isAuthenticated={isAuthenticated} 
           goTo={goTo} 
           logout={logout}
-          shareReferral={shareReferral}
+         
         />
       ) : (
         <MobileMenu 
@@ -220,9 +220,9 @@ if (isAuthenticated) {
           setMenuVisible={setMenuVisible}
           goTo={goTo}
           logout={logout}
-          shareReferral={shareReferral}
+          
         />
-      )} */}
+      )}
     </View>
   );
 }
