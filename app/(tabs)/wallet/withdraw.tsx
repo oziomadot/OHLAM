@@ -149,16 +149,8 @@ export default function WithdrawScreen() {
           const walletResponse =
             await API.getWalletStatement();
 
-          const walletBody =
-            walletResponse?.data ??
-            walletResponse;
-
-          const walletData =
-            walletBody?.data ??
-            walletBody;
-
           setWallet(
-            walletData?.wallet ??
+            walletResponse?.wallet ??
               null
           );
 
@@ -172,18 +164,9 @@ export default function WithdrawScreen() {
             const bankResponse =
               await API.getPayoutBankAccount();
 
-            const bankBody =
-              bankResponse?.data ??
-              bankResponse;
-
-            const bankData =
-              bankBody?.data ??
-              bankBody;
-
             setBankAccount(
-              bankData
+              bankResponse
                 ?.bank_account ??
-                bankData ??
                 null
             );
           } catch (
@@ -282,8 +265,7 @@ export default function WithdrawScreen() {
 
               onPress: () =>
                 router.push(
-                  "/(tabs)/wallet/bank-account"
-                    as any
+                  "/(tabs)/wallet/bank-account" as any
                 ),
             },
           ]
@@ -358,13 +340,9 @@ export default function WithdrawScreen() {
             }
           );
 
-        const body =
-          response?.data ??
-          response;
-
         Alert.alert(
           "Withdrawal Requested",
-          body?.message ??
+          response?.message ??
             "Your withdrawal request has been submitted.",
           [
             {

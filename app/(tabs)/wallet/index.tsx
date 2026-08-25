@@ -50,10 +50,14 @@ type BankAccount = {
 };
 
 type WalletResponse = {
-  wallet: WalletSummary;
+  wallet?: WalletSummary;
 
-  funding_account:
+  funding_account?:
     | FundingAccount
+    | null;
+
+  bank_account?:
+    | BankAccount
     | null;
 };
 
@@ -117,38 +121,7 @@ const loadWallet = useCallback(
         )
       );
 
-      /*
-       * Handle either:
-       *
-       * Axios response:
-       *
-       * response.data = {
-       *   success: true,
-       *   data: {
-       *     wallet: {...},
-       *     funding_account: {...}
-       *   }
-       * }
-       *
-       * OR an API helper which already
-       * returns response.data:
-       *
-       * response = {
-       *   success: true,
-       *   data: {
-       *     wallet: {...},
-       *     funding_account: {...}
-       *   }
-       * }
-       */
-
-      const body =
-        response?.data ??
-        response;
-
-      const walletData =
-        body?.data ??
-        body;
+      const walletData = response;
 
       console.log(
         "NORMALIZED WALLET DATA:",

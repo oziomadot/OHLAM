@@ -181,7 +181,7 @@ function PropertyVideo({
           styles.propertyVideo
         }
         player={
-          player
+          player as any
         }
         nativeControls
         contentFit="cover"

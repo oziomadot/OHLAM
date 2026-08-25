@@ -629,6 +629,16 @@ export type WalletFundingAccount = {
   bank_name: string;
 };
 
+export type PayoutBankAccount = {
+  id: number;
+  bank_name: string;
+  bank_code?: string | null;
+  account_number: string;
+  account_name: string;
+  is_verified: boolean;
+  is_active: boolean;
+};
+
 export type WalletDetailsResponse = {
   success: boolean;
   data: {
@@ -2563,10 +2573,22 @@ async createAvailability(
 // Wallet payout 
 
 
-async getPayoutBankAccount() {
-  return this.get(
-    "/wallet/bank-account"
-  );
+async getPayoutBankAccount(): Promise<{
+  bank_account?: PayoutBankAccount | null;
+}> {
+  const response = await this.get<{
+    data?: { bank_account?: PayoutBankAccount | null } | null;
+    bank_account?: PayoutBankAccount | null;
+  }>("/wallet/bank-account");
+
+  const data = response.data;
+
+  return {
+    bank_account:
+      data?.data?.bank_account ??
+      data?.bank_account ??
+      null,
+  };
 }
 
 async requestWalletWithdrawal(
@@ -2574,11 +2596,13 @@ async requestWalletWithdrawal(
     amount: number;
     bank_account_id?: number;
   }
-) {
-  return this.post(
+): Promise<{ message?: string }> {
+  const response = await this.post<{ message?: string }>(
     "/wallet/withdrawals",
     payload
   );
+
+  return response.data;
 }
 
 async getWalletWithdrawals() {
@@ -2598,11 +2622,13 @@ async savePayoutBankAccount(
     account_number: string;
     account_name: string;
   }
-) {
-  return this.post(
+): Promise<{ message?: string }> {
+  const response = await this.post<{ message?: string }>(
     "/wallet/bank-account",
     payload
   );
+
+  return response.data;
 }
 
 async deletePayoutBankAccount() {

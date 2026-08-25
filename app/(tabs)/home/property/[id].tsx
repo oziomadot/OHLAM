@@ -326,13 +326,13 @@ function PropertyVideo({
       }
     >
       <VideoView
-        player={player}
+        player={player as any}
         style={
           styles.propertyVideo
         }
         nativeControls
         contentFit="cover"
-        allowsFullscreen
+        
       />
 
       <View

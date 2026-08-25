@@ -103,16 +103,8 @@ export default function BankAccountScreen() {
           const response =
             await API.getPayoutBankAccount();
 
-          const body =
-            response?.data ??
-            response;
-
-          const data =
-            body?.data ??
-            body;
-
           const account =
-            data?.bank_account ??
+            response?.bank_account ??
             null;
 
           setBankAccount(
@@ -295,9 +287,7 @@ export default function BankAccountScreen() {
                           cleanAccountName,
                       });
 
-                  const body =
-                    response?.data ??
-                    response;
+                  const body = response;
 
                   Alert.alert(
                     "Bank Account Saved",
@@ -613,8 +603,7 @@ export default function BankAccountScreen() {
                 }
                 onPress={() =>
                   router.push(
-                    "/(tabs)/wallet/withdraw"
-                      as any
+                    "/(tabs)/wallet/withdraw" as any
                   )
                 }
               >
