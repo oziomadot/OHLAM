@@ -949,8 +949,7 @@ const styles =
     },
 
     overlayTouchable: {
-      ...StyleSheet
-        .absoluteFillObject,
+      ...StyleSheet.absoluteFill,
     },
 
     mobileMenuContainer: {

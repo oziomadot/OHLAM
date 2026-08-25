@@ -520,19 +520,7 @@ const loadWallet = useCallback(
 
         {/* ACTIONS */}
 
-        <Text
-          style={
-            styles.sectionTitle
-          }
-        >
-          Wallet services
-        </Text>
-
-
-
-<Text style={{ color: "red", fontWeight: "bold" }}>
-  WALLET SCREEN VERSION 25-AUG-2026
-</Text>
+      
 
 <Text
   style={styles.sectionTitle}

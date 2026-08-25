@@ -23,8 +23,11 @@ import {
   useRouter,
 } from "expo-router";
 
-import Protected from "components/Protected";
-import API from "@/src/services/api";
+import Protected
+  from "components/Protected";
+
+import API
+  from "@/src/services/api";
 
 import usePreventScreenCapture
   from "@/hooks/usePreventScreenCapture";
@@ -46,13 +49,32 @@ type WalletSummary = {
 };
 
 type PayoutBankAccount = {
-  id?: number;
+  id: number;
 
-  bank_name?: string;
+  bank_name: string;
 
-  account_name?: string;
+  bank_code: string;
 
-  account_number?: string;
+  account_name: string;
+
+  account_number: string;
+
+  is_verified: boolean;
+
+  is_active: boolean;
+};
+
+const normalizeBody = (
+  response: any
+) => {
+  const first =
+    response?.data ??
+    response;
+
+  return (
+    first?.data ??
+    first
+  );
 };
 
 const money = (
@@ -63,13 +85,18 @@ const money = (
     | undefined
 ) => {
   const numeric =
-    Number(amount ?? 0);
+    Number(
+      amount ?? 0
+    );
 
   return `₦${numeric.toLocaleString(
     "en-NG",
     {
-      minimumFractionDigits: 2,
-      maximumFractionDigits: 2,
+      minimumFractionDigits:
+        2,
+
+      maximumFractionDigits:
+        2,
     }
   )}`;
 };
@@ -82,14 +109,23 @@ const toNumber = (
     | undefined
 ) => {
   const cleaned =
-    String(value ?? "")
-      .replace(/,/g, "")
+    String(
+      value ?? ""
+    )
+      .replace(
+        /,/g,
+        ""
+      )
       .trim();
 
   const number =
-    Number(cleaned);
+    Number(
+      cleaned
+    );
 
-  return Number.isFinite(number)
+  return Number.isFinite(
+    number
+  )
     ? number
     : 0;
 };
@@ -98,7 +134,9 @@ export default function WithdrawScreen() {
   const router =
     useRouter();
 
-  usePreventScreenCapture(true);
+  usePreventScreenCapture(
+    true
+  );
 
   const [
     wallet,
@@ -131,80 +169,96 @@ export default function WithdrawScreen() {
 
   const available =
     toNumber(
-      wallet?.available_balance
+      wallet
+        ?.available_balance
     );
 
   const requestedAmount =
-    toNumber(amount);
+    toNumber(
+      amount
+    );
+
+  const hasVerifiedAccount =
+    !!bankAccount &&
+    bankAccount.is_active ===
+      true &&
+    bankAccount.is_verified ===
+      true;
 
   const loadData =
     useCallback(
       async () => {
         try {
-          setLoading(true);
+          setLoading(
+            true
+          );
 
-          /*
-           * Wallet.
-           */
           const walletResponse =
-            await API.getWalletStatement();
+            await API
+              .getWalletStatement();
+
+          const walletBody =
+            normalizeBody(
+              walletResponse
+            );
 
           setWallet(
-            walletResponse?.wallet ??
+            walletBody
+              ?.wallet ??
               null
           );
 
-          /*
-           * Existing payout bank account.
-           *
-           * Add getPayoutBankAccount()
-           * to API service below.
-           */
           try {
             const bankResponse =
-              await API.getPayoutBankAccount();
+              await API
+                .getPayoutBankAccount();
+
+            const bankBody =
+              normalizeBody(
+                bankResponse
+              );
 
             setBankAccount(
-              bankResponse
+              bankBody
                 ?.bank_account ??
                 null
             );
           } catch (
             bankError: any
           ) {
-            /*
-             * No payout account is not
-             * fatal. User can add one.
-             */
-            if (
-              bankError?.response
-                ?.status !== 404
-            ) {
-              console.error(
-                "Bank account error:",
+            console.error(
+              "Payout account load error:",
+              bankError
+                ?.response
+                ?.data ??
                 bankError
-                  ?.response?.data ??
-                  bankError
-              );
-            }
+            );
 
-            setBankAccount(null);
+            setBankAccount(
+              null
+            );
           }
-        } catch (error: any) {
+        } catch (
+          error: any
+        ) {
           console.error(
             "Withdrawal load error:",
-            error?.response?.data ??
+            error?.response
+              ?.data ??
               error
           );
 
           Alert.alert(
-            "Unable to load wallet",
-            error?.response?.data
+            "Unable to Load Wallet",
+            error?.response
+              ?.data
               ?.message ??
               "Unable to load your withdrawal information."
           );
         } finally {
-          setLoading(false);
+          setLoading(
+            false
+          );
         }
       },
       []
@@ -219,7 +273,9 @@ export default function WithdrawScreen() {
   );
 
   const handleAmountChange =
-    (text: string) => {
+    (
+      text: string
+    ) => {
       const clean =
         text.replace(
           /,/g,
@@ -235,30 +291,43 @@ export default function WithdrawScreen() {
         return;
       }
 
-      setAmount(clean);
+      setAmount(
+        clean
+      );
     };
 
-  const useMaximum = () => {
-    if (available <= 0) {
-      return;
-    }
+  const useMaximum =
+    () => {
+      if (
+        available <= 0
+      ) {
+        return;
+      }
 
-    setAmount(
-      String(available)
-    );
-  };
+      setAmount(
+        String(
+          available
+        )
+      );
+    };
 
   const requestWithdrawal =
-    async () => {
-      if (!bankAccount) {
+    () => {
+      if (
+        !bankAccount
+      ) {
         Alert.alert(
-          "Payout account required",
-          "Add your payout bank account before requesting a withdrawal.",
+          "Payout Account Required",
+          "Add and verify your payout bank account before requesting a withdrawal.",
           [
             {
-              text: "Cancel",
-              style: "cancel",
+              text:
+                "Cancel",
+
+              style:
+                "cancel",
             },
+
             {
               text:
                 "Add Bank Account",
@@ -275,10 +344,42 @@ export default function WithdrawScreen() {
       }
 
       if (
-        requestedAmount <= 0
+        !bankAccount
+          .is_verified
       ) {
         Alert.alert(
-          "Invalid amount",
+          "Verify Payout Account",
+          "Your payout bank account has not been verified. Verify it before requesting a withdrawal.",
+          [
+            {
+              text:
+                "Cancel",
+
+              style:
+                "cancel",
+            },
+
+            {
+              text:
+                "Verify Account",
+
+              onPress: () =>
+                router.push(
+                  "/(tabs)/wallet/bank-account" as any
+                ),
+            },
+          ]
+        );
+
+        return;
+      }
+
+      if (
+        requestedAmount <=
+        0
+      ) {
+        Alert.alert(
+          "Invalid Amount",
           "Enter an amount greater than zero."
         );
 
@@ -290,8 +391,8 @@ export default function WithdrawScreen() {
         available
       ) {
         Alert.alert(
-          "Insufficient balance",
-          `You have ${money(
+          "Insufficient Balance",
+          `You currently have ${money(
             available
           )} available to withdraw.`
         );
@@ -301,16 +402,20 @@ export default function WithdrawScreen() {
 
       Alert.alert(
         "Confirm Withdrawal",
-        `Request withdrawal of ${money(
+
+        `Request ${money(
           requestedAmount
-        )} to ${bankAccount.bank_name ?? "your bank"} account ending ${String(
-          bankAccount.account_number ??
-            ""
-        ).slice(-4)}?`,
+        )} to:\n\n${bankAccount.account_name}\n${bankAccount.bank_name}\nAccount ending ${bankAccount.account_number.slice(
+          -4
+        )}`,
+
         [
           {
-            text: "Cancel",
-            style: "cancel",
+            text:
+              "Cancel",
+
+            style:
+              "cancel",
           },
 
           {
@@ -326,55 +431,108 @@ export default function WithdrawScreen() {
 
   const submitWithdrawal =
     async () => {
+      if (
+        !bankAccount ||
+        !bankAccount
+          .is_verified
+      ) {
+        return;
+      }
+
       try {
-        setSubmitting(true);
+        setSubmitting(
+          true
+        );
 
         const response =
-          await API.requestWalletWithdrawal(
-            {
+          await API
+            .requestWalletWithdrawal({
               amount:
                 requestedAmount,
 
               bank_account_id:
-                bankAccount?.id,
-            }
+                bankAccount.id,
+            });
+
+        const body =
+          normalizeBody(
+            response
           );
 
         Alert.alert(
           "Withdrawal Requested",
-          response?.message ??
+
+          body?.message ??
             "Your withdrawal request has been submitted.",
+
           [
             {
               text: "OK",
 
               onPress: () => {
-                setAmount("");
+                setAmount(
+                  ""
+                );
 
                 loadData();
               },
             },
           ]
         );
-      } catch (error: any) {
+      } catch (
+        error: any
+      ) {
         console.error(
           "Withdrawal error:",
-          error?.response?.data ??
+          error?.response
+            ?.data ??
             error
         );
 
+        const code =
+          error?.response
+            ?.data?.code;
+
+        if (
+          code ===
+          "PAYOUT_BANK_ACCOUNT_NOT_VERIFIED"
+        ) {
+          Alert.alert(
+            "Verification Required",
+            "Your payout bank account must be verified before withdrawal.",
+            [
+              {
+                text: "OK",
+
+                onPress:
+                  () =>
+                    router.push(
+                      "/(tabs)/wallet/bank-account" as any
+                    ),
+              },
+            ]
+          );
+
+          return;
+        }
+
         Alert.alert(
           "Withdrawal Failed",
-          error?.response?.data
+          error?.response
+            ?.data
             ?.message ??
             "Your withdrawal request could not be submitted."
         );
       } finally {
-        setSubmitting(false);
+        setSubmitting(
+          false
+        );
       }
     };
 
-  if (loading) {
+  if (
+    loading
+  ) {
     return (
       <Protected>
         <View
@@ -453,7 +611,9 @@ export default function WithdrawScreen() {
               styles.balanceAmount
             }
           >
-            {money(available)}
+            {money(
+              available
+            )}
           </Text>
 
           <Text
@@ -461,11 +621,7 @@ export default function WithdrawScreen() {
               styles.balanceHelp
             }
           >
-            Only your available
-            balance can be
-            withdrawn. Locked and
-            escrow funds cannot be
-            withdrawn.
+            Only available wallet funds can be withdrawn. Locked and escrow balances remain protected.
           </Text>
         </View>
 
@@ -479,9 +635,13 @@ export default function WithdrawScreen() {
 
         {bankAccount ? (
           <View
-            style={
-              styles.bankCard
-            }
+            style={[
+              styles.bankCard,
+
+              !bankAccount
+                .is_verified &&
+                styles.unverifiedBankCard,
+            ]}
           >
             <MaterialCommunityIcons
               name="bank-outline"
@@ -499,8 +659,10 @@ export default function WithdrawScreen() {
                   styles.bankName
                 }
               >
-                {bankAccount.bank_name ??
-                  "Bank"}
+                {
+                  bankAccount
+                    .bank_name
+                }
               </Text>
 
               <Text
@@ -508,8 +670,10 @@ export default function WithdrawScreen() {
                   styles.accountName
                 }
               >
-                {bankAccount.account_name ??
-                  ""}
+                {
+                  bankAccount
+                    .account_name
+                }
               </Text>
 
               <Text
@@ -519,16 +683,55 @@ export default function WithdrawScreen() {
               >
                 ••••••
                 {String(
-                  bankAccount.account_number ??
-                    ""
+                  bankAccount
+                    .account_number
                 ).slice(-4)}
               </Text>
+
+              <View
+                style={
+                  bankAccount
+                    .is_verified
+                    ? styles.verifiedRow
+                    : styles.unverifiedRow
+                }
+              >
+                <MaterialCommunityIcons
+                  name={
+                    bankAccount
+                      .is_verified
+                      ? "check-decagram"
+                      : "alert-circle-outline"
+                  }
+                  size={16}
+                  color={
+                    bankAccount
+                      .is_verified
+                      ? "#166534"
+                      : "#92400e"
+                  }
+                />
+
+                <Text
+                  style={
+                    bankAccount
+                      .is_verified
+                      ? styles.verifiedText
+                      : styles.unverifiedText
+                  }
+                >
+                  {bankAccount
+                    .is_verified
+                    ? "Verified payout account"
+                    : "Verification required"}
+                </Text>
+              </View>
             </View>
 
             <TouchableOpacity
               onPress={() =>
                 router.push(
-                  "/(tabs)/wallet/bank-account"
+                  "/(tabs)/wallet/bank-account" as any
                 )
               }
             >
@@ -537,7 +740,10 @@ export default function WithdrawScreen() {
                   styles.changeText
                 }
               >
-                Change
+                {bankAccount
+                  .is_verified
+                  ? "Change"
+                  : "Verify"}
               </Text>
             </TouchableOpacity>
           </View>
@@ -548,7 +754,7 @@ export default function WithdrawScreen() {
             }
             onPress={() =>
               router.push(
-                "/(tabs)/wallet/bank-account"
+                "/(tabs)/wallet/bank-account" as any
               )
             }
           >
@@ -563,10 +769,31 @@ export default function WithdrawScreen() {
                 styles.addBankText
               }
             >
-              Add Payout Bank
-              Account
+              Add & Verify Payout Bank Account
             </Text>
           </TouchableOpacity>
+        )}
+
+        {!hasVerifiedAccount && (
+          <View
+            style={
+              styles.warningCard
+            }
+          >
+            <MaterialCommunityIcons
+              name="shield-alert-outline"
+              size={23}
+              color="#92400e"
+            />
+
+            <Text
+              style={
+                styles.warningText
+              }
+            >
+              You need a verified payout bank account before you can withdraw wallet funds.
+            </Text>
+          </View>
         )}
 
         <Text
@@ -594,7 +821,9 @@ export default function WithdrawScreen() {
             style={
               styles.amountInput
             }
-            value={amount}
+            value={
+              amount
+            }
             onChangeText={
               handleAmountChange
             }
@@ -603,6 +832,9 @@ export default function WithdrawScreen() {
           />
 
           <TouchableOpacity
+            disabled={
+              available <= 0
+            }
             onPress={
               useMaximum
             }
@@ -624,8 +856,7 @@ export default function WithdrawScreen() {
               styles.error
             }
           >
-            Amount exceeds your
-            available balance.
+            Amount exceeds your available balance.
           </Text>
         )}
 
@@ -645,11 +876,7 @@ export default function WithdrawScreen() {
               styles.noticeText
             }
           >
-            After you submit the
-            request, the requested
-            amount will be reserved
-            until the withdrawal is
-            completed or rejected.
+            After submission, the requested amount is reserved from your available balance while OHLAM processes the payout.
           </Text>
         </View>
 
@@ -659,10 +886,11 @@ export default function WithdrawScreen() {
 
             (
               submitting ||
-              requestedAmount <= 0 ||
+              requestedAmount <=
+                0 ||
               requestedAmount >
                 available ||
-              !bankAccount
+              !hasVerifiedAccount
             ) &&
               styles.disabledButton,
           ]}
@@ -671,7 +899,7 @@ export default function WithdrawScreen() {
             requestedAmount <= 0 ||
             requestedAmount >
               available ||
-            !bankAccount
+            !hasVerifiedAccount
           }
           onPress={
             requestWithdrawal
@@ -705,11 +933,7 @@ export default function WithdrawScreen() {
             styles.securityText
           }
         >
-          OHLAM will only send
-          approved withdrawals to
-          the payout account
-          registered to your
-          account.
+          OHLAM will only send approved withdrawals to the verified payout account registered to your account.
         </Text>
       </ScrollView>
     </Protected>
@@ -796,7 +1020,15 @@ const styles =
       flexDirection: "row",
       alignItems: "center",
       gap: 13,
-      marginBottom: 23,
+      marginBottom: 14,
+      borderWidth: 1,
+      borderColor:
+        "#e2e8f0",
+    },
+
+    unverifiedBankCard: {
+      borderColor:
+        "#f59e0b",
     },
 
     flex: {
@@ -818,6 +1050,32 @@ const styles =
       marginTop: 3,
     },
 
+    verifiedRow: {
+      flexDirection: "row",
+      alignItems: "center",
+      gap: 5,
+      marginTop: 7,
+    },
+
+    unverifiedRow: {
+      flexDirection: "row",
+      alignItems: "center",
+      gap: 5,
+      marginTop: 7,
+    },
+
+    verifiedText: {
+      color: "#166534",
+      fontSize: 12,
+      fontWeight: "800",
+    },
+
+    unverifiedText: {
+      color: "#92400e",
+      fontSize: 12,
+      fontWeight: "800",
+    },
+
     changeText: {
       color: "#2563eb",
       fontWeight: "800",
@@ -831,19 +1089,41 @@ const styles =
       flexDirection: "row",
       alignItems: "center",
       gap: 10,
-      marginBottom: 23,
+      marginBottom: 14,
     },
 
     addBankText: {
       color: "#2563eb",
       fontWeight: "800",
+      flex: 1,
+    },
+
+    warningCard: {
+      backgroundColor:
+        "#fffbeb",
+      borderWidth: 1,
+      borderColor:
+        "#fde68a",
+      borderRadius: 14,
+      padding: 14,
+      flexDirection: "row",
+      gap: 10,
+      marginBottom: 20,
+    },
+
+    warningText: {
+      flex: 1,
+      color: "#92400e",
+      lineHeight: 19,
+      fontSize: 13,
     },
 
     amountContainer: {
       backgroundColor:
         "#ffffff",
       borderWidth: 1,
-      borderColor: "#e2e8f0",
+      borderColor:
+        "#e2e8f0",
       borderRadius: 18,
       flexDirection: "row",
       alignItems: "center",
@@ -906,7 +1186,7 @@ const styles =
     },
 
     disabledButton: {
-      opacity: 0.5,
+      opacity: 0.45,
     },
 
     withdrawButtonText: {

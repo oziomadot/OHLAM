@@ -2639,6 +2639,29 @@ async deletePayoutBankAccount() {
 
 
 
+async getPayoutBanks() {
+  return this.get(
+    "/wallet/banks"
+  );
+}
+
+async resolvePayoutBankAccount(
+  payload: {
+    bank_code: string;
+    account_number: string;
+  }
+) {
+  return this.post(
+    "/wallet/bank-account/resolve",
+    payload
+  );
+}
+
+
+
+
+
+
 
 }
 
