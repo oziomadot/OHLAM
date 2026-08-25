@@ -528,6 +528,20 @@ const loadWallet = useCallback(
           Wallet services
         </Text>
 
+
+
+<Text style={{ color: "red", fontWeight: "bold" }}>
+  WALLET SCREEN VERSION 25-AUG-2026
+</Text>
+
+<Text
+  style={styles.sectionTitle}
+>
+  Wallet services
+</Text>
+
+
+
         <Action
           icon="bank-transfer-in"
           title="Fund Wallet"

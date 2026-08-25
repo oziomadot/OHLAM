@@ -111,7 +111,7 @@ const AUTH_MENU: MenuItem[] = [
 },
   {label: "Games", path: "/(tabs)/games"},
   {label: "Chat", path: "/(tabs)/chat"},
-  {label: "Wallet", path: "/dashboard/wallet"},
+  {label: "Wallet", path: "/(tabs)/wallet"},
   {label: "Profile", path: "/profile"},
 ];
 
@@ -155,18 +155,18 @@ if (isAuthenticated) {
     ];
   }
 }
-  // ==================== NOTIFICATIONS & REFERRAL ====================
+  // // ==================== NOTIFICATIONS & REFERRAL ====================
 
-  const shareReferral = async () => {
-    if (!user?.referral_code) return;
-    try {
-      const link = `https://play.google.com/store/apps/details?id=com.oramexapp&referrer=referral_code%3D${user.referral_code}`;
-      await Clipboard.setStringAsync(link);
-      await Sharing.shareAsync(link);
-    } catch {
-      Alert.alert("Error", "Unable to share referral link");
-    }
-  };
+  // const shareReferral = async () => {
+  //   if (!user?.referral_code) return;
+  //   try {
+  //     const link = `https://play.google.com/store/apps/details?id=com.oramexapp&referrer=referral_code%3D${user.referral_code}`;
+  //     await Clipboard.setStringAsync(link);
+  //     await Sharing.shareAsync(link);
+  //   } catch {
+  //     Alert.alert("Error", "Unable to share referral link");
+  //   }
+  // };
 
   // ==================== RENDER ====================
 
@@ -184,7 +184,7 @@ if (isAuthenticated) {
       </View>
 
       {/* Web Menu */}
-      {isWeb ? (
+      {/* {isWeb ? (
         <WebMenu 
           activeMenu={activeMenu} 
           isAuthenticated={isAuthenticated} 
@@ -202,7 +202,7 @@ if (isAuthenticated) {
           logout={logout}
           shareReferral={shareReferral}
         />
-      )}
+      )} */}
     </View>
   );
 }
