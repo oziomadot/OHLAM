@@ -82,37 +82,57 @@ const PUBLIC_MENU: MenuItem[] = [
 ];
 
 const AUTH_MENU: MenuItem[] = [
-  {label: "Dashboard", path: "/(tabs)/dashboard"},
+  {
+    label: "Dashboard",
+    path: "/(tabs)/dashboard",
+  },
+
   {
     label: "Appointment",
-    path: "/appointment",
+    path: "/(tabs)/appointment",
     children: [
-    {
-      label: "My Appointments",
-      path: "/appointment/customer",
-    },
-    {
-      label: "Book Appointment",
-      path: "/appointment/customer/create",
-    },
-    {
-      label: "Create Availability",
-      path: "/appointment/lister/create",
-    },
-    {
-      label: "Appointment Requests",
-      path: "/appointment/lister/request",
-    },
-    {
-      label: "Manage Appointments",
-      path: "/appointment/lister/view",
-    },
-  ],
-},
-  {label: "Games", path: "/(tabs)/games"},
-  {label: "Chat", path: "/(tabs)/chat"},
-  {label: "Wallet", path: "/(tabs)/wallet"},
-  {label: "Profile", path: "/profile"},
+      {
+        label: "My Appointments",
+        path: "/(tabs)/appointment/customer",
+      },
+      {
+        label: "Book Appointment",
+        path: "/(tabs)/appointment/customer/create",
+      },
+      {
+        label: "Create Availability",
+        path: "/(tabs)/appointment/lister/create",
+      },
+      {
+        label: "Appointment Requests",
+        path: "/(tabs)/appointment/lister/request",
+      },
+      {
+        label: "Manage Appointments",
+        path: "/(tabs)/appointment/lister/view",
+      },
+    ],
+  },
+
+  {
+    label: "Games",
+    path: "/(tabs)/games",
+  },
+
+  {
+    label: "Chat",
+    path: "/(tabs)/chat",
+  },
+
+  {
+    label: "Wallet",
+    path: "/(tabs)/wallet",
+  },
+
+  {
+    label: "Profile",
+    path: "/(tabs)/profile",
+  },
 ];
 
 const AGENT_MENU: MenuItem[] = [];
