@@ -2560,6 +2560,56 @@ async createAvailability(
 }
 
 
+// Wallet payout 
+
+
+async getPayoutBankAccount() {
+  return this.get(
+    "/wallet/bank-account"
+  );
+}
+
+async requestWalletWithdrawal(
+  payload: {
+    amount: number;
+    bank_account_id?: number;
+  }
+) {
+  return this.post(
+    "/wallet/withdrawals",
+    payload
+  );
+}
+
+async getWalletWithdrawals() {
+  return this.get(
+    "/wallet/withdrawals"
+  );
+}
+
+
+
+
+
+async savePayoutBankAccount(
+  payload: {
+    bank_name: string;
+    bank_code?: string;
+    account_number: string;
+    account_name: string;
+  }
+) {
+  return this.post(
+    "/wallet/bank-account",
+    payload
+  );
+}
+
+async deletePayoutBankAccount() {
+  return this.delete(
+    "/wallet/bank-account"
+  );
+}
 
 
 

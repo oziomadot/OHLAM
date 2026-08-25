@@ -50,15 +50,11 @@ type BankAccount = {
 };
 
 type WalletResponse = {
-  wallet?: WalletSummary;
-  available_balance?: string | number;
-  locked_balance?: string | number;
-  escrow_balance?: string | number;
-  coin_balance?: string | number;
+  wallet: WalletSummary;
 
-  funding_account?: FundingAccount | null;
-
-  bank_account?: BankAccount | null;
+  funding_account:
+    | FundingAccount
+    | null;
 };
 
 const money = (
@@ -102,7 +98,7 @@ export default function WalletScreen() {
 
   usePreventScreenCapture(true);
 
-  const loadWallet = useCallback(
+const loadWallet = useCallback(
   async (silent = false) => {
     try {
       if (!silent) {
@@ -113,7 +109,7 @@ export default function WalletScreen() {
         await API.getWalletStatement();
 
       console.log(
-        "WALLET API RESPONSE:",
+        "RAW WALLET RESPONSE:",
         JSON.stringify(
           response,
           null,
@@ -121,12 +117,12 @@ export default function WalletScreen() {
         )
       );
 
-    
-
       /*
-       * Laravel returns:
+       * Handle either:
        *
-       * {
+       * Axios response:
+       *
+       * response.data = {
        *   success: true,
        *   data: {
        *     wallet: {...},
@@ -134,11 +130,62 @@ export default function WalletScreen() {
        *   }
        * }
        *
-       * So store response.data.
+       * OR an API helper which already
+       * returns response.data:
+       *
+       * response = {
+       *   success: true,
+       *   data: {
+       *     wallet: {...},
+       *     funding_account: {...}
+       *   }
+       * }
        */
-      const walletData =
+
+      const body =
         response?.data ??
         response;
+
+      const walletData =
+        body?.data ??
+        body;
+
+      console.log(
+        "NORMALIZED WALLET DATA:",
+        JSON.stringify(
+          walletData,
+          null,
+          2
+        )
+      );
+
+      console.log(
+        "AVAILABLE BALANCE:",
+        walletData
+          ?.wallet
+          ?.available_balance
+      );
+
+      console.log(
+        "LOCKED BALANCE:",
+        walletData
+          ?.wallet
+          ?.locked_balance
+      );
+
+      console.log(
+        "ESCROW BALANCE:",
+        walletData
+          ?.wallet
+          ?.escrow_balance
+      );
+
+      console.log(
+        "COIN BALANCE:",
+        walletData
+          ?.wallet
+          ?.coin_balance
+      );
 
       setData(
         walletData ?? null
@@ -515,10 +562,21 @@ export default function WalletScreen() {
           subtitle="Transfer money to your OHLAM funding account."
           onPress={() =>
             goTo(
-              "/(tabs)//wallet/fund-wallet"
+              "/(tabs)/wallet/fund-wallet"
             )
           }
         />
+
+        <Action
+  icon="bank-transfer-out"
+  title="Withdraw Funds"
+  subtitle="Request withdrawal of your available wallet balance to your payout bank account."
+  onPress={() =>
+    goTo(
+      "/(tabs)/wallet/withdraw"
+    )
+  }
+/>
 
         <Action
           icon="history"
@@ -526,7 +584,7 @@ export default function WalletScreen() {
           subtitle="View credits, debits, locks, escrow movements and releases."
           onPress={() =>
             goTo(
-              "/(tabs)/wallet/transaction"
+              "/(tabs)/wallet/transactions"
             )
           }
         />
