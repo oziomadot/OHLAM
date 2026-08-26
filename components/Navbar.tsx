@@ -3,7 +3,7 @@ import React, {
 } from "react";
 
 import {
-  Alert,
+  
   Image,
   Modal,
   Platform,
@@ -21,12 +21,6 @@ import {
 import {
   useRouter,
 } from "expo-router";
-
-import * as Clipboard
-  from "expo-clipboard";
-
-import * as Sharing
-  from "expo-sharing";
 
 import {
   useAuth,
@@ -314,54 +308,7 @@ export default function Navbar() {
     }
   }
 
-  const shareReferral =
-    async () => {
-      if (
-        !user?.referral_code
-      ) {
-        Alert.alert(
-          "Referral unavailable",
-          "No referral code is available for your account."
-        );
-
-        return;
-      }
-
-      try {
-        const link =
-          `https://play.google.com/store/apps/details?id=com.oramexglobals.ohlam&referrer=referral_code%3D${user.referral_code}`;
-
-        await Clipboard
-          .setStringAsync(
-            link
-          );
-
-        /*
-         * Sharing.shareAsync requires
-         * a file URI and is not suitable
-         * for sharing plain text URLs.
-         *
-         * For now we copy the referral
-         * link to clipboard.
-         */
-        Alert.alert(
-          "Referral Link Copied",
-          "Your referral link has been copied."
-        );
-      } catch (
-        error
-      ) {
-        console.error(
-          "Referral error:",
-          error
-        );
-
-        Alert.alert(
-          "Error",
-          "Unable to copy referral link."
-        );
-      }
-    };
+ 
 
   const handleLogout =
     async () => {
@@ -400,7 +347,7 @@ export default function Navbar() {
         >
           <Image
             source={require(
-              "../assets/logo.png"
+              "../assets/logo2.png"
             )}
             style={
               styles.logo
@@ -409,14 +356,13 @@ export default function Navbar() {
         </TouchableOpacity>
 
         <Text
-          style={
-            styles.title
-          }
-          numberOfLines={1}
-        >
-          Oramex House & Land
-          Agency
-        </Text>
+  style={styles.title}
+  numberOfLines={2}
+  adjustsFontSizeToFit
+  minimumFontScale={0.75}
+>
+  Oramex House and Land Agency Management
+</Text>
 
         {/*
          * Always show hamburger
@@ -481,37 +427,21 @@ export default function Navbar() {
           )}
 
           {isAuthenticated ? (
-            <>
-              <TouchableOpacity
-                onPress={
-                  shareReferral
-                }
-              >
-                <Text
-                  style={
-                    styles.webMenuItem
-                  }
-                >
-                  Referral
-                </Text>
-              </TouchableOpacity>
-
-              <TouchableOpacity
-                onPress={
-                  handleLogout
-                }
-              >
-                <Text
-                  style={[
-                    styles.webMenuItem,
-                    styles.logoutText,
-                  ]}
-                >
-                  Logout
-                </Text>
-              </TouchableOpacity>
-            </>
-          ) : (
+  <>
+    <TouchableOpacity
+      onPress={handleLogout}
+    >
+      <Text
+        style={[
+          styles.webMenuItem,
+          styles.logoutText,
+        ]}
+      >
+        Logout
+      </Text>
+    </TouchableOpacity>
+  </>
+) : (
             <>
               <TouchableOpacity
                 onPress={() =>
@@ -741,29 +671,8 @@ export default function Navbar() {
               {isAuthenticated ? (
                 <>
                   <TouchableOpacity
-                    style={
-                      styles.mobileMenuRow
-                    }
-                    onPress={
-                      shareReferral
-                    }
-                  >
-                    <Text
-                      style={
-                        styles.mobileItem
-                      }
-                    >
-                      Share Referral
-                    </Text>
-                  </TouchableOpacity>
-
-                  <TouchableOpacity
-                    style={
-                      styles.mobileMenuRow
-                    }
-                    onPress={
-                      handleLogout
-                    }
+                    style={styles.mobileMenuRow}
+                    onPress={handleLogout}
                   >
                     <Text
                       style={[
@@ -842,48 +751,33 @@ const styles =
     },
 
     header: {
-      flexDirection:
-        "row",
-
-      alignItems:
-        "center",
-
-      justifyContent:
-        "space-between",
-
-      paddingHorizontal:
-        16,
-
-      paddingVertical:
-        12,
-
+      flexDirection: "row",
+      alignItems: "center",
+      justifyContent: "space-between",
+      paddingHorizontal: 12,
+      paddingVertical: 10,
       minHeight: 70,
+
+     
     },
 
     logo: {
-      width: 45,
-      height: 45,
-
+      width: 40,
+      height: 40,
       resizeMode:
         "contain",
     },
 
     title: {
-      flex: 1,
-
-      fontSize: 17,
-
-      fontWeight:
-        "bold",
-
-      textAlign:
-        "center",
-
-      color: "green",
-
-      marginHorizontal:
-        10,
-    },
+  flex: 1,
+  fontSize: 15,
+  lineHeight: 19,
+  fontWeight: "800",
+  textAlign: "center",
+  color: "green",
+  marginHorizontal: 8,
+  flexShrink: 1,
+},
 
     menuButton: {
       width: 48,
