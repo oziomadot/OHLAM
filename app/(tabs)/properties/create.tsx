@@ -109,9 +109,7 @@ const CreateProperty = () => {
    * Recalculate agency fees
    * whenever property amount changes.
    */
-  if (
-    fieldName === "amount"
-  ) {
+  if (fieldName === "amount") {
     calculateAgencyFees(
       cleanValue,
       selectedPropertyType
@@ -119,29 +117,16 @@ const CreateProperty = () => {
   }
 };
 
-  const handleMoneyBlur = (
-  fieldName: string
-) => {
-  const currentValue =
-    watch(
-      fieldName as any
-    );
+  const handleMoneyBlur = (fieldName: string) => {
+  const currentValue = watch(fieldName as any);
 
-  if (
-    !currentValue
-  ) {
+  if ( !currentValue) {
     return;
   }
 
-  const cleanValue =
-    String(
-      currentValue
-    ).replace(/,/g, "");
+  const cleanValue = String( currentValue).replace(/,/g, "");
 
-  const number =
-    Number(
-      cleanValue
-    );
+  const number = Number(cleanValue);
 
   if (
     !Number.isFinite(
@@ -151,14 +136,9 @@ const CreateProperty = () => {
     return;
   }
 
-  const formatted =
-    number.toLocaleString(
-      "en-NG",
-      {
-        maximumFractionDigits:
-          2,
-      }
-    );
+  const formatted = number.toLocaleString("en-NG",
+      {maximumFractionDigits:  2,}
+  );
 
   setValue(fieldName as any, formatted);
 };
@@ -223,10 +203,7 @@ const calculateAgencyFees = (
       .replace(/,/g, "")
   );
 
-  if (
-    !Number.isFinite(amount) ||
-    amount <= 0
-  ) {
+  if (!Number.isFinite(amount) || amount <= 0  ) {
     setValue("agent_fee", "");
     setValue(
       "buyer_agent_fee_percentage",
@@ -251,9 +228,7 @@ const calculateAgencyFees = (
   if (propertyType === 1) {
     const buyerPercentage = 10;
 
-    const buyerFee =
-      amount *
-      (buyerPercentage / 100);
+    const buyerFee = amount * (buyerPercentage / 100);
 
     setValue(
       "buyer_agent_fee_percentage",
@@ -281,20 +256,12 @@ const calculateAgencyFees = (
     return;
   }
 
-  if (
-    propertyType === 2 ||
-    propertyType === 3
-  ) {
+  if (propertyType === 2 || propertyType === 3  ) {
     const buyerPercentage = 5;
     const sellerPercentage = 5;
 
-    const buyerFee =
-      amount *
-      (buyerPercentage / 100);
-
-    const sellerFee =
-      amount *
-      (sellerPercentage / 100);
+    const buyerFee = amount * (buyerPercentage / 100);
+    const sellerFee = amount * (sellerPercentage / 100);
 
     setValue(
       "buyer_agent_fee_percentage",
@@ -325,17 +292,10 @@ const calculateAgencyFees = (
 };
 
   useEffect(() => {
-  const amount =
-    watch("amount");
+  const amount = watch("amount");
 
-  if (
-    selectedPropertyType &&
-    amount
-  ) {
-    calculateAgencyFees(
-      amount,
-      selectedPropertyType
-    );
+  if (selectedPropertyType && amount) {
+    calculateAgencyFees(amount, selectedPropertyType);
   }
 }, [
   selectedPropertyType,
@@ -508,9 +468,6 @@ const calculateAgencyFees = (
 
   const { onSubmit } = usePropertySubmit({
 
-
-
-    
     selectedPropertyType,
     selectedListingRoleName,
     images,
@@ -533,7 +490,11 @@ const submitProperty = handleSubmit(async (data) => {
       reason: item.reason.trim(),
       amount: moneyToNumber(item.amount),
     }))
-    .filter((item) => item.reason.length > 0 || item.amount > 0);
+    .filter(
+      (item) =>
+        item.reason.length > 0 ||
+        item.amount > 0
+    );
 
   if (additionalFee > 0) {
     if (feeRows.length === 0) {
@@ -545,7 +506,9 @@ const submitProperty = handleSubmit(async (data) => {
     }
 
     const incompleteRow = feeRows.some(
-      (item) => !item.reason || item.amount <= 0
+      (item) =>
+        !item.reason ||
+        item.amount <= 0
     );
 
     if (incompleteRow) {
@@ -557,68 +520,108 @@ const submitProperty = handleSubmit(async (data) => {
     }
 
     const rowTotal = feeRows.reduce(
-      (total, item) => total + item.amount,
+      (total, item) =>
+        total + item.amount,
       0
     );
 
-    if (Math.abs(rowTotal - additionalFee) > 0.009) {
+    if (
+      Math.abs(
+        rowTotal -
+          additionalFee
+      ) > 0.009
+    ) {
       showAlert(
         "Additional Fee Total Does Not Match",
-        `The additional fee is ₦${formatMoney(additionalFee)}, but the breakdown totals ₦${formatMoney(rowTotal)}. Please correct the amounts before submitting.`
+        `The additional fee is ₦${formatMoney(
+          additionalFee
+        )}, but the breakdown totals ₦${formatMoney(
+          rowTotal
+        )}. Please correct the amounts before submitting.`
       );
+
       return;
     }
   } else {
-    const hasFeeRowValue = feeRows.some(
-      (item) => item.reason || item.amount > 0
-    );
+    const hasFeeRowValue =
+      feeRows.some(
+        (item) =>
+          item.reason ||
+          item.amount > 0
+      );
 
     if (hasFeeRowValue) {
       showAlert(
         "Additional Fee Is Missing",
         "You entered an additional fee breakdown, but the Additional Fee total is zero. Enter the total additional fee or remove the breakdown rows."
       );
+
       return;
     }
   }
 
-  const expenseRows = additionalExpenses
-    .map((item) => ({
-      description: item.description.trim(),
-    }))
-    .filter((item) => item.description.length > 0);
+  const expenseRows =
+    additionalExpenses
+      .map((item) => ({
+        description:
+          item.description.trim(),
+      }))
+      .filter(
+        (item) =>
+          item.description.length >
+          0
+      );
 
-  data.additional_fee_items = feeRows.map((item) => ({
-    reason: item.reason,
-    amount: String(item.amount),
-  }));
+  data.additional_fee_items =
+    feeRows.map((item) => ({
+      reason: item.reason,
+      amount: String(
+        item.amount
+      ),
+    }));
 
-  data.additional_expenses = expenseRows;
+  data.additional_expenses =
+    expenseRows;
+
+  /*
+  |--------------------------------------------------------------------------
+  | MEDIA VALIDATION
+  |--------------------------------------------------------------------------
+  |
+  | Video only        = valid
+  | Any single photo  = valid
+  | Multiple photos   = valid
+  | Video + photos    = valid
+  | Nothing           = invalid
+  |
+  */
+
+  const hasAnyPhoto = Boolean(
+    images?.wholeBuilding?.uri ||
+      images?.sittingRoom?.uri ||
+      images?.kitchenImage?.uri ||
+      images?.room?.uri ||
+      images?.toiletImage?.uri
+  );
+
+  const hasVideo = Boolean(
+    video?.uri ||
+      video?.name
+  );
 
   if (
-    selectedPropertyType === 2 ||
-    selectedPropertyType === 3
+    !hasAnyPhoto &&
+    !hasVideo
   ) {
-    const hasImage =
-      !!images?.wholeBuilding?.uri;
+    showAlert(
+      "Property Media Required",
+      selectedPropertyType ===
+        3
+        ? "Please upload at least one land photo or one land video."
+        : "Please upload at least one property photo or one property video."
+    );
 
-    const hasVideo =
-      !!video &&
-      (
-        !!video.uri ||
-        !!video.name
-      );
-
-    if (!hasImage && !hasVideo) {
-      showAlert(
-        "Property Media Required",
-        selectedPropertyType === 3
-          ? "Please upload at least one image of the land or one land video."
-          : "Please upload at least one property image or one property video."
-      );
-
-      return;
-    }
+    return;
   }
 
   await onSubmit(data);

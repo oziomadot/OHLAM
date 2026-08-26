@@ -12,6 +12,7 @@ import {
   ScrollView,
   StyleSheet,
   Text,
+  TextInput,
   TouchableOpacity,
   ActivityIndicator,
   Image,
@@ -33,7 +34,6 @@ import API, {
 } from "@/src/services/api";
 
 import Navbar from "components/Navbar";
-import FilterBar from "components/FilterBar";
 import ScreenWrapper from "components/ScreenWrapper";
 
 import usePreventScreenCapture from "@/hooks/usePreventScreenCapture";
@@ -177,20 +177,14 @@ function PropertyVideo({
       }
     >
       <VideoView
-        style={
-          styles.propertyVideo
-        }
-        player={
-          player as any
-        }
+        style={styles.propertyVideo}
+        player={player as any}
         nativeControls
         contentFit="cover"
       />
 
       <View
-        style={
-          styles.videoLabel
-        }
+        style={styles.videoLabel}
       >
         <MaterialCommunityIcons
           name="video"
@@ -199,9 +193,7 @@ function PropertyVideo({
         />
 
         <Text
-          style={
-            styles.videoLabelText
-          }
+          style={styles.videoLabelText}
         >
           Property Video
         </Text>
@@ -249,9 +241,7 @@ function PropertyMediaPreview({
           uri:
             imageUrl,
         }}
-        style={
-          styles.image
-        }
+        style={styles.image}
         resizeMode="cover"
       />
     );
@@ -262,9 +252,7 @@ function PropertyMediaPreview({
    */
   return (
     <View
-      style={
-        styles.noImage
-      }
+      style={styles.noImage}
     >
       <MaterialCommunityIcons
         name="image-off"
@@ -273,9 +261,7 @@ function PropertyMediaPreview({
       />
 
       <Text
-        style={
-          styles.noImageText
-        }
+        style={styles.noImageText}
       >
         No Media
       </Text>
@@ -308,6 +294,11 @@ const IndexScreen =
         max: "",
         search: "",
       });
+
+    const [
+      expandedSections,
+      setExpandedSections,
+    ] = useState<Record<string, boolean>>({});
 
     const [
       loading,
@@ -565,16 +556,53 @@ const IndexScreen =
         );
       };
 
+    const normalizeNumberInput = (
+      value: string
+    ) => {
+      const cleaned = String(
+        value || ""
+      ).replace(/[^0-9.]/g, "");
+
+      const parsed = Number(cleaned);
+
+      return Number.isFinite(parsed)
+        ? parsed
+        : 0;
+    };
+
+    const clearFilters = () => {
+      setFilters({
+        min: "",
+        max: "",
+        search: "",
+      });
+    };
+
+    const hasActiveFilters =
+      Boolean(
+        filters.search.trim() ||
+        filters.min.trim() ||
+        filters.max.trim()
+      );
+
     const filterItems =
       (
         items: any[]
       ) => {
-        const {
-          min,
-          max,
-          search,
-        } =
-          filters;
+        const search =
+          filters.search
+            .trim()
+            .toLowerCase();
+
+        const minAmount =
+          normalizeNumberInput(
+            filters.min
+          );
+
+        const maxAmount =
+          normalizeNumberInput(
+            filters.max
+          );
 
         return items.filter(
           (
@@ -582,40 +610,48 @@ const IndexScreen =
           ) => {
             const amount =
               Number(
-                item.amount
+                String(
+                  item?.amount ??
+                    0
+                ).replace(
+                  /,/g,
+                  ""
+                )
               ) || 0;
 
             const matchMin =
-              min
-                ? amount >=
-                  Number(
-                    min
-                  )
-                : true;
+              !filters.min.trim() ||
+              amount >= minAmount;
 
             const matchMax =
-              max
-                ? amount <=
-                  Number(
-                    max
-                  )
-                : true;
+              !filters.max.trim() ||
+              amount <= maxAmount;
 
             const searchableText =
-              `
-                ${item.state?.name || ""}
-                ${item.area?.name || ""}
-                ${item.listing_role?.name || ""}
-                ${item.listingRole?.name || ""}
-                ${item.verification_status?.name || ""}
-              `.toLowerCase();
+              [
+                item?.address,
+                item?.popular_name,
+                item?.state?.name,
+                item?.area?.name,
+                item?.property_type?.name,
+                item?.propertyType?.name,
+                item?.listing_role?.name,
+                item?.listingRole?.name,
+                item?.verification_status?.name,
+                item?.status?.name,
+                item?.status?.display_name,
+                item?.rental_detail?.building_type?.name,
+                item?.rental_detail?.flat_type?.name,
+              ]
+                .filter(Boolean)
+                .join(" ")
+                .toLowerCase();
 
             const matchSearch =
-              search
-                ? searchableText.includes(
-                    search.toLowerCase()
-                  )
-                : true;
+              !search ||
+              searchableText.includes(
+                search
+              );
 
             return (
               matchMin &&
@@ -688,6 +724,7 @@ const IndexScreen =
       ({
         item,
         categoryKey,
+        fullWidth = false,
       }: any) => {
         const imageUrl =
           getImageUrl(
@@ -744,9 +781,11 @@ const IndexScreen =
                 `/home/property/${item.id}`
               )
             }
-            style={
-              styles.card
-            }
+            style={[
+              styles.card,
+              fullWidth &&
+                styles.cardFullWidth,
+            ]}
           >
             {/*
             ==========================================================
@@ -1143,14 +1182,236 @@ const IndexScreen =
               Verified listings, protected messaging, escrow support and privacy-safe property discovery.
             </Text>
 
-            <FilterBar
-              filters={
-                filters
+            <View
+              style={
+                styles.filterCard
               }
-              setFilters={
-                setFilters
-              }
-            />
+            >
+              <View
+                style={
+                  styles.filterHeader
+                }
+              >
+                <View
+                  style={
+                    styles.filterTitleRow
+                  }
+                >
+                  <MaterialCommunityIcons
+                    name="tune-variant"
+                    size={20}
+                    color="#0f172a"
+                  />
+
+                  <Text
+                    style={
+                      styles.filterTitle
+                    }
+                  >
+                    Find the right property
+                  </Text>
+                </View>
+
+                {hasActiveFilters && (
+                  <TouchableOpacity
+                    onPress={
+                      clearFilters
+                    }
+                    style={
+                      styles.clearFilterButton
+                    }
+                  >
+                    <Text
+                      style={
+                        styles.clearFilterText
+                      }
+                    >
+                      Clear
+                    </Text>
+                  </TouchableOpacity>
+                )}
+              </View>
+
+              <View
+                style={
+                  styles.searchBox
+                }
+              >
+                <MaterialCommunityIcons
+                  name="magnify"
+                  size={21}
+                  color="#64748b"
+                />
+
+                <TextInput
+                  value={
+                    filters.search
+                  }
+                  onChangeText={(
+                    value
+                  ) =>
+                    setFilters(
+                      (
+                        current
+                      ) => ({
+                        ...current,
+                        search:
+                          value,
+                      })
+                    )
+                  }
+                  placeholder="Search state, area, property type..."
+                  placeholderTextColor="#94a3b8"
+                  style={
+                    styles.searchInput
+                  }
+                  returnKeyType="search"
+                  autoCorrect={
+                    false
+                  }
+                />
+
+                {!!filters.search && (
+                  <TouchableOpacity
+                    onPress={() =>
+                      setFilters(
+                        (
+                          current
+                        ) => ({
+                          ...current,
+                          search:
+                            "",
+                        })
+                      )
+                    }
+                  >
+                    <MaterialCommunityIcons
+                      name="close-circle"
+                      size={20}
+                      color="#94a3b8"
+                    />
+                  </TouchableOpacity>
+                )}
+              </View>
+
+              <Text
+                style={
+                  styles.priceFilterLabel
+                }
+              >
+                Price range
+              </Text>
+
+              <View
+                style={
+                  styles.priceFilterRow
+                }
+              >
+                <View
+                  style={
+                    styles.priceInputBox
+                  }
+                >
+                  <Text
+                    style={
+                      styles.currencyPrefix
+                    }
+                  >
+                    ₦
+                  </Text>
+
+                  <TextInput
+                    value={
+                      filters.min
+                    }
+                    onChangeText={(
+                      value
+                    ) =>
+                      setFilters(
+                        (
+                          current
+                        ) => ({
+                          ...current,
+                          min:
+                            value,
+                        })
+                      )
+                    }
+                    placeholder="Minimum"
+                    placeholderTextColor="#94a3b8"
+                    keyboardType="numeric"
+                    style={
+                      styles.priceInput
+                    }
+                  />
+                </View>
+
+                <View
+                  style={
+                    styles.priceDivider
+                  }
+                />
+
+                <View
+                  style={
+                    styles.priceInputBox
+                  }
+                >
+                  <Text
+                    style={
+                      styles.currencyPrefix
+                    }
+                  >
+                    ₦
+                  </Text>
+
+                  <TextInput
+                    value={
+                      filters.max
+                    }
+                    onChangeText={(
+                      value
+                    ) =>
+                      setFilters(
+                        (
+                          current
+                        ) => ({
+                          ...current,
+                          max:
+                            value,
+                        })
+                      )
+                    }
+                    placeholder="Maximum"
+                    placeholderTextColor="#94a3b8"
+                    keyboardType="numeric"
+                    style={
+                      styles.priceInput
+                    }
+                  />
+                </View>
+              </View>
+
+              <View
+                style={
+                  styles.filterFooter
+                }
+              >
+                <MaterialCommunityIcons
+                  name="lightning-bolt-outline"
+                  size={16}
+                  color="#2563eb"
+                />
+
+                <Text
+                  style={
+                    styles.filterFooterText
+                  }
+                >
+                  Results update instantly as you type.
+                </Text>
+              </View>
+            </View>
 
             <View
               style={
@@ -1295,14 +1556,47 @@ const IndexScreen =
                       </Text>
                     </View>
 
-                    <TouchableOpacity>
+                    <TouchableOpacity
+                      onPress={() =>
+                        setExpandedSections(
+                          (
+                            current
+                          ) => ({
+                            ...current,
+                            [key]:
+                              !current[
+                                key
+                              ],
+                          })
+                        )
+                      }
+                      style={
+                        styles.seeAllButton
+                      }
+                    >
                       <Text
                         style={
                           styles.seeAll
                         }
                       >
-                        See all
+                        {expandedSections[
+                          key
+                        ]
+                          ? "Show less"
+                          : "See all"}
                       </Text>
+
+                      <MaterialCommunityIcons
+                        name={
+                          expandedSections[
+                            key
+                          ]
+                            ? "chevron-up"
+                            : "chevron-right"
+                        }
+                        size={19}
+                        color="#2563eb"
+                      />
                     </TouchableOpacity>
                   </View>
 
@@ -1331,33 +1625,95 @@ const IndexScreen =
                           }
                         </Text>
 
-                        <ScrollView
-                          horizontal
-                          showsHorizontalScrollIndicator={
-                            false
-                          }
-                          contentContainerStyle={
-                            styles.horizontalContent
-                          }
-                        >
-                          {list.map(
-                            (
-                              item: any
-                            ) => (
-                              <PropertyCard
-                                key={
-                                  item.id
-                                }
-                                item={
-                                  item
-                                }
-                                categoryKey={
-                                  key
-                                }
+                        {list.length >
+                          1 &&
+                          !expandedSections[
+                            key
+                          ] && (
+                            <View
+                              style={
+                                styles.swipeHint
+                              }
+                            >
+                              <MaterialCommunityIcons
+                                name="chevron-left"
+                                size={18}
+                                color="#2563eb"
                               />
-                            )
+
+                              <Text
+                                style={
+                                  styles.swipeHintText
+                                }
+                              >
+                                Swipe to see more
+                              </Text>
+
+                              <MaterialCommunityIcons
+                                name="chevron-right"
+                                size={18}
+                                color="#2563eb"
+                              />
+                            </View>
                           )}
-                        </ScrollView>
+
+                        {expandedSections[
+                          key
+                        ] ? (
+                          <View
+                            style={
+                              styles.expandedList
+                            }
+                          >
+                            {list.map(
+                              (
+                                item: any
+                              ) => (
+                                <PropertyCard
+                                  key={
+                                    item.id
+                                  }
+                                  item={
+                                    item
+                                  }
+                                  categoryKey={
+                                    key
+                                  }
+                                  fullWidth
+                                />
+                              )
+                            )}
+                          </View>
+                        ) : (
+                          <ScrollView
+                            horizontal
+                            showsHorizontalScrollIndicator={
+                              true
+                            }
+                            persistentScrollbar
+                            contentContainerStyle={
+                              styles.horizontalContent
+                            }
+                          >
+                            {list.map(
+                              (
+                                item: any
+                              ) => (
+                                <PropertyCard
+                                  key={
+                                    item.id
+                                  }
+                                  item={
+                                    item
+                                  }
+                                  categoryKey={
+                                    key
+                                  }
+                                />
+                              )
+                            )}
+                          </ScrollView>
+                        )}
                       </View>
                     )
                   )}
@@ -1481,6 +1837,163 @@ const styles =
       marginBottom: 16,
     },
 
+    filterCard: {
+      marginTop: 4,
+      backgroundColor:
+        "#f8fafc",
+      borderWidth: 1,
+      borderColor:
+        "#e2e8f0",
+      borderRadius: 22,
+      padding: 14,
+    },
+
+    filterHeader: {
+      flexDirection:
+        "row",
+      alignItems:
+        "center",
+      justifyContent:
+        "space-between",
+      marginBottom: 12,
+    },
+
+    filterTitleRow: {
+      flexDirection:
+        "row",
+      alignItems:
+        "center",
+      gap: 8,
+    },
+
+    filterTitle: {
+      color:
+        "#0f172a",
+      fontWeight:
+        "900",
+      fontSize: 15,
+    },
+
+    clearFilterButton: {
+      backgroundColor:
+        "#fee2e2",
+      paddingHorizontal:
+        10,
+      paddingVertical:
+        6,
+      borderRadius: 999,
+    },
+
+    clearFilterText: {
+      color:
+        "#b91c1c",
+      fontSize: 12,
+      fontWeight:
+        "900",
+    },
+
+    searchBox: {
+      minHeight: 50,
+      flexDirection:
+        "row",
+      alignItems:
+        "center",
+      gap: 9,
+      backgroundColor:
+        "#ffffff",
+      borderWidth: 1,
+      borderColor:
+        "#cbd5e1",
+      borderRadius: 15,
+      paddingHorizontal: 13,
+    },
+
+    searchInput: {
+      flex: 1,
+      color:
+        "#0f172a",
+      fontSize: 14,
+      fontWeight:
+        "600",
+      paddingVertical: 12,
+    },
+
+    priceFilterLabel: {
+      marginTop: 13,
+      marginBottom: 7,
+      color:
+        "#475569",
+      fontSize: 12,
+      fontWeight:
+        "800",
+    },
+
+    priceFilterRow: {
+      flexDirection:
+        "row",
+      alignItems:
+        "center",
+      gap: 8,
+    },
+
+    priceInputBox: {
+      flex: 1,
+      minHeight: 48,
+      flexDirection:
+        "row",
+      alignItems:
+        "center",
+      backgroundColor:
+        "#ffffff",
+      borderWidth: 1,
+      borderColor:
+        "#cbd5e1",
+      borderRadius: 14,
+      paddingHorizontal: 12,
+    },
+
+    currencyPrefix: {
+      color:
+        "#334155",
+      fontWeight:
+        "900",
+      marginRight: 5,
+    },
+
+    priceInput: {
+      flex: 1,
+      color:
+        "#0f172a",
+      fontWeight:
+        "700",
+      paddingVertical: 11,
+    },
+
+    priceDivider: {
+      width: 10,
+      height: 2,
+      backgroundColor:
+        "#94a3b8",
+      borderRadius: 2,
+    },
+
+    filterFooter: {
+      marginTop: 10,
+      flexDirection:
+        "row",
+      alignItems:
+        "center",
+      gap: 5,
+    },
+
+    filterFooterText: {
+      color:
+        "#64748b",
+      fontSize: 11,
+      fontWeight:
+        "700",
+    },
+
     trustBanner: {
       marginTop: 16,
       flexDirection:
@@ -1541,11 +2054,54 @@ const styles =
       fontSize: 13,
     },
 
+    seeAllButton: {
+      flexDirection:
+        "row",
+      alignItems:
+        "center",
+      backgroundColor:
+        "#eff6ff",
+      paddingLeft: 11,
+      paddingRight: 7,
+      paddingVertical: 8,
+      borderRadius: 999,
+    },
+
     seeAll: {
       color:
         "#2563eb",
       fontWeight:
         "900",
+      fontSize: 12,
+    },
+
+    swipeHint: {
+      alignSelf:
+        "flex-end",
+      marginRight: 18,
+      marginBottom: 8,
+      flexDirection:
+        "row",
+      alignItems:
+        "center",
+      backgroundColor:
+        "#eff6ff",
+      paddingHorizontal: 8,
+      paddingVertical: 5,
+      borderRadius: 999,
+    },
+
+    swipeHintText: {
+      color:
+        "#2563eb",
+      fontSize: 11,
+      fontWeight:
+        "800",
+    },
+
+    expandedList: {
+      paddingHorizontal: 18,
+      gap: 16,
     },
 
     subSection: {
@@ -1583,6 +2139,11 @@ const styles =
       overflow:
         "hidden",
       elevation: 4,
+    },
+
+    cardFullWidth: {
+      width: "100%",
+      marginRight: 0,
     },
 
     imageWrap: {

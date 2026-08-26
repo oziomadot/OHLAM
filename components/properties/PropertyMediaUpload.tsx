@@ -15,6 +15,29 @@ type Props = {
   pickVideo: () => void;
 };
 
+const photoFields = [
+  {
+    label: "Whole Building / Main Property Photo",
+    key: "wholeBuilding",
+  },
+  {
+    label: "Sitting Room Photo",
+    key: "sittingRoom",
+  },
+  {
+    label: "Kitchen Photo",
+    key: "kitchenImage",
+  },
+  {
+    label: "Room Photo",
+    key: "room",
+  },
+  {
+    label: "Toilet Photo",
+    key: "toiletImage",
+  },
+];
+
 export default function PropertyMediaUpload({
   selectedPropertyType,
   images,
@@ -22,259 +45,270 @@ export default function PropertyMediaUpload({
   pickImage,
   pickVideo,
 }: Props) {
-  /*
-   * RENTAL
-   *
-   * Keep your existing rental behaviour for now.
-   */
-  if (selectedPropertyType === 1) {
-    const rentalImages = [
-      ["Upload Whole Building Photo", "wholeBuilding"],
-      ["Sitting Room Photo", "sittingRoom"],
-      ["Kitchen Photo", "kitchenImage"],
-      ["Room Photo", "room"],
-      ["Toilet Photo", "toiletImage"],
-    ];
+  if (
+    !selectedPropertyType ||
+    ![1, 2, 3].includes(selectedPropertyType)
+  ) {
+    return null;
+  }
 
-    return (
-      <>
-        <Text style={styles.sectionTitle}>
-          Property Photos
+  const isLand =
+    selectedPropertyType === 3;
+
+  const mediaTitle = isLand
+    ? "Land Media"
+    : "Property Media";
+
+  const helpText = isLand
+    ? "Upload a video or at least one land photo. All photo slots are optional. You may also upload both video and photos."
+    : "Upload a video or at least one property photo. All photo slots are optional. You may also upload both video and photos.";
+
+  return (
+    <View style={styles.container}>
+      <Text style={styles.sectionTitle}>
+        {mediaTitle}
+      </Text>
+
+      <Text style={styles.helpText}>
+        {helpText}
+      </Text>
+
+      <View style={styles.ruleCard}>
+        <Text style={styles.ruleTitle}>
+          Media requirement
         </Text>
 
-        {rentalImages.map(([label, key]) => {
-          const img = images?.[key];
+        <Text style={styles.ruleText}>
+          ✓ Video only is allowed
+        </Text>
+
+        <Text style={styles.ruleText}>
+          ✓ One photo is enough
+        </Text>
+
+        <Text style={styles.ruleText}>
+          ✓ Multiple photos are allowed
+        </Text>
+
+        <Text style={styles.ruleText}>
+          ✓ Video and photos are allowed
+        </Text>
+
+        <Text style={styles.ruleText}>
+          ✕ You cannot submit without any media
+        </Text>
+      </View>
+
+      <View style={styles.videoBox}>
+        <Text style={styles.label}>
+          {isLand
+            ? "Land Video"
+            : "Property Video"}
+        </Text>
+
+        <Text style={styles.optionalText}>
+          Optional if at least one photo is uploaded
+        </Text>
+
+        <Button
+          title={
+            video
+              ? "Change Video"
+              : "Pick Video"
+          }
+          onPress={pickVideo}
+        />
+
+        {video ? (
+          <Text style={styles.selectedText}>
+            ✓{" "}
+            {video.name ||
+              "Video selected"}
+          </Text>
+        ) : null}
+      </View>
+
+      <View style={styles.orContainer}>
+        <Text style={styles.orText}>
+          OR / AND
+        </Text>
+      </View>
+
+      <Text style={styles.photoHeading}>
+        Photos
+      </Text>
+
+      <Text style={styles.optionalText}>
+        Every photo below is optional. If you do
+        not upload a video, choose at least one
+        photo.
+      </Text>
+
+      {photoFields.map(
+        ({ label, key }) => {
+          const image =
+            images?.[key];
 
           return (
-            <View key={key} style={styles.box}>
+            <View
+              key={key}
+              style={styles.photoBox}
+            >
               <Text style={styles.label}>
-                {label}
+                {isLand &&
+                key ===
+                  "wholeBuilding"
+                  ? "Main Land Photo"
+                  : label}
+              </Text>
+
+              <Text
+                style={
+                  styles.optionalText
+                }
+              >
+                Optional
               </Text>
 
               <Button
-                title="Pick Image"
-                onPress={() => pickImage(key)}
+                title={
+                  image?.uri
+                    ? "Change Photo"
+                    : "Pick Photo"
+                }
+                onPress={() =>
+                  pickImage(key)
+                }
               />
 
-              {img?.uri ? (
-                <Image
-                  source={{ uri: img.uri }}
-                  style={styles.img}
-                />
+              {image?.uri ? (
+                <>
+                  <Image
+                    source={{
+                      uri: image.uri,
+                    }}
+                    style={styles.img}
+                  />
+
+                  <Text
+                    style={
+                      styles.selectedText
+                    }
+                  >
+                    ✓ Photo selected
+                  </Text>
+                </>
               ) : null}
             </View>
           );
-        })}
-      </>
-    );
-  }
-
-  /*
-   * HOUSE FOR SALE
-   *
-   * User may provide:
-   * image only
-   * video only
-   * both
-   */
-  if (selectedPropertyType === 2) {
-    const mainImage = images?.wholeBuilding;
-
-    return (
-      <View style={styles.saleContainer}>
-        <Text style={styles.sectionTitle}>
-          Property Media
-        </Text>
-
-        <Text style={styles.helpText}>
-          Upload at least one property image or one property
-          video. You may upload both.
-        </Text>
-
-        <View style={styles.box}>
-          <Text style={styles.label}>
-            Property Image (Optional if video is provided)
-          </Text>
-
-          <Button
-            title={
-              mainImage?.uri
-                ? "Change Property Image"
-                : "Pick Property Image"
-            }
-            onPress={() => pickImage("wholeBuilding")}
-          />
-
-          {mainImage?.uri ? (
-            <>
-              <Image
-                source={{ uri: mainImage.uri }}
-                style={styles.img}
-              />
-
-              <Text style={styles.selectedText}>
-                ✓ Property image selected
-              </Text>
-            </>
-          ) : null}
-        </View>
-
-        <View style={styles.orContainer}>
-          <Text style={styles.orText}>OR / AND</Text>
-        </View>
-
-        <View style={styles.box}>
-          <Text style={styles.label}>
-            Property Video (Optional if image is provided)
-          </Text>
-
-          <Button
-            title={
-              video
-                ? "Change Property Video"
-                : "Pick Property Video"
-            }
-            onPress={pickVideo}
-          />
-
-          {video ? (
-            <Text style={styles.selectedText}>
-              ✓ {video.name || "Property video selected"}
-            </Text>
-          ) : null}
-        </View>
-      </View>
-    );
-  }
-
-  /*
-   * LAND FOR SALE
-   *
-   * User may provide:
-   * image only
-   * video only
-   * both
-   */
-  if (selectedPropertyType === 3) {
-    const landImage = images?.wholeBuilding;
-
-    return (
-      <View style={styles.saleContainer}>
-        <Text style={styles.sectionTitle}>
-          Land Media
-        </Text>
-
-        <Text style={styles.helpText}>
-          Upload at least one image of the land or one video.
-          You may upload both.
-        </Text>
-
-        <View style={styles.box}>
-          <Text style={styles.label}>
-            Land Image (Optional if video is provided)
-          </Text>
-
-          <Button
-            title={
-              landImage?.uri
-                ? "Change Land Image"
-                : "Pick Land Image"
-            }
-            onPress={() => pickImage("wholeBuilding")}
-          />
-
-          {landImage?.uri ? (
-            <>
-              <Image
-                source={{ uri: landImage.uri }}
-                style={styles.img}
-              />
-
-              <Text style={styles.selectedText}>
-                ✓ Land image selected
-              </Text>
-            </>
-          ) : null}
-        </View>
-
-        <View style={styles.orContainer}>
-          <Text style={styles.orText}>OR / AND</Text>
-        </View>
-
-        <View style={styles.box}>
-          <Text style={styles.label}>
-            Land Video (Optional if image is provided)
-          </Text>
-
-          <Button
-            title={
-              video
-                ? "Change Land Video"
-                : "Pick Land Video"
-            }
-            onPress={pickVideo}
-          />
-
-          {video ? (
-            <Text style={styles.selectedText}>
-              ✓ {video.name || "Land video selected"}
-            </Text>
-          ) : null}
-        </View>
-      </View>
-    );
-  }
-
-  return null;
+        }
+      )}
+    </View>
+  );
 }
 
-const styles = StyleSheet.create({
-  saleContainer: {
-    marginVertical: 12,
-  },
+const styles =
+  StyleSheet.create({
+    container: {
+      marginVertical: 16,
+    },
 
-  sectionTitle: {
-    fontSize: 18,
-    fontWeight: "bold",
-    marginBottom: 8,
-  },
+    sectionTitle: {
+      fontSize: 19,
+      fontWeight: "800",
+      marginBottom: 8,
+      color: "#111827",
+    },
 
-  helpText: {
-    fontSize: 14,
-    marginBottom: 16,
-    color: "#333",
-  },
+    helpText: {
+      fontSize: 14,
+      lineHeight: 20,
+      marginBottom: 14,
+      color: "#4B5563",
+    },
 
-  box: {
-    marginBottom: 16,
-  },
+    ruleCard: {
+      backgroundColor: "#F0FDF4",
+      borderWidth: 1,
+      borderColor: "#BBF7D0",
+      padding: 12,
+      borderRadius: 10,
+      marginBottom: 16,
+    },
 
-  label: {
-    fontSize: 16,
-    fontWeight: "bold",
-    marginBottom: 8,
-  },
+    ruleTitle: {
+      fontSize: 15,
+      fontWeight: "800",
+      marginBottom: 7,
+      color: "#166534",
+    },
 
-  img: {
-    width: 150,
-    height: 150,
-    marginVertical: 10,
-    borderRadius: 8,
-  },
+    ruleText: {
+      fontSize: 13,
+      lineHeight: 20,
+      color: "#374151",
+    },
 
-  selectedText: {
-    marginTop: 8,
-    fontSize: 14,
-    fontWeight: "600",
-  },
+    videoBox: {
+      borderWidth: 1,
+      borderColor: "#D1D5DB",
+      borderRadius: 10,
+      padding: 12,
+      marginBottom: 12,
+      backgroundColor: "#FFFFFF",
+    },
 
-  orContainer: {
-    alignItems: "center",
-    marginVertical: 8,
-  },
+    photoBox: {
+      borderWidth: 1,
+      borderColor: "#E5E7EB",
+      borderRadius: 10,
+      padding: 12,
+      marginBottom: 12,
+      backgroundColor: "#FFFFFF",
+    },
 
-  orText: {
-    fontSize: 14,
-    fontWeight: "bold",
-  },
-});
+    photoHeading: {
+      fontSize: 17,
+      fontWeight: "800",
+      marginBottom: 4,
+      color: "#111827",
+    },
+
+    label: {
+      fontSize: 15,
+      fontWeight: "700",
+      marginBottom: 4,
+      color: "#111827",
+    },
+
+    optionalText: {
+      fontSize: 12,
+      color: "#6B7280",
+      marginBottom: 9,
+    },
+
+    img: {
+      width: 150,
+      height: 150,
+      marginTop: 10,
+      borderRadius: 8,
+    },
+
+    selectedText: {
+      marginTop: 8,
+      fontSize: 13,
+      fontWeight: "700",
+      color: "#15803D",
+    },
+
+    orContainer: {
+      alignItems: "center",
+      marginVertical: 8,
+    },
+
+    orText: {
+      fontSize: 13,
+      fontWeight: "800",
+      color: "#6B7280",
+    },
+  });
