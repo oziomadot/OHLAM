@@ -1,11 +1,6 @@
 import axios, { AxiosError, AxiosInstance, AxiosRequestConfig,} from "axios";
-
-
-
 import { getItemSafe, setItemSafe, removeItemSafe } from "@/utils/storage";
-
 import { getDeviceDetails } from "@/utils/device";
-
 import { ENV } from '@/src/config/env';
 
 
@@ -13,9 +8,6 @@ import { ENV } from '@/src/config/env';
 
 
 const TOKEN_KEY = "auth_token";
-
-
-
 export const BASE_URL = ENV.API_URL;
 
 
@@ -33,15 +25,10 @@ if (__DEV__) {
 export const API: AxiosInstance =
 
   axios.create({
-
     baseURL: BASE_URL,
-
     timeout: 120_000,
-
     headers: {
-
       Accept: "application/json",
-
     },
 
   });
@@ -49,89 +36,37 @@ export const API: AxiosInstance =
 
 
 API.interceptors.request.use(
-
   async (config) => {
-
-    const token = await getItemSafe(
-
-      TOKEN_KEY
-
-    );
-
-
-
-    config.headers.set(
-
-      "Accept",
-
-      "application/json"
-
-    );
-
-
+    const token = await getItemSafe(TOKEN_KEY);
+    config.headers.set( "Accept", "application/json");
 
     if (token) {
-
-      config.headers.set(
-
-        "Authorization",
-
-        `Bearer ${token}`
-
-      );
-
+      config.headers.set("Authorization", `Bearer ${token}`);
     }
-
-
-
     return config;
-
   },
-
   (error) => Promise.reject(error)
-
 );
 
 
 
 API.interceptors.response.use(
-
   (response) => response,
-
   (error: AxiosError<any>) => {
-
     const diagnostic = {
-
       baseURL: error.config?.baseURL,
-
       url: error.config?.url,
-
       fullURL:
-
         `${error.config?.baseURL ?? ""}` +
 
         `${error.config?.url ?? ""}`,
 
-      method:
-
-        error.config?.method?.toUpperCase(),
-
-      status:
-
-        error.response?.status ?? 0,
-
-      responseData:
-
-        error.response?.data ?? null,
-
+      method: error.config?.method?.toUpperCase(),
+      status: error.response?.status ?? 0,
+      responseData: error.response?.data ?? null,
       message: error.message,
-
       code: error.code,
-
-      hasResponse:
-
-        Boolean(error.response),
-
+      hasResponse: Boolean(error.response),
       hasRequest:
 
         Boolean(error.request),
@@ -212,17 +147,51 @@ export async function verifyNewDeviceFace(formData: FormData) {
 
 
 
+export type PropertySettlementItem = {
+  id: number;
+  type: string;
+  label: string;
+  amount: string | number;
+  beneficiary_id?: number | null;
+};
 
+export type PropertySettlement = {
+  id: number;
+  uuid: string;
+  property_id: number;
+  customer_id: number;
+  appointment_id?: number | null;
+  total_amount: string | number;
+  currency: string;
+
+  status?: {
+    id: number;
+    code: string;
+    name?: string;
+  };
+
+  property?: any;
+
+  items?: PropertySettlementItem[];
+
+  payment_ready_at?: string | null;
+  paid_at?: string | null;
+};
+
+export type InitializePropertyPaymentResponse = {
+  payment_id: number;
+  reference: string;
+  authorization_url: string;
+  access_code?: string;
+  amount: string | number;
+  currency: string;
+};
 
 
 type RequestOptions = {
-
   method?: AxiosRequestConfig["method"];
-
   body?: unknown;
-
   headers?: Record<string, string>;
-
   params?: Record<string, unknown>;
 
 };
@@ -2658,8 +2627,57 @@ async resolvePayoutBankAccount(
 }
 
 
+async createPropertySettlement(
+  propertyId: number,
+  appointmentId: number
+): Promise<PropertySettlement> {
+  const response =
+    await this.post<PropertySettlement>(
+      `/properties/${propertyId}/settlements`,
+      {
+        appointment_id: appointmentId,
+      }
+    );
 
+  return response.data;
+}
 
+async getPropertySettlement(
+  settlementId: number
+): Promise<PropertySettlement> {
+  const response =
+    await this.get<PropertySettlement>(
+      `/property-settlements/${settlementId}`
+    );
+
+  return response.data;
+}
+
+async initializePropertyPayment(
+  settlementId: number
+): Promise<{
+  authorization_url?: string;
+  reference?: string;
+  access_code?: string;
+  payment_id?: number;
+  amount?: string | number;
+  currency?: string;
+}> {
+  const response =
+    await this.post<{
+      authorization_url?: string;
+      reference?: string;
+      access_code?: string;
+      payment_id?: number;
+      amount?: string | number;
+      currency?: string;
+    }>(
+      `/property-settlements/${settlementId}/pay`,
+      {}
+    );
+
+  return response.data;
+}
 
 
 

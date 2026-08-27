@@ -596,13 +596,18 @@ const submitProperty = handleSubmit(async (data) => {
   |
   */
 
-  const hasAnyPhoto = Boolean(
-    images?.wholeBuilding?.uri ||
-      images?.sittingRoom?.uri ||
-      images?.kitchenImage?.uri ||
-      images?.room?.uri ||
-      images?.toiletImage?.uri
-  );
+  const hasAnyPhoto =
+  selectedPropertyType === 3
+    ? Boolean(
+        images?.wholeBuilding?.uri
+      )
+    : Boolean(
+        images?.wholeBuilding?.uri ||
+          images?.sittingRoom?.uri ||
+          images?.kitchenImage?.uri ||
+          images?.room?.uri ||
+          images?.toiletImage?.uri
+      );
 
   const hasVideo = Boolean(
     video?.uri ||

@@ -26,6 +26,8 @@ import {
 
 import { useAuth } from "@/context/AuthContext";
 import API from "@/services/api";
+import ScreenWrapper from "components/ScreenWrapper";
+import Navbar from "components/Navbar";
 
 /*
 |--------------------------------------------------------------------------
@@ -1284,11 +1286,8 @@ export default function AppointmentIndexScreen() {
   */
 
   return (
-    <SafeAreaView
-      style={
-        styles.safeArea
-      }
-    >
+   <ScreenWrapper>
+    <Navbar/>
       <ScrollView
         style={
           styles.container
@@ -1868,7 +1867,7 @@ export default function AppointmentIndexScreen() {
           }
         />
       </ScrollView>
-    </SafeAreaView>
+    </ScreenWrapper>
   );
 }
 

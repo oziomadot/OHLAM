@@ -108,8 +108,7 @@ const toNumber = (
     | null
     | undefined
 ) => {
-  const cleaned =
-    String(
+  const cleaned =   String(
       value ?? ""
     )
       .replace(
@@ -141,16 +140,12 @@ export default function WithdrawScreen() {
   const [
     wallet,
     setWallet,
-  ] = useState<
-    WalletSummary | null
-  >(null);
+  ] = useState<WalletSummary | null>(null);
 
   const [
     bankAccount,
     setBankAccount,
-  ] = useState<
-    PayoutBankAccount | null
-  >(null);
+  ] = useState<PayoutBankAccount | null>(null);
 
   const [
     amount,
@@ -178,8 +173,7 @@ export default function WithdrawScreen() {
       amount
     );
 
-  const hasVerifiedAccount =
-    !!bankAccount &&
+  const hasVerifiedAccount = !!bankAccount &&
     bankAccount.is_active ===
       true &&
     bankAccount.is_verified ===
@@ -313,25 +307,14 @@ export default function WithdrawScreen() {
 
   const requestWithdrawal =
     () => {
-      if (
-        !bankAccount
-      ) {
+      if (!bankAccount) {
         Alert.alert(
           "Payout Account Required",
           "Add and verify your payout bank account before requesting a withdrawal.",
           [
+            { text: "Cancel", style: "cancel" },
             {
-              text:
-                "Cancel",
-
-              style:
-                "cancel",
-            },
-
-            {
-              text:
-                "Add Bank Account",
-
+              text: "Add Bank Account",
               onPress: () =>
                 router.push(
                   "/(tabs)/wallet/bank-account" as any
@@ -343,10 +326,7 @@ export default function WithdrawScreen() {
         return;
       }
 
-      if (
-        !bankAccount
-          .is_verified
-      ) {
+      if (!bankAccount.is_verified) {
         Alert.alert(
           "Verify Payout Account",
           "Your payout bank account has not been verified. Verify it before requesting a withdrawal.",

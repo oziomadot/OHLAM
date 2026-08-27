@@ -15,7 +15,7 @@ type Props = {
   pickVideo: () => void;
 };
 
-const photoFields = [
+const buildingPhotoFields = [
   {
     label: "Whole Building / Main Property Photo",
     key: "wholeBuilding",
@@ -55,22 +55,145 @@ export default function PropertyMediaUpload({
   const isLand =
     selectedPropertyType === 3;
 
-  const mediaTitle = isLand
-    ? "Land Media"
-    : "Property Media";
+  /*
+   * LAND SALE
+   *
+   * Land does not have:
+   * - sitting room
+   * - kitchen
+   * - bedroom
+   * - toilet
+   *
+   * We keep the backend field name
+   * "wholeBuilding" for compatibility,
+   * but display it to the user as
+   * "Land Photo".
+   */
+  if (isLand) {
+    const landPhoto =
+      images?.wholeBuilding;
 
-  const helpText = isLand
-    ? "Upload a video or at least one land photo. All photo slots are optional. You may also upload both video and photos."
-    : "Upload a video or at least one property photo. All photo slots are optional. You may also upload both video and photos.";
+    return (
+      <View style={styles.container}>
+        <Text style={styles.sectionTitle}>
+          Land Media
+        </Text>
 
+        <Text style={styles.helpText}>
+          Upload at least one land photo or
+          one land video. You may also upload
+          both.
+        </Text>
+
+        <View style={styles.ruleCard}>
+          <Text style={styles.ruleTitle}>
+            Media requirement
+          </Text>
+
+          <Text style={styles.ruleText}>
+            ✓ Land photo only is allowed
+          </Text>
+
+          <Text style={styles.ruleText}>
+            ✓ Land video only is allowed
+          </Text>
+
+          <Text style={styles.ruleText}>
+            ✓ Land photo and video are allowed
+          </Text>
+
+          <Text style={styles.ruleText}>
+            ✕ You cannot submit without any media
+          </Text>
+        </View>
+
+        {/* LAND PHOTO */}
+        <View style={styles.photoBox}>
+          <Text style={styles.label}>
+            Land Photo
+          </Text>
+
+          <Text style={styles.optionalText}>
+            Optional if a land video is uploaded
+          </Text>
+
+          <Button
+            title={
+              landPhoto?.uri
+                ? "Change Land Photo"
+                : "Pick Land Photo"
+            }
+            onPress={() =>
+              pickImage("wholeBuilding")
+            }
+          />
+
+          {landPhoto?.uri ? (
+            <>
+              <Image
+                source={{
+                  uri: landPhoto.uri,
+                }}
+                style={styles.img}
+              />
+
+              <Text style={styles.selectedText}>
+                ✓ Land photo selected
+              </Text>
+            </>
+          ) : null}
+        </View>
+
+        <View style={styles.orContainer}>
+          <Text style={styles.orText}>
+            OR / AND
+          </Text>
+        </View>
+
+        {/* LAND VIDEO */}
+        <View style={styles.videoBox}>
+          <Text style={styles.label}>
+            Land Video
+          </Text>
+
+          <Text style={styles.optionalText}>
+            Optional if a land photo is uploaded
+          </Text>
+
+          <Button
+            title={
+              video
+                ? "Change Land Video"
+                : "Pick Land Video"
+            }
+            onPress={pickVideo}
+          />
+
+          {video ? (
+            <Text style={styles.selectedText}>
+              ✓{" "}
+              {video.name ||
+                "Land video selected"}
+            </Text>
+          ) : null}
+        </View>
+      </View>
+    );
+  }
+
+  /*
+   * RENTAL / HOUSE SALE
+   */
   return (
     <View style={styles.container}>
       <Text style={styles.sectionTitle}>
-        {mediaTitle}
+        Property Media
       </Text>
 
       <Text style={styles.helpText}>
-        {helpText}
+        Upload a property video or at least
+        one property photo. You may upload
+        both.
       </Text>
 
       <View style={styles.ruleCard}>
@@ -99,11 +222,10 @@ export default function PropertyMediaUpload({
         </Text>
       </View>
 
+      {/* VIDEO */}
       <View style={styles.videoBox}>
         <Text style={styles.label}>
-          {isLand
-            ? "Land Video"
-            : "Property Video"}
+          Property Video
         </Text>
 
         <Text style={styles.optionalText}>
@@ -135,16 +257,16 @@ export default function PropertyMediaUpload({
       </View>
 
       <Text style={styles.photoHeading}>
-        Photos
+        Property Photos
       </Text>
 
       <Text style={styles.optionalText}>
-        Every photo below is optional. If you do
-        not upload a video, choose at least one
-        photo.
+        All photo slots are optional.
+        If you do not upload a video,
+        choose at least one photo.
       </Text>
 
-      {photoFields.map(
+      {buildingPhotoFields.map(
         ({ label, key }) => {
           const image =
             images?.[key];
@@ -155,18 +277,10 @@ export default function PropertyMediaUpload({
               style={styles.photoBox}
             >
               <Text style={styles.label}>
-                {isLand &&
-                key ===
-                  "wholeBuilding"
-                  ? "Main Land Photo"
-                  : label}
+                {label}
               </Text>
 
-              <Text
-                style={
-                  styles.optionalText
-                }
-              >
+              <Text style={styles.optionalText}>
                 Optional
               </Text>
 
@@ -191,9 +305,7 @@ export default function PropertyMediaUpload({
                   />
 
                   <Text
-                    style={
-                      styles.selectedText
-                    }
+                    style={styles.selectedText}
                   >
                     ✓ Photo selected
                   </Text>

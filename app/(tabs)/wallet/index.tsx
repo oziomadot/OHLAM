@@ -27,6 +27,7 @@ import Protected from "components/Protected";
 import API from "@/src/services/api";
 import usePreventScreenCapture
   from "@/hooks/usePreventScreenCapture";
+import Navbar from "components/Navbar";
 
 type WalletSummary = {
   id?: number;
@@ -206,6 +207,7 @@ const loadWallet = useCallback(
   ) {
     return (
       <Protected>
+        <Navbar/>
         <View
           style={
             styles.loadingContainer
