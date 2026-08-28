@@ -138,6 +138,14 @@ type AvailableSlot = {
   lister_id?: number | string;
 };
 
+
+type AvailableDay = {
+  date: string;
+  label: string;
+  slots: AvailableSlot[];
+};
+
+
 type BookablePropertiesResponse = {
   success?: boolean;
 
@@ -377,6 +385,102 @@ function getImageUrl(
   )}`;
 }
 
+
+
+function formatDateKey(
+  date: Date
+): string {
+  const year =
+    date.getFullYear();
+
+  const month =
+    String(
+      date.getMonth() + 1
+    ).padStart(
+      2,
+      "0"
+    );
+
+  const day =
+    String(
+      date.getDate()
+    ).padStart(
+      2,
+      "0"
+    );
+
+  return `${year}-${month}-${day}`;
+}
+
+function formatViewingDate(
+  value: string
+): string {
+  const [
+    year,
+    month,
+    day,
+  ] = value
+    .split("-")
+    .map(Number);
+
+  const date =
+    new Date(
+      year,
+      month - 1,
+      day
+    );
+
+  return date.toLocaleDateString(
+    [],
+    {
+      weekday: "long",
+      day: "numeric",
+      month: "long",
+      year: "numeric",
+    }
+  );
+}
+
+function getNext28Days(): string[] {
+  const dates: string[] = [];
+
+  const today =
+    new Date();
+
+  /*
+   * Prevent accidental problems caused
+   * by hours/minutes when creating dates.
+   */
+  today.setHours(
+    12,
+    0,
+    0,
+    0
+  );
+
+  for (
+    let index = 0;
+    index < 28;
+    index++
+  ) {
+    const date =
+      new Date(today);
+
+    date.setDate(
+      today.getDate() +
+        index
+    );
+
+    dates.push(
+      formatDateKey(
+        date
+      )
+    );
+  }
+
+  return dates;
+}
+
 /*
 |--------------------------------------------------------------------------
 | Main Screen
@@ -434,15 +538,14 @@ export default function CustomerCreateAppointment() {
     setEligibility,
   ] = useState<AppointmentEligibility | null>(null);
 
-  const [
-    selectedDate,
-    setSelectedDate,
-  ] =
-    useState<string>("");
 
-  const [slots,
-    setSlots,
-  ] = useState<AvailableSlot[]>([]);
+const [
+  availableDays,
+  setAvailableDays,
+] =
+  useState<AvailableDay[]>(
+    []
+  );
 
   const [
     selectedSlot,
@@ -665,33 +768,32 @@ export default function CustomerCreateAppointment() {
   */
 
   const chooseProperty =
-    async (
-      property: PropertyItem
-    ) => {
-      setSelectedProperty(
-        property
-      );
+  async (
+    property: PropertyItem
+  ) => {
+    setSelectedProperty(
+      property
+    );
 
-      /*
-       * Reset previous booking state.
-       */
+    /*
+     * Reset previous appointment choice.
+     */
+    setAvailableDays(
+      []
+    );
 
-      setSelectedDate("");
+    setSelectedSlot(
+      null
+    );
 
-      setSlots([]);
+    setEligibility(
+      null
+    );
 
-      setSelectedSlot(
-        null
-      );
-
-      setEligibility(
-        null
-      );
-
-      await checkEligibility(
-        property
-      );
-    };
+    await checkEligibility(
+      property
+    );
+  };
 
   /*
   |--------------------------------------------------------------------------
@@ -730,7 +832,7 @@ export default function CustomerCreateAppointment() {
         if (
           !data.allowed
         ) {
-          setSlots([]);
+          setAvailableDays([]);
 
           setSelectedSlot(
             null
@@ -851,60 +953,14 @@ export default function CustomerCreateAppointment() {
   | Load available slots
   |--------------------------------------------------------------------------
   */
-
-  const loadSlots =
-    async () => {
+const loadFourWeeksAvailability =
+  useCallback(
+    async (
+      property: PropertyItem
+    ) => {
       if (
-        !selectedProperty
+        !property?.id
       ) {
-        Alert.alert(
-          "Choose property",
-          "Choose a property before selecting an appointment date."
-        );
-
-        return;
-      }
-
-      if (
-        !eligibility?.allowed
-      ) {
-        Alert.alert(
-          "Escrow required",
-          "Your escrow balance does not currently meet the appointment requirement."
-        );
-
-        return;
-      }
-
-      if (
-        !selectedDate
-          .trim()
-      ) {
-        Alert.alert(
-          "Choose date",
-          "Enter a viewing date, for example 2026-08-20."
-        );
-
-        return;
-      }
-
-      /*
-       * Basic frontend date validation.
-       *
-       * Backend must validate again.
-       */
-
-      const validDate =
-        /^\d{4}-\d{2}-\d{2}$/.test(
-          selectedDate
-        );
-
-      if (!validDate) {
-        Alert.alert(
-          "Invalid date",
-          "Use YYYY-MM-DD format, for example 2026-08-20."
-        );
-
         return;
       }
 
@@ -913,79 +969,190 @@ export default function CustomerCreateAppointment() {
           true
         );
 
-        setSlots([]);
+        setAvailableDays(
+          []
+        );
 
         setSelectedSlot(
           null
         );
 
         /*
-         * Server resolves:
+         * ------------------------------------------------
+         * CHECK NEXT 28 DAYS
+         * ------------------------------------------------
          *
-         * recurring lister availability
-         * unavailable dates
-         * existing appointments
-         * property availability
+         * Existing backend currently accepts:
+         *
+         * property_id + one date
+         *
+         * So for now we check each of the next
+         * 28 days and combine the results.
+         *
+         * Later we can replace this with one
+         * backend request covering a date range.
          */
+        const dates =
+          getNext28Days();
 
-        const response =
-          await API.getPropertyAvailableSlots(
-            selectedProperty.id,
-            selectedDate
+        const results =
+          await Promise.all(
+            dates.map(
+              async (
+                date
+              ) => {
+                try {
+                  const response =
+                    await API
+                      .getPropertyAvailableSlots(
+                        property.id,
+                        date
+                      );
+
+                  const data:
+                    AvailableSlotsResponse =
+                    response.data;
+
+                  const slots =
+                    data
+                      ?.available_slots ||
+                    data?.data ||
+                    [];
+
+                  if (
+                    !Array.isArray(
+                      slots
+                    ) ||
+                    slots.length ===
+                      0
+                  ) {
+                    return null;
+                  }
+
+                  /*
+                   * Make absolutely sure every
+                   * slot has its date.
+                   */
+                  const normalizedSlots =
+                    slots.map(
+                      (
+                        slot
+                      ) => ({
+                        ...slot,
+
+                        date:
+                          slot.date ||
+                          date,
+                      })
+                    );
+
+                  return {
+                    date,
+
+                    label:
+                      formatViewingDate(
+                        date
+                      ),
+
+                    slots:
+                      normalizedSlots,
+                  } satisfies AvailableDay;
+                } catch (
+                  error: any
+                ) {
+                  /*
+                   * A single unavailable date
+                   * should NOT cause the entire
+                   * four-week calendar to fail.
+                   */
+                  console.log(
+                    `No availability for ${date}:`,
+                    error
+                      ?.response
+                      ?.data
+                      ?.message ||
+                      error
+                        ?.message
+                  );
+
+                  return null;
+                }
+              }
+            )
           );
 
-        const data:
-          AvailableSlotsResponse =
-          response.data;
+        const days =
+          results.filter(
+            (
+              value
+            ): value is AvailableDay =>
+              value !==
+              null
+          );
 
-        const availableSlots =
-          data?.available_slots ||
-          data?.data ||
-          [];
-
-        setSlots(
-          Array.isArray(
-            availableSlots
-          )
-            ? availableSlots
-            : []
+        setAvailableDays(
+          days
         );
 
         if (
-          !availableSlots ||
-          availableSlots.length ===
-            0
+          days.length === 0
         ) {
           Alert.alert(
-            "No available time",
-            data?.message ||
-              "The lister has no available appointment slots on this date."
+            "No viewing availability",
+            "The lister currently has no available viewing dates within the next four weeks."
           );
         }
       } catch (
         error: any
       ) {
         console.error(
-          "Available slots error:",
+          "Four-week availability error:",
           error?.response
             ?.data ||
             error
         );
 
-        setSlots([]);
+        setAvailableDays(
+          []
+        );
 
         Alert.alert(
-          "Unable to load slots",
-          error?.response?.data
+          "Unable to load availability",
+          error?.response
+            ?.data
             ?.message ||
-            "Could not load available viewing times."
+            "Unable to check the lister's availability."
         );
       } finally {
         setLoadingSlots(
           false
         );
       }
-    };
+    },
+    []
+  );
+
+
+
+  useEffect(
+  () => {
+    if (
+      !selectedProperty ||
+      !eligibility?.allowed
+    ) {
+      return;
+    }
+
+    loadFourWeeksAvailability(
+      selectedProperty
+    );
+  },
+  [
+    selectedProperty?.id,
+    eligibility?.allowed,
+    loadFourWeeksAvailability,
+  ]
+);
 
   /*
   |--------------------------------------------------------------------------
@@ -1130,7 +1297,9 @@ export default function CustomerCreateAppointment() {
               "Someone else has booked this viewing time. Please select another slot."
           );
 
-          await loadSlots();
+          setSelectedSlot(null);
+
+          await loadFourWeeksAvailability(selectedProperty);
 
           return;
         }
@@ -1410,25 +1579,23 @@ export default function CustomerCreateAppointment() {
                 canChange={
                   !initialPropertyId
                 }
-                onChange={() => {
-                  setSelectedProperty(
-                    null
-                  );
+               onChange={() => {
+  setSelectedProperty(
+    null
+  );
 
-                  setEligibility(
-                    null
-                  );
+  setEligibility(
+    null
+  );
 
-                  setSelectedDate(
-                    ""
-                  );
+  setAvailableDays(
+    []
+  );
 
-                  setSlots([]);
-
-                  setSelectedSlot(
-                    null
-                  );
-                }}
+  setSelectedSlot(
+    null
+  );
+}}
               />
 
               {/*
@@ -1677,178 +1844,260 @@ export default function CustomerCreateAppointment() {
                     Choose Viewing Time
                   </Text>
 
-                  <Text
+                
+
+<Text
+  style={
+    styles.sectionSubtitle
+  }
+>
+  Select one of the lister&apos;s available viewing dates within the next four weeks.
+</Text>
+
+{loadingSlots && (
+  <View
+    style={
+      styles.availabilityLoadingCard
+    }
+  >
+    <ActivityIndicator
+      color="#2563eb"
+    />
+
+    <View
+      style={{
+        flex: 1,
+      }}
+    >
+      <Text
+        style={
+          styles.availabilityLoadingTitle
+        }
+      >
+        Checking lister availability
+      </Text>
+
+      <Text
+        style={
+          styles.availabilityLoadingText
+        }
+      >
+        Looking for available viewing times over the next four weeks.
+      </Text>
+    </View>
+  </View>
+)}
+
+{!loadingSlots &&
+availableDays.length ===
+  0 && (
+  <View
+    style={
+      styles.noAvailabilityCard
+    }
+  >
+    <MaterialCommunityIcons
+      name="calendar-remove-outline"
+      size={34}
+      color="#64748b"
+    />
+
+    <Text
+      style={
+        styles.noAvailabilityTitle
+      }
+    >
+      No available viewing dates
+    </Text>
+
+    <Text
+      style={
+        styles.noAvailabilityText
+      }
+    >
+      The lister has not made any viewing times available within the next four weeks.
+    </Text>
+
+    <TouchableOpacity
+      style={
+        styles.refreshAvailabilityButton
+      }
+      onPress={() =>
+        loadFourWeeksAvailability(
+          selectedProperty
+        )
+      }
+    >
+      <MaterialCommunityIcons
+        name="refresh"
+        size={19}
+        color="#ffffff"
+      />
+
+      <Text
+        style={
+          styles.refreshAvailabilityText
+        }
+      >
+        Check Again
+      </Text>
+    </TouchableOpacity>
+  </View>
+)}
+
+{!loadingSlots &&
+  availableDays.map(
+    (
+      day
+    ) => (
+      <View
+        key={
+          day.date
+        }
+        style={
+          styles.availableDayCard
+        }
+      >
+        <View
+          style={
+            styles.availableDayHeader
+          }
+        >
+          <View
+            style={
+              styles.calendarIconBox
+            }
+          >
+            <MaterialCommunityIcons
+              name="calendar"
+              size={22}
+              color="#2563eb"
+            />
+          </View>
+
+          <View
+            style={{
+              flex: 1,
+            }}
+          >
+            <Text
+              style={
+                styles.availableDayTitle
+              }
+            >
+              {day.label}
+            </Text>
+
+            <Text
+              style={
+                styles.availableDayCount
+              }
+            >
+              {day.slots.length}
+              {" "}
+              {day.slots.length === 1
+                ? "available time"
+                : "available times"}
+            </Text>
+          </View>
+        </View>
+
+        <View
+          style={
+            styles.daySlotsContainer
+          }
+        >
+          {day.slots.map(
+            (
+              slot,
+              index
+            ) => {
+              const selected =
+                selectedSlot
+                  ?.date ===
+                  slot.date &&
+                selectedSlot
+                  ?.start_time ===
+                  slot.start_time &&
+                selectedSlot
+                  ?.end_time ===
+                  slot.end_time;
+
+              return (
+                <TouchableOpacity
+                  key={`${slot.date}-${slot.start_time}-${slot.end_time}-${index}`}
+                  style={[
+                    styles.slotCard,
+
+                    selected &&
+                      styles.selectedSlotCard,
+                  ]}
+                  onPress={() =>
+                    setSelectedSlot(
+                      slot
+                    )
+                  }
+                >
+                  <View
                     style={
-                      styles.sectionSubtitle
+                      styles.slotTimeRow
                     }
                   >
-                    Enter a date to see times the lister is actually available.
-                  </Text>
+                    <MaterialCommunityIcons
+                      name="clock-outline"
+                      size={19}
+                      color={
+                        selected
+                          ? "#ffffff"
+                          : "#2563eb"
+                      }
+                    />
 
-                  <Text
-                    style={
-                      styles.label
+                    <View>
+                      <Text
+                        style={[
+                          styles.slotTime,
+
+                          selected && {
+                            color:
+                              "#ffffff",
+                          },
+                        ]}
+                      >
+                        {formatSlotTime(
+                          slot.start_time
+                        )}
+                        {" - "}
+                        {formatSlotTime(
+                          slot.end_time
+                        )}
+                      </Text>
+                    </View>
+                  </View>
+
+                  <MaterialCommunityIcons
+                    name={
+                      selected
+                        ? "check-circle"
+                        : "circle-outline"
                     }
-                  >
-                    Viewing Date
-                  </Text>
-
-                  <TextInput
-                    value={
-                      selectedDate
-                    }
-                    onChangeText={(
-                      value
-                    ) => {
-                      setSelectedDate(
-                        value
-                      );
-
-                      setSlots([]);
-
-                      setSelectedSlot(
-                        null
-                      );
-                    }}
-                    placeholder="YYYY-MM-DD"
-                    placeholderTextColor="#94a3b8"
-                    style={
-                      styles.input
-                    }
-                    autoCapitalize="none"
-                    autoCorrect={
-                      false
+                    size={23}
+                    color={
+                      selected
+                        ? "#ffffff"
+                        : "#2563eb"
                     }
                   />
+                </TouchableOpacity>
+              );
+            }
+          )}
+        </View>
+      </View>
+    )
+  )}
 
-                  <TouchableOpacity
-                    style={
-                      styles.showSlotsButton
-                    }
-                    disabled={
-                      loadingSlots
-                    }
-                    onPress={
-                      loadSlots
-                    }
-                  >
-                    {loadingSlots ? (
-                      <ActivityIndicator
-                        color="#ffffff"
-                      />
-                    ) : (
-                      <>
-                        <MaterialCommunityIcons
-                          name="calendar-clock"
-                          size={20}
-                          color="#ffffff"
-                        />
-
-                        <Text
-                          style={
-                            styles.showSlotsText
-                          }
-                        >
-                          Show Available Times
-                        </Text>
-                      </>
-                    )}
-                  </TouchableOpacity>
-
-                  {slots.length >
-                    0 && (
-                    <View
-                      style={
-                        styles.slotsContainer
-                      }
-                    >
-                      {slots.map(
-                        (
-                          slot,
-                          index
-                        ) => {
-                          const selected =
-                            selectedSlot
-                              ?.date ===
-                              slot.date &&
-                            selectedSlot
-                              ?.start_time ===
-                              slot.start_time &&
-                            selectedSlot
-                              ?.end_time ===
-                              slot.end_time;
-
-                          return (
-                            <TouchableOpacity
-                              key={`${slot.date}-${slot.start_time}-${slot.end_time}-${index}`}
-                              style={[
-                                styles.slotCard,
-
-                                selected &&
-                                  styles.selectedSlotCard,
-                              ]}
-                              onPress={() =>
-                                setSelectedSlot(
-                                  slot
-                                )
-                              }
-                            >
-                              <View>
-                                <Text
-                                  style={[
-                                    styles.slotTime,
-
-                                    selected && {
-                                      color:
-                                        "#ffffff",
-                                    },
-                                  ]}
-                                >
-                                  {formatSlotTime(
-                                    slot.start_time
-                                  )}
-                                  {" - "}
-                                  {formatSlotTime(
-                                    slot.end_time
-                                  )}
-                                </Text>
-
-                                <Text
-                                  style={[
-                                    styles.slotDate,
-
-                                    selected && {
-                                      color:
-                                        "#dbeafe",
-                                    },
-                                  ]}
-                                >
-                                  {
-                                    slot.date
-                                  }
-                                </Text>
-                              </View>
-
-                              <MaterialCommunityIcons
-                                name={
-                                  selected
-                                    ? "check-circle"
-                                    : "circle-outline"
-                                }
-                                size={23}
-                                color={
-                                  selected
-                                    ? "#ffffff"
-                                    : "#2563eb"
-                                }
-                              />
-                            </TouchableOpacity>
-                          );
-                        }
-                      )}
-                    </View>
-                  )}
-
+ 
                   {/*
                   |--------------------------------------------------------------------------
                   | Note
@@ -2932,35 +3181,9 @@ const styles =
         "top",
     },
 
-    showSlotsButton: {
-      marginTop: 12,
+   
 
-      backgroundColor:
-        "#0f172a",
-
-      paddingVertical:
-        14,
-
-      borderRadius: 13,
-
-      flexDirection:
-        "row",
-
-      alignItems:
-        "center",
-
-      justifyContent:
-        "center",
-
-      gap: 7,
-    },
-
-    showSlotsText: {
-      color: "#ffffff",
-
-      fontWeight: "900",
-    },
-
+   
     slotsContainer: {
       marginTop: 14,
 
@@ -3006,16 +3229,7 @@ const styles =
       fontSize: 15,
     },
 
-    slotDate: {
-      color: "#64748b",
-
-      marginTop: 3,
-
-      fontSize: 12,
-
-      fontWeight: "600",
-    },
-
+   
     /*
     |--------------------------------------------------------------------------
     | Summary / Booking
@@ -3132,4 +3346,199 @@ const styles =
 
       fontWeight: "600",
     },
+
+    availabilityLoadingCard: {
+  marginTop: 16,
+
+  backgroundColor:
+    "#eff6ff",
+
+  borderRadius: 16,
+
+  padding: 16,
+
+  flexDirection:
+    "row",
+
+  alignItems:
+    "center",
+
+  gap: 12,
+
+  borderWidth: 1,
+
+  borderColor:
+    "#bfdbfe",
+},
+
+availabilityLoadingTitle: {
+  color: "#1e3a8a",
+
+  fontWeight: "900",
+
+  fontSize: 14,
+},
+
+availabilityLoadingText: {
+  color: "#64748b",
+
+  fontWeight: "600",
+
+  fontSize: 12,
+
+  marginTop: 3,
+
+  lineHeight: 17,
+},
+
+noAvailabilityCard: {
+  marginTop: 16,
+
+  backgroundColor:
+    "#ffffff",
+
+  borderRadius: 18,
+
+  padding: 22,
+
+  alignItems:
+    "center",
+
+  borderWidth: 1,
+
+  borderColor:
+    "#e2e8f0",
+},
+
+noAvailabilityTitle: {
+  marginTop: 10,
+
+  color: "#0f172a",
+
+  fontWeight: "900",
+
+  fontSize: 16,
+
+  textAlign:
+    "center",
+},
+
+noAvailabilityText: {
+  marginTop: 6,
+
+  color: "#64748b",
+
+  lineHeight: 19,
+
+  textAlign:
+    "center",
+
+  fontWeight: "600",
+
+  fontSize: 12,
+},
+
+refreshAvailabilityButton: {
+  marginTop: 15,
+
+  backgroundColor:
+    "#2563eb",
+
+  paddingHorizontal: 18,
+
+  paddingVertical: 11,
+
+  borderRadius: 11,
+
+  flexDirection:
+    "row",
+
+  alignItems:
+    "center",
+
+  gap: 6,
+},
+
+refreshAvailabilityText: {
+  color: "#ffffff",
+
+  fontWeight: "900",
+},
+
+availableDayCard: {
+  marginTop: 15,
+
+  backgroundColor:
+    "#ffffff",
+
+  borderRadius: 18,
+
+  borderWidth: 1,
+
+  borderColor:
+    "#e2e8f0",
+
+  padding: 14,
+},
+
+availableDayHeader: {
+  flexDirection:
+    "row",
+
+  alignItems:
+    "center",
+
+  gap: 10,
+
+  marginBottom: 12,
+},
+
+calendarIconBox: {
+  width: 42,
+
+  height: 42,
+
+  borderRadius: 12,
+
+  alignItems:
+    "center",
+
+  justifyContent:
+    "center",
+
+  backgroundColor:
+    "#eff6ff",
+},
+
+availableDayTitle: {
+  color: "#0f172a",
+
+  fontSize: 15,
+
+  fontWeight: "900",
+},
+
+availableDayCount: {
+  color: "#64748b",
+
+  fontSize: 11,
+
+  fontWeight: "700",
+
+  marginTop: 3,
+},
+
+daySlotsContainer: {
+  gap: 8,
+},
+
+slotTimeRow: {
+  flexDirection:
+    "row",
+
+  alignItems:
+    "center",
+
+  gap: 9,
+},
   });
