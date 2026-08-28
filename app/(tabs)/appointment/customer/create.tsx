@@ -32,6 +32,7 @@ import {
 
 import API, {
   BASE_URL,
+  AppointmentPreparationResponse,
 } from "@/src/services/api";
 
 import Protected from "components/Protected";
@@ -441,45 +442,6 @@ function formatViewingDate(
   );
 }
 
-function getNext28Days(): string[] {
-  const dates: string[] = [];
-
-  const today =
-    new Date();
-
-  /*
-   * Prevent accidental problems caused
-   * by hours/minutes when creating dates.
-   */
-  today.setHours(
-    12,
-    0,
-    0,
-    0
-  );
-
-  for (
-    let index = 0;
-    index < 28;
-    index++
-  ) {
-    const date =
-      new Date(today);
-
-    date.setDate(
-      today.getDate() +
-        index
-    );
-
-    dates.push(
-      formatDateKey(
-        date
-      )
-    );
-  }
-
-  return dates;
-}
 
 /*
 |--------------------------------------------------------------------------
@@ -518,6 +480,15 @@ export default function CustomerCreateAppointment() {
   | State
   |--------------------------------------------------------------------------
   */
+
+
+  const [
+  preparation,
+  setPreparation,
+] =
+  useState<AppointmentPreparationResponse | null>(
+    null
+  );
 
   const [
     bookableProperties,
@@ -644,12 +615,11 @@ const [
              * Check 1% escrow immediately.
              */
 
-            await checkEligibility(
-              property
-            );
-
-            return;
-          }
+          await prepareAppointment(
+            property
+          );
+          return;
+        }
 
           /*
            * PATH 2
@@ -948,189 +918,7 @@ const [
       });
     };
 
-  /*
-  |--------------------------------------------------------------------------
-  | Load available slots
-  |--------------------------------------------------------------------------
-  */
-const loadFourWeeksAvailability =
-  useCallback(
-    async (
-      property: PropertyItem
-    ) => {
-      if (
-        !property?.id
-      ) {
-        return;
-      }
-
-      try {
-        setLoadingSlots(
-          true
-        );
-
-        setAvailableDays(
-          []
-        );
-
-        setSelectedSlot(
-          null
-        );
-
-        /*
-         * ------------------------------------------------
-         * CHECK NEXT 28 DAYS
-         * ------------------------------------------------
-         *
-         * Existing backend currently accepts:
-         *
-         * property_id + one date
-         *
-         * So for now we check each of the next
-         * 28 days and combine the results.
-         *
-         * Later we can replace this with one
-         * backend request covering a date range.
-         */
-        const dates =
-          getNext28Days();
-
-        const results =
-          await Promise.all(
-            dates.map(
-              async (
-                date
-              ) => {
-                try {
-                  const response =
-                    await API
-                      .getPropertyAvailableSlots(
-                        property.id,
-                        date
-                      );
-
-                  const data:
-                    AvailableSlotsResponse =
-                    response.data;
-
-                  const slots =
-                    data
-                      ?.available_slots ||
-                    data?.data ||
-                    [];
-
-                  if (
-                    !Array.isArray(
-                      slots
-                    ) ||
-                    slots.length ===
-                      0
-                  ) {
-                    return null;
-                  }
-
-                  /*
-                   * Make absolutely sure every
-                   * slot has its date.
-                   */
-                  const normalizedSlots =
-                    slots.map(
-                      (
-                        slot
-                      ) => ({
-                        ...slot,
-
-                        date:
-                          slot.date ||
-                          date,
-                      })
-                    );
-
-                  return {
-                    date,
-
-                    label:
-                      formatViewingDate(
-                        date
-                      ),
-
-                    slots:
-                      normalizedSlots,
-                  } satisfies AvailableDay;
-                } catch (
-                  error: any
-                ) {
-                  /*
-                   * A single unavailable date
-                   * should NOT cause the entire
-                   * four-week calendar to fail.
-                   */
-                  console.log(
-                    `No availability for ${date}:`,
-                    error
-                      ?.response
-                      ?.data
-                      ?.message ||
-                      error
-                        ?.message
-                  );
-
-                  return null;
-                }
-              }
-            )
-          );
-
-        const days =
-          results.filter(
-            (
-              value
-            ): value is AvailableDay =>
-              value !==
-              null
-          );
-
-        setAvailableDays(
-          days
-        );
-
-        if (
-          days.length === 0
-        ) {
-          Alert.alert(
-            "No viewing availability",
-            "The lister currently has no available viewing dates within the next four weeks."
-          );
-        }
-      } catch (
-        error: any
-      ) {
-        console.error(
-          "Four-week availability error:",
-          error?.response
-            ?.data ||
-            error
-        );
-
-        setAvailableDays(
-          []
-        );
-
-        Alert.alert(
-          "Unable to load availability",
-          error?.response
-            ?.data
-            ?.message ||
-            "Unable to check the lister's availability."
-        );
-      } finally {
-        setLoadingSlots(
-          false
-        );
-      }
-    },
-    []
-  );
+  
 
 
 
@@ -1143,14 +931,12 @@ const loadFourWeeksAvailability =
       return;
     }
 
-    loadFourWeeksAvailability(
-      selectedProperty
-    );
+   
   },
   [
     selectedProperty?.id,
     eligibility?.allowed,
-    loadFourWeeksAvailability,
+   
   ]
 );
 
@@ -1299,7 +1085,7 @@ const loadFourWeeksAvailability =
 
           setSelectedSlot(null);
 
-          await loadFourWeeksAvailability(selectedProperty);
+       
 
           return;
         }
@@ -1364,6 +1150,101 @@ const loadFourWeeksAvailability =
     );
   }
 
+
+
+  const prepareAppointment =
+  async (
+    property: PropertyItem
+  ) => {
+    try {
+      setCheckingEligibility(
+        true
+      );
+
+      setAvailableDays(
+        []
+      );
+
+      setSelectedSlot(
+        null
+      );
+
+      const data =
+        await API
+          .preparePropertyAppointment(
+            property.id
+          );
+
+      setPreparation(
+        data
+      );
+
+      setEligibility({
+        allowed:
+          data.can_book,
+
+        required_escrow:
+          data.required_escrow,
+
+        current_balance:
+          data.current_balance,
+
+        amount_needed:
+          data.amount_needed,
+
+        message:
+          data.message,
+      });
+
+      const days =
+        data.availability ??
+        [];
+
+      setAvailableDays(
+        days.map(
+          (day) => ({
+            date:
+              day.date,
+
+            label:
+              day.formatted_date,
+
+            slots:
+              day.slots,
+          })
+        )
+      );
+    } catch (
+      error: any
+    ) {
+      console.error(
+        "Appointment preparation error:",
+        error?.response
+          ?.data ||
+          error
+      );
+
+      setPreparation(
+        null
+      );
+
+      setAvailableDays(
+        []
+      );
+
+      Alert.alert(
+        "Unable to prepare appointment",
+        error?.response
+          ?.data
+          ?.message ||
+          "Unable to prepare this property for appointment booking."
+      );
+    } finally {
+      setCheckingEligibility(
+        false
+      );
+    }
+  };
   /*
   |--------------------------------------------------------------------------
   | Screen
@@ -1922,11 +1803,7 @@ availableDays.length ===
       style={
         styles.refreshAvailabilityButton
       }
-      onPress={() =>
-        loadFourWeeksAvailability(
-          selectedProperty
-        )
-      }
+    
     >
       <MaterialCommunityIcons
         name="refresh"

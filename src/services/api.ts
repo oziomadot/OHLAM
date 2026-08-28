@@ -104,46 +104,83 @@ API.interceptors.response.use(
 
 
 export async function verifyNewDeviceFace(formData: FormData) {
-
   console.log("[verifyNewDeviceFace] formData", formData);
-
   const preAuthToken = await getItemSafe("pre_auth_token");
-
   if (!preAuthToken) {
     throw new Error(
-      "Device verification session is missing."
-    );
-
-  }
-
-
+      "Device verification session is missing.");}
   const url = `${BASE_URL}/auth/device/verify-face`;
-
-  console.log("[verifyNewDeviceFace] POST", url);
-
+ console.log("[verifyNewDeviceFace] POST", url);
   const response = await API.post("/auth/device/verify-face", formData, {
     headers: {
       Authorization: `Bearer ${preAuthToken}`,
       Accept: "application/json",
     },
   });
-
-
-
-  console.log("[verifyNewDeviceFace] response status", response.status);
-
-
-
-  await removeItemSafe("pre_auth_token");
-
-
-
-  return response.data;
+ console.log("[verifyNewDeviceFace] response status", response.status);
+ await removeItemSafe("pre_auth_token");
+ return response.data;
 
 }
 
 
+export type AppointmentPreparationSlot = {
+  date: string;
+  start_time: string;
+  end_time: string;
+};
 
+export type AppointmentPreparationDay = {
+  date: string;
+  day_name: string;
+  formatted_date: string;
+  slots: AppointmentPreparationSlot[];
+};
+
+export type AppointmentPreparationResponse = {
+  success: boolean;
+
+  can_book: boolean;
+
+  code:
+    | "READY_TO_BOOK"
+    | "OWN_PROPERTY"
+    | "PROPERTY_NOT_AVAILABLE"
+    | "EXISTING_APPOINTMENT"
+    | "INSUFFICIENT_ESCROW"
+    | "LISTER_NO_AVAILABILITY"
+    | string;
+
+  message?: string;
+
+  property_available?: boolean;
+
+  required_escrow?: number;
+
+  current_balance?: number;
+
+  amount_needed?: number;
+
+  existing_appointment?: {
+    id: number;
+    appointment_date: string;
+    start_time: string;
+    end_time: string;
+    status?: string;
+  } | null;
+
+  availability?: AppointmentPreparationDay[];
+
+  availability_period?: {
+    from: string;
+    to: string;
+    days: number;
+  };
+
+  lister_notified?: boolean;
+
+  inspection?: any;
+};
 
 
 
@@ -1976,11 +2013,8 @@ async verifyIdCard(formData: FormData) {
 
 
   async getPropertySlots(
-
     propertyId: number | string,
-
     userId: number | string
-
   ) {
 
     return API.get(`/property/${propertyId}/slots/${userId}`);
@@ -2678,6 +2712,19 @@ async initializePropertyPayment(
 
   return response.data;
 }
+
+
+async preparePropertyAppointment(
+  propertyId: string | number
+): Promise<AppointmentPreparationResponse> {
+  const response =
+    await this.get<AppointmentPreparationResponse>(
+      `/properties/${propertyId}/appointment-preparation`
+    );
+
+  return response.data;
+}
+
 
 
 
