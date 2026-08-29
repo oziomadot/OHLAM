@@ -1,6 +1,5 @@
 import React, {
   useCallback,
-  useEffect,
   useMemo,
   useState,
 } from "react";
@@ -54,23 +53,23 @@ type PropertyItem = {
 
   meeting_place?: string | null;
 
-  property_type_id?: number | string | null;
+  property_type_id?:
+    | number
+    | string
+    | null;
 
   property_type?: {
     id?: number | string;
-
     name?: string | null;
   } | null;
 
   area?: {
     id?: number | string;
-
     name?: string | null;
   } | null;
 
   state?: {
     id?: number | string;
-
     name?: string | null;
   } | null;
 
@@ -104,11 +103,8 @@ type PropertyItem = {
 
   media?: {
     wholeBuilding?: string | null;
-
     sittingRoom?: string | null;
-
     kitchen?: string | null;
-
     room?: string | null;
   } | null;
 };
@@ -134,18 +130,22 @@ type AvailableSlot = {
 
   end_time: string;
 
-  availability_id?: number | string;
+  availability_id?:
+    | number
+    | string;
 
-  lister_id?: number | string;
+  lister_id?:
+    | number
+    | string;
 };
-
 
 type AvailableDay = {
   date: string;
+
   label: string;
+
   slots: AvailableSlot[];
 };
-
 
 type BookablePropertiesResponse = {
   success?: boolean;
@@ -153,16 +153,6 @@ type BookablePropertiesResponse = {
   properties?: PropertyItem[];
 
   data?: PropertyItem[];
-
-  message?: string;
-};
-
-type AvailableSlotsResponse = {
-  success?: boolean;
-
-  data?: AvailableSlot[];
-
-  available_slots?: AvailableSlot[];
 
   message?: string;
 };
@@ -180,12 +170,20 @@ function normalizeParam(
     | undefined
 ): string | null {
   if (
-    Array.isArray(value)
+    Array.isArray(
+      value
+    )
   ) {
-    return value[0] || null;
+    return (
+      value[0] ||
+      null
+    );
   }
 
-  return value || null;
+  return (
+    value ||
+    null
+  );
 }
 
 function money(
@@ -205,91 +203,25 @@ function money(
 
   const amount =
     Number(
-      String(value).replace(
+      String(
+        value
+      ).replace(
         /,/g,
         ""
       )
     );
 
   if (
-    Number.isNaN(amount)
+    Number.isNaN(
+      amount
+    )
   ) {
     return "₦0";
   }
 
-  return `₦${amount.toLocaleString()}`;
-}
-
-function getPropertyLocation(
-  property: PropertyItem
-): string {
-  const parts = [
-    property.area?.name,
-    property.state?.name,
-  ].filter(Boolean);
-
-  if (
-    parts.length > 0
-  ) {
-    return parts.join(", ");
-  }
-
-  return "Location available in property details";
-}
-
-function getPropertyTitle(
-  property: PropertyItem
-): string {
-  /*
-   * Rental
-   */
-
-  if (
-    Number(
-      property.property_type_id
-    ) === 1
-  ) {
-    return (
-      property.rental_detail
-        ?.flat_type?.name ||
-      property.rental_detail
-        ?.building_type?.name ||
-      property.rental_detail
-        ?.building?.name ||
-      "Rental Property"
-    );
-  }
-
-  /*
-   * House sale
-   */
-
-  if (Number(property.property_type_id) === 2) {
-    return (
-      property.house_sale
-        ?.building_type?.name ||
-      property.house_sale
-        ?.building?.name ||
-      "House for Sale"
-    );
-  }
-
-  /*
-   * Land
-   */
-
-  if (Number(property.property_type_id) === 3) {
-    return property.land_sale
-      ?.measurement
-      ? `${property.land_sale.measurement} Land`
-      : "Land for Sale";
-  }
-
-  return (
-    property.property_type
-      ?.name ||
-    "Property"
-  );
+  return `₦${amount.toLocaleString(
+    "en-NG"
+  )}`;
 }
 
 function calculateOnePercent(
@@ -302,16 +234,111 @@ function calculateOnePercent(
   const numeric =
     Number(
       String(
-        amount ?? 0
-      ).replace(/,/g, "")
+        amount ??
+          0
+      ).replace(
+        /,/g,
+        ""
+      )
     );
 
-  if (Number.isNaN(numeric) ||  numeric <= 0) {
+  if (
+    Number.isNaN(
+      numeric
+    ) ||
+    numeric <= 0
+  ) {
     return 0;
   }
 
   return Math.round(
-    numeric * 0.01
+    numeric *
+      0.01
+  );
+}
+
+function getPropertyLocation(
+  property: PropertyItem
+): string {
+  const parts = [
+    property.area?.name,
+    property.state?.name,
+  ].filter(
+    Boolean
+  );
+
+  if (
+    parts.length >
+    0
+  ) {
+    return parts.join(
+      ", "
+    );
+  }
+
+  return "Location available in property details";
+}
+
+function getPropertyTitle(
+  property: PropertyItem
+): string {
+  if (
+    Number(
+      property.property_type_id
+    ) === 1
+  ) {
+    return (
+      property
+        .rental_detail
+        ?.flat_type
+        ?.name ||
+      property
+        .rental_detail
+        ?.building_type
+        ?.name ||
+      property
+        .rental_detail
+        ?.building
+        ?.name ||
+      "Rental Property"
+    );
+  }
+
+  if (
+    Number(
+      property.property_type_id
+    ) === 2
+  ) {
+    return (
+      property
+        .house_sale
+        ?.building_type
+        ?.name ||
+      property
+        .house_sale
+        ?.building
+        ?.name ||
+      "House for Sale"
+    );
+  }
+
+  if (
+    Number(
+      property.property_type_id
+    ) === 3
+  ) {
+    return property
+      .land_sale
+      ?.measurement
+      ? `${property.land_sale.measurement} Land`
+      : "Land for Sale";
+  }
+
+  return (
+    property
+      .property_type
+      ?.name ||
+    "Property"
   );
 }
 
@@ -322,31 +349,53 @@ function formatSlotTime(
     return "";
   }
 
-  const parts =
-    value.split(":");
+  const [
+    hourString,
+    minuteString,
+  ] =
+    value.split(
+      ":"
+    );
 
-  if (parts.length < 2) {
+  const hour =
+    Number(
+      hourString
+    );
+
+  const minute =
+    Number(
+      minuteString
+    );
+
+  if (
+    Number.isNaN(
+      hour
+    ) ||
+    Number.isNaN(
+      minute
+    )
+  ) {
     return value;
   }
 
-  const date = new Date();
+  const date =
+    new Date();
 
   date.setHours(
-    Number(parts[0])
+    hour,
+    minute,
+    0,
+    0
   );
-
-  date.setMinutes(
-    Number(parts[1])
-  );
-
-  date.setSeconds(0);
 
   return date.toLocaleTimeString(
     [],
     {
-      hour: "numeric",
+      hour:
+        "numeric",
 
-      minute: "2-digit",
+      minute:
+        "2-digit",
     }
   );
 }
@@ -369,7 +418,9 @@ function getImageUrl(
   }
 
   if (
-    raw.startsWith("http")
+    raw.startsWith(
+      "http"
+    )
   ) {
     return raw;
   }
@@ -385,63 +436,6 @@ function getImageUrl(
     ""
   )}`;
 }
-
-
-
-function formatDateKey(
-  date: Date
-): string {
-  const year =
-    date.getFullYear();
-
-  const month =
-    String(
-      date.getMonth() + 1
-    ).padStart(
-      2,
-      "0"
-    );
-
-  const day =
-    String(
-      date.getDate()
-    ).padStart(
-      2,
-      "0"
-    );
-
-  return `${year}-${month}-${day}`;
-}
-
-function formatViewingDate(
-  value: string
-): string {
-  const [
-    year,
-    month,
-    day,
-  ] = value
-    .split("-")
-    .map(Number);
-
-  const date =
-    new Date(
-      year,
-      month - 1,
-      day
-    );
-
-  return date.toLocaleDateString(
-    [],
-    {
-      weekday: "long",
-      day: "numeric",
-      month: "long",
-      year: "numeric",
-    }
-  );
-}
-
 
 /*
 |--------------------------------------------------------------------------
@@ -460,16 +454,6 @@ export default function CustomerCreateAppointment() {
         | string[];
     }>();
 
-  /*
-   * property_id exists when user comes from:
-   *
-   * Property Details
-   *      ↓
-   * I AM INTERESTED
-   *      ↓
-   * Appointment Create
-   */
-
   const initialPropertyId =
     normalizeParam(
       params.property_id
@@ -481,21 +465,21 @@ export default function CustomerCreateAppointment() {
   |--------------------------------------------------------------------------
   */
 
-
   const [
-  preparation,
-  setPreparation,
-] =
-  useState<AppointmentPreparationResponse | null>(
-    null
-  );
+    preparation,
+    setPreparation,
+  ] =
+    useState<AppointmentPreparationResponse | null>(
+      null
+    );
 
   const [
     bookableProperties,
     setBookableProperties,
-  ] = useState<
-    PropertyItem[]
-  >([]);
+  ] =
+    useState<
+      PropertyItem[]
+    >([]);
 
   const [
     selectedProperty,
@@ -505,18 +489,21 @@ export default function CustomerCreateAppointment() {
       null
     );
 
-  const [eligibility,
+  const [
+    eligibility,
     setEligibility,
-  ] = useState<AppointmentEligibility | null>(null);
+  ] =
+    useState<AppointmentEligibility | null>(
+      null
+    );
 
-
-const [
-  availableDays,
-  setAvailableDays,
-] =
-  useState<AvailableDay[]>(
-    []
-  );
+  const [
+    availableDays,
+    setAvailableDays,
+  ] =
+    useState<
+      AvailableDay[]
+    >([]);
 
   const [
     selectedSlot,
@@ -530,29 +517,21 @@ const [
     customerNote,
     setCustomerNote,
   ] =
-    useState<string>("");
+    useState("");
 
   const [
     loading,
     setLoading,
   ] =
-    useState<boolean>(
+    useState(
       true
     );
 
   const [
-    loadingSlots,
-    setLoadingSlots,
+    preparing,
+    setPreparing,
   ] =
-    useState<boolean>(
-      false
-    );
-
-  const [
-    checkingEligibility,
-    setCheckingEligibility,
-  ] =
-    useState<boolean>(
+    useState(
       false
     );
 
@@ -560,7 +539,7 @@ const [
     booking,
     setBooking,
   ] =
-    useState<boolean>(
+    useState(
       false
     );
 
@@ -568,132 +547,22 @@ const [
     refreshing,
     setRefreshing,
   ] =
-    useState<boolean>(
+    useState(
       false
     );
 
   /*
   |--------------------------------------------------------------------------
-  | Load initial screen
-  |--------------------------------------------------------------------------
-  */
-
-  const initialize =
-    useCallback(
-      async () => {
-        try {
-          setLoading(true);
-
-          /*
-           * PATH 1
-           *
-           * Property Details
-           *      ↓
-           * Appointment Create
-           *
-           * We already know which property
-           * customer wants.
-           */
-
-          if (initialPropertyId
-          ) {
-            const response =
-              await API.getProperty(
-                initialPropertyId
-              );
-
-            const property =
-              response.data
-                ?.property ||
-              response.data;
-
-            setSelectedProperty(
-              property
-            );
-
-            /*
-             * Check 1% escrow immediately.
-             */
-
-          await prepareAppointment(
-            property
-          );
-          return;
-        }
-
-          /*
-           * PATH 2
-           *
-           * Appointment Dashboard
-           *      ↓
-           * Create Appointment
-           *      ↓
-           * Show interested/bookable properties.
-           */
-
-          await loadBookableProperties();
-        } catch (
-          error: any
-        ) {
-          console.error(
-            "Appointment initialization error:",
-            error?.response
-              ?.data ||
-              error
-          );
-
-          Alert.alert(
-            "Unable to continue",
-            error?.response?.data
-              ?.message ||
-              "Unable to prepare appointment booking."
-          );
-        } finally {
-          setLoading(false);
-
-          setRefreshing(
-            false
-          );
-        }
-      },
-      [
-        initialPropertyId,
-      ]
-    );
-
-  useFocusEffect(
-    useCallback(
-      () => {
-        initialize();
-      },
-      [
-        initialize,
-      ]
-    )
-  );
-
-  /*
-  |--------------------------------------------------------------------------
-  | Load interested/bookable properties
+  | Bookable properties
   |--------------------------------------------------------------------------
   */
 
   const loadBookableProperties =
-    async () => {
-      try {
-        /*
-         * This should return properties:
-         *
-         * - customer has shown interest in
-         * - still available
-         * - not owned by customer
-         * - allowed for appointment booking
-         *
-         * Backend is the authority.
-         */
-
+    useCallback(
+      async () => {
         const response =
-          await API.getAppointmentBookableProperties();
+          await API
+            .getAppointmentBookableProperties();
 
         const responseData:
           BookablePropertiesResponse =
@@ -713,23 +582,272 @@ const [
             ? properties
             : []
         );
-      } catch (
-        error: any
-      ) {
-        console.error(
-          "Bookable properties error:",
-          error?.response
-            ?.data ||
+      },
+      []
+    );
+
+  /*
+  |--------------------------------------------------------------------------
+  | Prepare appointment
+  |--------------------------------------------------------------------------
+  |
+  | ONE backend request performs:
+  |
+  | 1. property availability
+  | 2. own-property check
+  | 3. existing appointment check
+  | 4. escrow requirement
+  | 5. inspection entitlement
+  | 6. next 28 days lister availability
+  | 7. lister notification if no availability
+  |
+  |--------------------------------------------------------------------------
+  */
+
+  const prepareAppointment =
+    useCallback(
+      async (
+        property: PropertyItem
+      ) => {
+        try {
+          setPreparing(
+            true
+          );
+
+          setPreparation(
+            null
+          );
+
+          setEligibility(
+            null
+          );
+
+          setAvailableDays(
+            []
+          );
+
+          setSelectedSlot(
+            null
+          );
+
+          const data =
+            await API
+              .preparePropertyAppointment(
+                property.id
+              );
+
+          setPreparation(
+            data
+          );
+
+          /*
+           * Do NOT use:
+           *
+           * allowed = data.can_book
+           *
+           * because:
+           *
+           * LISTER_NO_AVAILABILITY means customer
+           * may have enough escrow even though
+           * booking cannot continue yet.
+           */
+
+          const escrowSatisfied =
+            data.code ===
+              "READY_TO_BOOK" ||
+            data.code ===
+              "LISTER_NO_AVAILABILITY";
+
+          setEligibility({
+            allowed:
+              escrowSatisfied,
+
+            required_escrow:
+              data.required_escrow,
+
+            current_balance:
+              data.current_balance,
+
+            amount_needed:
+              data.amount_needed,
+
+            message:
+              data.message,
+          });
+
+          const days =
+            data.availability ||
+            [];
+
+          setAvailableDays(
+            days.map(
+              (
+                day
+              ) => ({
+                date:
+                  day.date,
+
+                label:
+                  day.formatted_date,
+
+                slots:
+                  Array.isArray(
+                    day.slots
+                  )
+                    ? day.slots
+                    : [],
+              })
+            )
+          );
+        } catch (
+          error: any
+        ) {
+          console.error(
+            "Appointment preparation error:",
             error
-        );
+              ?.response
+              ?.data ||
+              error
+          );
 
-        setBookableProperties(
-          []
-        );
+          setPreparation(
+            null
+          );
 
-        throw error;
-      }
-    };
+          setEligibility(
+            null
+          );
+
+          setAvailableDays(
+            []
+          );
+
+          Alert.alert(
+            "Unable to prepare appointment",
+            error
+              ?.response
+              ?.data
+              ?.message ||
+              "Unable to prepare this property for appointment booking."
+          );
+        } finally {
+          setPreparing(
+            false
+          );
+        }
+      },
+      []
+    );
+
+  /*
+  |--------------------------------------------------------------------------
+  | Initial load
+  |--------------------------------------------------------------------------
+  */
+
+  const initialize =
+    useCallback(
+      async () => {
+        try {
+          setLoading(
+            true
+          );
+
+          /*
+           * Customer came from:
+           *
+           * Property Details
+           *      ↓
+           * I AM INTERESTED
+           */
+
+          if (
+            initialPropertyId
+          ) {
+            const response =
+              await API
+                .getProperty(
+                  initialPropertyId
+                );
+
+            const property =
+              response.data
+                ?.property ||
+              response.data;
+
+            if (
+              !property?.id
+            ) {
+              throw new Error(
+                "Property could not be loaded."
+              );
+            }
+
+            setSelectedProperty(
+              property
+            );
+
+            await prepareAppointment(
+              property
+            );
+
+            return;
+          }
+
+          /*
+           * Customer entered appointment
+           * creation from dashboard.
+           */
+
+          await loadBookableProperties();
+        } catch (
+          error: any
+        ) {
+          console.error(
+            "Appointment initialization error:",
+            error
+              ?.response
+              ?.data ||
+              error
+          );
+
+          Alert.alert(
+            "Unable to continue",
+            error
+              ?.response
+              ?.data
+              ?.message ||
+              error
+                ?.message ||
+              "Unable to prepare appointment booking."
+          );
+        } finally {
+          setLoading(
+            false
+          );
+
+          setRefreshing(
+            false
+          );
+        }
+      },
+      [
+        initialPropertyId,
+        loadBookableProperties,
+        prepareAppointment,
+      ]
+    );
+
+  useFocusEffect(
+    useCallback(
+      () => {
+        initialize();
+      },
+      [
+        initialize,
+      ]
+    )
+  );
 
   /*
   |--------------------------------------------------------------------------
@@ -738,138 +856,56 @@ const [
   */
 
   const chooseProperty =
-  async (
-    property: PropertyItem
-  ) => {
-    setSelectedProperty(
-      property
-    );
-
-    /*
-     * Reset previous appointment choice.
-     */
-    setAvailableDays(
-      []
-    );
-
-    setSelectedSlot(
-      null
-    );
-
-    setEligibility(
-      null
-    );
-
-    await checkEligibility(
-      property
-    );
-  };
-
-  /*
-  |--------------------------------------------------------------------------
-  | Check escrow eligibility
-  |--------------------------------------------------------------------------
-  */
-
-  const checkEligibility =
     async (
       property: PropertyItem
     ) => {
-      try {
-        setCheckingEligibility(
-          true
-        );
+      setSelectedProperty(
+        property
+      );
 
-        const response =
-          await API.getAppointmentEligibility(
-            property.id
-          );
+      setCustomerNote(
+        ""
+      );
 
-        const data:
-          AppointmentEligibility =
-          response.data;
-
-        setEligibility(
-          data
-        );
-
-        /*
-         * Do NOT automatically redirect.
-         *
-         * Show user exactly what is required first.
-         */
-
-        if (
-          !data.allowed
-        ) {
-          setAvailableDays([]);
-
-          setSelectedSlot(
-            null
-          );
-        }
-      } catch (
-        error: any
-      ) {
-        console.error(
-          "Appointment eligibility error:",
-          error?.response
-            ?.data ||
-            error
-        );
-
-        setEligibility(
-          null
-        );
-
-        Alert.alert(
-          "Unable to check escrow",
-          error?.response?.data
-            ?.message ||
-            "Unable to check appointment eligibility."
-        );
-      } finally {
-        setCheckingEligibility(
-          false
-        );
-      }
+      await prepareAppointment(
+        property
+      );
     };
 
   /*
   |--------------------------------------------------------------------------
   | Required escrow
   |--------------------------------------------------------------------------
-  |
-  | Display server value whenever available.
-  |
-  | Frontend calculation is only a preview/fallback.
-  |
   */
 
   const requiredEscrow =
-    useMemo(() => {
-      if (
-        eligibility
-          ?.required_escrow !==
+    useMemo(
+      () => {
+        if (
+          eligibility
+            ?.required_escrow !==
           undefined
-      ) {
-        return Number(
-          eligibility.required_escrow
-        );
-      }
+        ) {
+          return Number(
+            eligibility
+              .required_escrow
+          );
+        }
 
-      return calculateOnePercent(
-        selectedProperty
-          ?.amount
-      );
-    }, [
-      eligibility,
-      selectedProperty,
-    ]);
+        return calculateOnePercent(
+          selectedProperty
+            ?.amount
+        );
+      },
+      [
+        eligibility,
+        selectedProperty,
+      ]
+    );
 
   /*
   |--------------------------------------------------------------------------
-  | Open escrow wallet
+  | Fund escrow
   |--------------------------------------------------------------------------
   */
 
@@ -918,28 +954,6 @@ const [
       });
     };
 
-  
-
-
-
-  useEffect(
-  () => {
-    if (
-      !selectedProperty ||
-      !eligibility?.allowed
-    ) {
-      return;
-    }
-
-   
-  },
-  [
-    selectedProperty?.id,
-    eligibility?.allowed,
-   
-  ]
-);
-
   /*
   |--------------------------------------------------------------------------
   | Book appointment
@@ -955,12 +969,15 @@ const [
       }
 
       if (
-        !eligibility
-          ?.allowed
+        preparation
+          ?.code !==
+        "READY_TO_BOOK"
       ) {
         Alert.alert(
-          "Escrow required",
-          "You must meet the escrow requirement before booking this property."
+          "Appointment not ready",
+          preparation
+            ?.message ||
+            "This appointment cannot currently be booked."
         );
 
         return;
@@ -982,37 +999,26 @@ const [
           true
         );
 
-        /*
-         * IMPORTANT:
-         *
-         * customer_id is NOT sent.
-         *
-         * Laravel must obtain customer from:
-         *
-         * $request->user()
-         *
-         * This prevents customer impersonation.
-         */
-
         const response =
-          await API.createAppointment({
-            property_id:
-              selectedProperty.id,
+          await API
+            .createAppointment({
+              property_id:
+                selectedProperty.id,
 
-            appointment_date:
-              selectedSlot.date,
+              appointment_date:
+                selectedSlot.date,
 
-            start_time:
-              selectedSlot.start_time,
+              start_time:
+                selectedSlot.start_time,
 
-            end_time:
-              selectedSlot.end_time,
+              end_time:
+                selectedSlot.end_time,
 
-            customer_note:
-              customerNote
-                .trim() ||
-              null,
-          });
+              customer_note:
+                customerNote
+                  .trim() ||
+                null,
+            });
 
         Alert.alert(
           "Appointment requested",
@@ -1021,80 +1027,160 @@ const [
             "Your property viewing appointment has been submitted.",
           [
             {
-              text: "View Appointments",
+              text:
+                "View Appointments",
 
-              onPress: () => {
-                router.replace(
-                  "/appointment" as never
-                );
-              },
+              onPress:
+                () => {
+                  router.replace(
+                    "/appointment" as never
+                  );
+                },
             },
           ]
         );
       } catch (
         error: any
       ) {
+        const data =
+          error
+            ?.response
+            ?.data;
+
+        const code =
+          data?.code;
+
         console.error(
           "Appointment booking error:",
-          error?.response
-            ?.data ||
+          data ||
             error
         );
 
         /*
-         * Important:
-         *
-         * Backend checks escrow AGAIN during booking.
-         *
-         * Even if customer passed the earlier eligibility
-         * check, balance may have changed.
+         * Escrow changed between screen load
+         * and appointment submission.
          */
 
         if (
-          error?.response
-            ?.data?.code ===
+          code ===
           "INSUFFICIENT_ESCROW"
         ) {
-          setEligibility(
-            error.response
-              .data
+          setEligibility({
+            allowed:
+              false,
+
+            required_escrow:
+              data.required_escrow,
+
+            current_balance:
+              data.current_balance,
+
+            amount_needed:
+              data.amount_needed,
+
+            message:
+              data.message,
+          });
+
+          setSelectedSlot(
+            null
           );
 
           Alert.alert(
             "Escrow balance changed",
-            error?.response
-              ?.data
-              ?.message ||
-              "Your escrow balance is no longer sufficient for this appointment."
+            data?.message ||
+              "Your escrow balance is no longer sufficient."
           );
 
           return;
         }
 
+        /*
+         * Customer already booked property.
+         */
+
         if (
-          error?.response
-            ?.status === 409
+          code ===
+            "ACTIVE_APPOINTMENT_EXISTS" ||
+          code ===
+            "EXISTING_APPOINTMENT"
         ) {
           Alert.alert(
-            "Slot no longer available",
-            error?.response
-              ?.data
-              ?.message ||
-              "Someone else has booked this viewing time. Please select another slot."
+            "Appointment already exists",
+            data?.message ||
+              "You already have an active viewing appointment for this property.",
+            [
+              {
+                text:
+                  "View Appointments",
+
+                onPress:
+                  () =>
+                    router.replace(
+                      "/appointment" as never
+                    ),
+              },
+            ]
           );
 
-          setSelectedSlot(null);
+          await prepareAppointment(
+            selectedProperty
+          );
 
-       
+          return;
+        }
+
+        /*
+         * Property became unavailable.
+         */
+
+        if (
+          code ===
+          "PROPERTY_NOT_AVAILABLE"
+        ) {
+          Alert.alert(
+            "Property no longer available",
+            data?.message ||
+              "This property is no longer available for viewing."
+          );
+
+          await prepareAppointment(
+            selectedProperty
+          );
+
+          return;
+        }
+
+        /*
+         * Slot became unavailable.
+         */
+
+        if (
+          error
+            ?.response
+            ?.status ===
+          409
+        ) {
+          Alert.alert(
+            "Viewing time changed",
+            data?.message ||
+              "This viewing time is no longer available. The available times will be refreshed."
+          );
+
+          setSelectedSlot(
+            null
+          );
+
+          await prepareAppointment(
+            selectedProperty
+          );
 
           return;
         }
 
         Alert.alert(
           "Could not book appointment",
-          error?.response
-            ?.data
-            ?.message ||
+          data?.message ||
             "Unable to book this appointment."
         );
       } finally {
@@ -1116,7 +1202,54 @@ const [
         true
       );
 
-      await initialize();
+      try {
+        if (
+          selectedProperty
+        ) {
+          await prepareAppointment(
+            selectedProperty
+          );
+        } else {
+          await loadBookableProperties();
+        }
+      } finally {
+        setRefreshing(
+          false
+        );
+      }
+    };
+
+  /*
+  |--------------------------------------------------------------------------
+  | Change property
+  |--------------------------------------------------------------------------
+  */
+
+  const clearSelectedProperty =
+    () => {
+      setSelectedProperty(
+        null
+      );
+
+      setPreparation(
+        null
+      );
+
+      setEligibility(
+        null
+      );
+
+      setAvailableDays(
+        []
+      );
+
+      setSelectedSlot(
+        null
+      );
+
+      setCustomerNote(
+        ""
+      );
     };
 
   /*
@@ -1125,7 +1258,9 @@ const [
   |--------------------------------------------------------------------------
   */
 
-  if (loading) {
+  if (
+    loading
+  ) {
     return (
       <Protected>
         <View
@@ -1150,101 +1285,6 @@ const [
     );
   }
 
-
-
-  const prepareAppointment =
-  async (
-    property: PropertyItem
-  ) => {
-    try {
-      setCheckingEligibility(
-        true
-      );
-
-      setAvailableDays(
-        []
-      );
-
-      setSelectedSlot(
-        null
-      );
-
-      const data =
-        await API
-          .preparePropertyAppointment(
-            property.id
-          );
-
-      setPreparation(
-        data
-      );
-
-      setEligibility({
-        allowed:
-          data.can_book,
-
-        required_escrow:
-          data.required_escrow,
-
-        current_balance:
-          data.current_balance,
-
-        amount_needed:
-          data.amount_needed,
-
-        message:
-          data.message,
-      });
-
-      const days =
-        data.availability ??
-        [];
-
-      setAvailableDays(
-        days.map(
-          (day) => ({
-            date:
-              day.date,
-
-            label:
-              day.formatted_date,
-
-            slots:
-              day.slots,
-          })
-        )
-      );
-    } catch (
-      error: any
-    ) {
-      console.error(
-        "Appointment preparation error:",
-        error?.response
-          ?.data ||
-          error
-      );
-
-      setPreparation(
-        null
-      );
-
-      setAvailableDays(
-        []
-      );
-
-      Alert.alert(
-        "Unable to prepare appointment",
-        error?.response
-          ?.data
-          ?.message ||
-          "Unable to prepare this property for appointment booking."
-      );
-    } finally {
-      setCheckingEligibility(
-        false
-      );
-    }
-  };
   /*
   |--------------------------------------------------------------------------
   | Screen
@@ -1298,8 +1338,9 @@ const [
               style={
                 styles.backButton
               }
-              onPress={() =>
-                router.back()
+              onPress={
+                () =>
+                  router.back()
               }
             >
               <MaterialCommunityIcons
@@ -1327,45 +1368,37 @@ const [
                   styles.headingSubtitle
                 }
               >
-                Choose a property and one of the lister&apos;s available viewing times.
+                Choose an available viewing time provided by the property lister.
               </Text>
             </View>
           </View>
 
           {/*
           |--------------------------------------------------------------------------
-          | No property passed:
-          | Choose interested property
+          | Choose property
           |--------------------------------------------------------------------------
           */}
 
           {!selectedProperty && (
             <>
-              <View
+              <Text
                 style={
-                  styles.sectionHeader
+                  styles.sectionTitle
                 }
               >
-                <View>
-                  <Text
-                    style={
-                      styles.sectionTitle
-                    }
-                  >
-                    Choose Property
-                  </Text>
+                Choose Property
+              </Text>
 
-                  <Text
-                    style={
-                      styles.sectionSubtitle
-                    }
-                  >
-                    Properties you have shown interest in and that are still available for viewing.
-                  </Text>
-                </View>
-              </View>
+              <Text
+                style={
+                  styles.sectionSubtitle
+                }
+              >
+                Choose from properties you have shown interest in.
+              </Text>
 
-              {bookableProperties.length ===
+              {bookableProperties
+                .length ===
               0 ? (
                 <View
                   style={
@@ -1383,7 +1416,7 @@ const [
                       styles.emptyTitle
                     }
                   >
-                    No interested properties yet
+                    No properties ready for viewing
                   </Text>
 
                   <Text
@@ -1391,17 +1424,18 @@ const [
                       styles.emptyText
                     }
                   >
-                    Open a property from the marketplace and tap I AM INTERESTED to request a viewing.
+                    Open an available property and tap I AM INTERESTED to begin the viewing process.
                   </Text>
 
                   <TouchableOpacity
                     style={
                       styles.browseButton
                     }
-                    onPress={() =>
-                      router.push(
-                        "/home" as never
-                      )
+                    onPress={
+                      () =>
+                        router.push(
+                          "/home" as never
+                        )
                     }
                   >
                     <Text
@@ -1419,16 +1453,19 @@ const [
                     property
                   ) => (
                     <PropertyChoiceCard
-                      key={String(
-                        property.id
-                      )}
+                      key={
+                        String(
+                          property.id
+                        )
+                      }
                       property={
                         property
                       }
-                      onChoose={() =>
-                        chooseProperty(
-                          property
-                        )
+                      onChoose={
+                        () =>
+                          chooseProperty(
+                            property
+                          )
                       }
                     />
                   )
@@ -1436,12 +1473,6 @@ const [
               )}
             </>
           )}
-
-          {/*
-          |--------------------------------------------------------------------------
-          | Selected property
-          |--------------------------------------------------------------------------
-          */}
 
           {selectedProperty && (
             <>
@@ -1460,24 +1491,194 @@ const [
                 canChange={
                   !initialPropertyId
                 }
-               onChange={() => {
-  setSelectedProperty(
-    null
-  );
-
-  setEligibility(
-    null
-  );
-
-  setAvailableDays(
-    []
-  );
-
-  setSelectedSlot(
-    null
-  );
-}}
+                onChange={
+                  clearSelectedProperty
+                }
               />
+
+              {/*
+              |--------------------------------------------------------------------------
+              | Preparing
+              |--------------------------------------------------------------------------
+              */}
+
+              {preparing && (
+                <View
+                  style={
+                    styles.preparingCard
+                  }
+                >
+                  <ActivityIndicator
+                    color="#2563eb"
+                  />
+
+                  <View
+                    style={{
+                      flex: 1,
+                    }}
+                  >
+                    <Text
+                      style={
+                        styles.preparingTitle
+                      }
+                    >
+                      Checking appointment
+                    </Text>
+
+                    <Text
+                      style={
+                        styles.preparingText
+                      }
+                    >
+                      Checking property availability, your appointment status, escrow and the lister&apos;s next four weeks of availability.
+                    </Text>
+                  </View>
+                </View>
+              )}
+
+              {/*
+              |--------------------------------------------------------------------------
+              | Property unavailable
+              |--------------------------------------------------------------------------
+              */}
+
+              {!preparing &&
+                preparation
+                  ?.code ===
+                  "PROPERTY_NOT_AVAILABLE" && (
+                  <StatusCard
+                    icon="home-remove-outline"
+                    title="Property No Longer Available"
+                    message={
+                      preparation.message ||
+                      "This property is no longer available for viewing."
+                    }
+                    type="warning"
+                  >
+                    <TouchableOpacity
+                      style={
+                        styles.primaryButton
+                      }
+                      onPress={
+                        () =>
+                          router.replace(
+                            "/home" as never
+                          )
+                      }
+                    >
+                      <Text
+                        style={
+                          styles.primaryButtonText
+                        }
+                      >
+                        Browse Other Properties
+                      </Text>
+                    </TouchableOpacity>
+                  </StatusCard>
+                )}
+
+              {/*
+              |--------------------------------------------------------------------------
+              | Own property
+              |--------------------------------------------------------------------------
+              */}
+
+              {!preparing &&
+                preparation
+                  ?.code ===
+                  "OWN_PROPERTY" && (
+                  <StatusCard
+                    icon="account-cancel-outline"
+                    title="Your Own Listing"
+                    message={
+                      preparation.message ||
+                      "You cannot book a viewing appointment for your own property."
+                    }
+                    type="warning"
+                  />
+                )}
+
+              {/*
+              |--------------------------------------------------------------------------
+              | Existing appointment
+              |--------------------------------------------------------------------------
+              */}
+
+              {!preparing &&
+                preparation
+                  ?.code ===
+                  "EXISTING_APPOINTMENT" && (
+                  <StatusCard
+                    icon="calendar-check"
+                    title="Appointment Already Exists"
+                    message={
+                      preparation.message ||
+                      "You already have an active viewing appointment for this property."
+                    }
+                    type="info"
+                  >
+                    {preparation
+                      .existing_appointment && (
+                      <View
+                        style={
+                          styles.existingAppointmentBox
+                        }
+                      >
+                        <Text
+                          style={
+                            styles.existingAppointmentLabel
+                          }
+                        >
+                          Appointment
+                        </Text>
+
+                        <Text
+                          style={
+                            styles.existingAppointmentValue
+                          }
+                        >
+                          {
+                            preparation
+                              .existing_appointment
+                              .appointment_date
+                          }
+                          {" · "}
+                          {formatSlotTime(
+                            preparation
+                              .existing_appointment
+                              .start_time
+                          )}
+                          {" - "}
+                          {formatSlotTime(
+                            preparation
+                              .existing_appointment
+                              .end_time
+                          )}
+                        </Text>
+                      </View>
+                    )}
+
+                    <TouchableOpacity
+                      style={
+                        styles.primaryButton
+                      }
+                      onPress={
+                        () =>
+                          router.replace(
+                            "/appointment" as never
+                          )
+                      }
+                    >
+                      <Text
+                        style={
+                          styles.primaryButtonText
+                        }
+                      >
+                        View My Appointment
+                      </Text>
+                    </TouchableOpacity>
+                  </StatusCard>
+                )}
 
               {/*
               |--------------------------------------------------------------------------
@@ -1485,653 +1686,607 @@ const [
               |--------------------------------------------------------------------------
               */}
 
-              <Text
-                style={[
-                  styles.sectionTitle,
-                  {
-                    marginTop:
-                      22,
-                  },
-                ]}
-              >
-                Appointment Escrow
-              </Text>
-
-              {checkingEligibility ? (
-                <View
-                  style={
-                    styles.loadingCard
-                  }
-                >
-                  <ActivityIndicator
-                    color="#2563eb"
-                  />
-
-                  <Text
-                    style={
-                      styles.loadingCardText
-                    }
-                  >
-                    Checking escrow balance...
-                  </Text>
-                </View>
-              ) : (
-                <View
-                  style={
-                    eligibility?.allowed
-                      ? styles.escrowSuccessCard
-                      : styles.escrowWarningCard
-                  }
-                >
-                  <View
-                    style={
-                      styles.escrowHeader
-                    }
-                  >
-                    <MaterialCommunityIcons
-                      name={eligibility?.allowed ? "shield-check" : "shield-alert"}
-                      size={28}
-                      color={
-                        eligibility?.allowed
-                          ? "#047857"
-                          : "#92400e"
-                      }
-                    />
+              {!preparing &&
+                (
+                  preparation
+                    ?.code ===
+                    "INSUFFICIENT_ESCROW" ||
+                  preparation
+                    ?.code ===
+                    "READY_TO_BOOK" ||
+                  preparation
+                    ?.code ===
+                    "LISTER_NO_AVAILABILITY"
+                ) && (
+                  <>
+                    <Text
+                      style={[
+                        styles.sectionTitle,
+                        {
+                          marginTop:
+                            22,
+                        },
+                      ]}
+                    >
+                      Appointment Escrow
+                    </Text>
 
                     <View
-                      style={{
-                        flex: 1,
-                      }}
-                    >
-                      <Text
-                        style={[
-                          styles.escrowTitle,
-
-                          {
-                            color:
-                              eligibility?.allowed
-                                ? "#065f46"
-                                : "#92400e",
-                          },
-                        ]}
-                      >
-                        {eligibility?.allowed
-                          ? "Escrow requirement met"
-                          : "Escrow deposit required"}
-                      </Text>
-
-                      <Text
-                        style={
-                          styles.escrowDescription
-                        }
-                      >
-                        OHLAM requires an escrow balance equal to 1% of the property amount before a viewing appointment can be booked.
-                      </Text>
-                    </View>
-                  </View>
-
-                  <View
-                    style={
-                      styles.moneyRow
-                    }
-                  >
-                    <Text
                       style={
-                        styles.moneyLabel
+                        preparation
+                          ?.code !==
+                        "INSUFFICIENT_ESCROW"
+                          ? styles.escrowSuccessCard
+                          : styles.escrowWarningCard
                       }
                     >
-                      Property amount
-                    </Text>
-
-                    <Text
-                      style={
-                        styles.moneyValue
-                      }
-                    >
-                      {money(
-                        selectedProperty.amount
-                      )}
-                    </Text>
-                  </View>
-
-                  <View
-                    style={
-                      styles.moneyRow
-                    }
-                  >
-                    <Text
-                      style={
-                        styles.moneyLabel
-                      }
-                    >
-                      Required escrow (1%)
-                    </Text>
-
-                    <Text
-                      style={
-                        styles.moneyValue
-                      }
-                    >
-                      {money(
-                        requiredEscrow
-                      )}
-                    </Text>
-                  </View>
-
-                  <View
-                    style={
-                      styles.moneyRow
-                    }
-                  >
-                    <Text
-                      style={
-                        styles.moneyLabel
-                      }
-                    >
-                      Current escrow balance
-                    </Text>
-
-                    <Text
-                      style={
-                        styles.moneyValue
-                      }
-                    >
-                      {money(
-                        eligibility
-                          ?.current_balance ??
-                          0
-                      )}
-                    </Text>
-                  </View>
-
-                  {!eligibility?.allowed && (
-                    <>
                       <View
                         style={
-                          styles.moneyRow
-                        }
-                      >
-                        <Text
-                          style={
-                            styles.moneyLabel
-                          }
-                        >
-                          Amount needed
-                        </Text>
-
-                        <Text
-                          style={[
-                            styles.moneyValue,
-
-                            {
-                              color:
-                                "#dc2626",
-                            },
-                          ]}
-                        >
-                          {money(
-                            eligibility
-                              ?.amount_needed ??
-                              requiredEscrow
-                          )}
-                        </Text>
-                      </View>
-
-                      <TouchableOpacity
-                        style={
-                          styles.fundEscrowButton
-                        }
-                        onPress={
-                          goToEscrow
+                          styles.escrowHeader
                         }
                       >
                         <MaterialCommunityIcons
-                          name="wallet-plus"
-                          size={20}
-                          color="#ffffff"
+                          name={
+                            preparation
+                              ?.code !==
+                            "INSUFFICIENT_ESCROW"
+                              ? "shield-check"
+                              : "shield-alert"
+                          }
+                          size={28}
+                          color={
+                            preparation
+                              ?.code !==
+                            "INSUFFICIENT_ESCROW"
+                              ? "#047857"
+                              : "#92400e"
+                          }
                         />
 
-                        <Text
-                          style={
-                            styles.fundEscrowText
-                          }
+                        <View
+                          style={{
+                            flex: 1,
+                          }}
                         >
-                          Fund Escrow
-                        </Text>
-                      </TouchableOpacity>
-                    </>
-                  )}
-                </View>
-              )}
+                          <Text
+                            style={
+                              styles.escrowTitle
+                            }
+                          >
+                            {preparation
+                              ?.code !==
+                            "INSUFFICIENT_ESCROW"
+                              ? "Escrow requirement met"
+                              : "Escrow deposit required"}
+                          </Text>
+
+                          <Text
+                            style={
+                              styles.escrowDescription
+                            }
+                          >
+                            Your appointment eligibility includes an escrow requirement before a viewing can be booked.
+                          </Text>
+                        </View>
+                      </View>
+
+                      <MoneyRow
+                        label="Property amount"
+                        value={
+                          money(
+                            selectedProperty.amount
+                          )
+                        }
+                      />
+
+                      <MoneyRow
+                        label="Required escrow"
+                        value={
+                          money(
+                            requiredEscrow
+                          )
+                        }
+                      />
+
+                      <MoneyRow
+                        label="Current escrow balance"
+                        value={
+                          money(
+                            eligibility
+                              ?.current_balance ??
+                              0
+                          )
+                        }
+                      />
+
+                      {preparation
+                        ?.code ===
+                        "INSUFFICIENT_ESCROW" && (
+                        <>
+                          <MoneyRow
+                            label="Amount needed"
+                            value={
+                              money(
+                                eligibility
+                                  ?.amount_needed ??
+                                  requiredEscrow
+                              )
+                            }
+                            danger
+                          />
+
+                          <TouchableOpacity
+                            style={
+                              styles.fundEscrowButton
+                            }
+                            onPress={
+                              goToEscrow
+                            }
+                          >
+                            <MaterialCommunityIcons
+                              name="wallet-plus"
+                              size={20}
+                              color="#ffffff"
+                            />
+
+                            <Text
+                              style={
+                                styles.fundEscrowText
+                              }
+                            >
+                              Fund Escrow
+                            </Text>
+                          </TouchableOpacity>
+                        </>
+                      )}
+                    </View>
+                  </>
+                )}
 
               {/*
               |--------------------------------------------------------------------------
-              | Appointment date and slots
+              | Lister has no availability
               |--------------------------------------------------------------------------
               */}
 
-              {eligibility?.allowed && (
-                <>
-                  <Text
-                    style={[
-                      styles.sectionTitle,
-
-                      {
-                        marginTop:
-                          24,
-                      },
-                    ]}
-                  >
-                    Choose Viewing Time
-                  </Text>
-
-                
-
-<Text
-  style={
-    styles.sectionSubtitle
-  }
->
-  Select one of the lister&apos;s available viewing dates within the next four weeks.
-</Text>
-
-{loadingSlots && (
-  <View
-    style={
-      styles.availabilityLoadingCard
-    }
-  >
-    <ActivityIndicator
-      color="#2563eb"
-    />
-
-    <View
-      style={{
-        flex: 1,
-      }}
-    >
-      <Text
-        style={
-          styles.availabilityLoadingTitle
-        }
-      >
-        Checking lister availability
-      </Text>
-
-      <Text
-        style={
-          styles.availabilityLoadingText
-        }
-      >
-        Looking for available viewing times over the next four weeks.
-      </Text>
-    </View>
-  </View>
-)}
-
-{!loadingSlots &&
-availableDays.length ===
-  0 && (
-  <View
-    style={
-      styles.noAvailabilityCard
-    }
-  >
-    <MaterialCommunityIcons
-      name="calendar-remove-outline"
-      size={34}
-      color="#64748b"
-    />
-
-    <Text
-      style={
-        styles.noAvailabilityTitle
-      }
-    >
-      No available viewing dates
-    </Text>
-
-    <Text
-      style={
-        styles.noAvailabilityText
-      }
-    >
-      The lister has not made any viewing times available within the next four weeks.
-    </Text>
-
-    <TouchableOpacity
-      style={
-        styles.refreshAvailabilityButton
-      }
-    
-    >
-      <MaterialCommunityIcons
-        name="refresh"
-        size={19}
-        color="#ffffff"
-      />
-
-      <Text
-        style={
-          styles.refreshAvailabilityText
-        }
-      >
-        Check Again
-      </Text>
-    </TouchableOpacity>
-  </View>
-)}
-
-{!loadingSlots &&
-  availableDays.map(
-    (
-      day
-    ) => (
-      <View
-        key={
-          day.date
-        }
-        style={
-          styles.availableDayCard
-        }
-      >
-        <View
-          style={
-            styles.availableDayHeader
-          }
-        >
-          <View
-            style={
-              styles.calendarIconBox
-            }
-          >
-            <MaterialCommunityIcons
-              name="calendar"
-              size={22}
-              color="#2563eb"
-            />
-          </View>
-
-          <View
-            style={{
-              flex: 1,
-            }}
-          >
-            <Text
-              style={
-                styles.availableDayTitle
-              }
-            >
-              {day.label}
-            </Text>
-
-            <Text
-              style={
-                styles.availableDayCount
-              }
-            >
-              {day.slots.length}
-              {" "}
-              {day.slots.length === 1
-                ? "available time"
-                : "available times"}
-            </Text>
-          </View>
-        </View>
-
-        <View
-          style={
-            styles.daySlotsContainer
-          }
-        >
-          {day.slots.map(
-            (
-              slot,
-              index
-            ) => {
-              const selected =
-                selectedSlot
-                  ?.date ===
-                  slot.date &&
-                selectedSlot
-                  ?.start_time ===
-                  slot.start_time &&
-                selectedSlot
-                  ?.end_time ===
-                  slot.end_time;
-
-              return (
-                <TouchableOpacity
-                  key={`${slot.date}-${slot.start_time}-${slot.end_time}-${index}`}
-                  style={[
-                    styles.slotCard,
-
-                    selected &&
-                      styles.selectedSlotCard,
-                  ]}
-                  onPress={() =>
-                    setSelectedSlot(
-                      slot
-                    )
-                  }
-                >
-                  <View
-                    style={
-                      styles.slotTimeRow
+              {!preparing &&
+                preparation
+                  ?.code ===
+                  "LISTER_NO_AVAILABILITY" && (
+                  <StatusCard
+                    icon="calendar-remove-outline"
+                    title="No Viewing Times Available Yet"
+                    message={
+                      preparation.message ||
+                      "The lister currently has no available viewing times within the next four weeks. OHLAM has notified the lister to add availability."
                     }
+                    type="info"
                   >
-                    <MaterialCommunityIcons
-                      name="clock-outline"
-                      size={19}
-                      color={
-                        selected
-                          ? "#ffffff"
-                          : "#2563eb"
-                      }
-                    />
-
-                    <View>
-                      <Text
-                        style={[
-                          styles.slotTime,
-
-                          selected && {
-                            color:
-                              "#ffffff",
-                          },
-                        ]}
-                      >
-                        {formatSlotTime(
-                          slot.start_time
-                        )}
-                        {" - "}
-                        {formatSlotTime(
-                          slot.end_time
-                        )}
-                      </Text>
-                    </View>
-                  </View>
-
-                  <MaterialCommunityIcons
-                    name={
-                      selected
-                        ? "check-circle"
-                        : "circle-outline"
-                    }
-                    size={23}
-                    color={
-                      selected
-                        ? "#ffffff"
-                        : "#2563eb"
-                    }
-                  />
-                </TouchableOpacity>
-              );
-            }
-          )}
-        </View>
-      </View>
-    )
-  )}
-
- 
-                  {/*
-                  |--------------------------------------------------------------------------
-                  | Note
-                  |--------------------------------------------------------------------------
-                  */}
-
-                  <Text
-                    style={[
-                      styles.label,
-
-                      {
-                        marginTop:
-                          20,
-                      },
-                    ]}
-                  >
-                    Note to Lister
-                    {" "}
                     <Text
                       style={
-                        styles.optional
+                        styles.notificationInfo
                       }
                     >
-                      optional
+                      You do not need to contact the lister outside OHLAM. Check again later after they update their viewing availability.
                     </Text>
-                  </Text>
 
-                  <TextInput
-                    value={
-                      customerNote
-                    }
-                    onChangeText={
-                      setCustomerNote
-                    }
-                    placeholder="Example: I would like to inspect the property before making a decision."
-                    placeholderTextColor="#94a3b8"
-                    style={[
-                      styles.input,
-
-                      styles.noteInput,
-                    ]}
-                    multiline
-                    maxLength={
-                      500
-                    }
-                  />
-
-                  {/*
-                  |--------------------------------------------------------------------------
-                  | Selected summary
-                  |--------------------------------------------------------------------------
-                  */}
-
-                  {selectedSlot && (
-                    <View
+                    <TouchableOpacity
                       style={
-                        styles.summaryCard
+                        styles.primaryButton
+                      }
+                      disabled={
+                        preparing
+                      }
+                      onPress={
+                        () =>
+                          prepareAppointment(
+                            selectedProperty
+                          )
                       }
                     >
                       <MaterialCommunityIcons
-                        name="calendar-check"
-                        size={24}
-                        color="#047857"
-                      />
-
-                      <View
-                        style={{
-                          flex: 1,
-                        }}
-                      >
-                        <Text
-                          style={
-                            styles.summaryTitle
-                          }
-                        >
-                          Viewing selected
-                        </Text>
-
-                        <Text
-                          style={
-                            styles.summaryText
-                          }
-                        >
-                          {selectedSlot.date}
-                          {" · "}
-                          {formatSlotTime(
-                            selectedSlot.start_time
-                          )}
-                          {" - "}
-                          {formatSlotTime(
-                            selectedSlot.end_time
-                          )}
-                        </Text>
-                      </View>
-                    </View>
-                  )}
-
-                  <TouchableOpacity
-                    style={[
-                      styles.bookButton,
-
-                      (!selectedSlot ||
-                        booking) &&
-                        styles.disabledButton,
-                    ]}
-                    disabled={
-                      !selectedSlot ||
-                      booking
-                    }
-                    onPress={
-                      bookAppointment
-                    }
-                  >
-                    {booking ? (
-                      <ActivityIndicator
+                        name="refresh"
+                        size={19}
                         color="#ffffff"
                       />
-                    ) : (
-                      <>
+
+                      <Text
+                        style={
+                          styles.primaryButtonText
+                        }
+                      >
+                        Check Again
+                      </Text>
+                    </TouchableOpacity>
+                  </StatusCard>
+                )}
+
+              {/*
+              |--------------------------------------------------------------------------
+              | Ready to book
+              |--------------------------------------------------------------------------
+              */}
+
+              {!preparing &&
+                preparation
+                  ?.code ===
+                  "READY_TO_BOOK" && (
+                  <>
+                    <Text
+                      style={[
+                        styles.sectionTitle,
+                        {
+                          marginTop:
+                            24,
+                        },
+                      ]}
+                    >
+                      Choose Viewing Time
+                    </Text>
+
+                    <Text
+                      style={
+                        styles.sectionSubtitle
+                      }
+                    >
+                      Select one of the lister&apos;s available viewing times within the next four weeks.
+                    </Text>
+
+                    {availableDays.length ===
+                    0 ? (
+                      <View
+                        style={
+                          styles.noAvailabilityCard
+                        }
+                      >
                         <MaterialCommunityIcons
-                          name="calendar-check"
-                          size={21}
-                          color="#ffffff"
+                          name="calendar-remove-outline"
+                          size={34}
+                          color="#64748b"
                         />
 
                         <Text
                           style={
-                            styles.bookButtonText
+                            styles.emptyTitle
                           }
                         >
-                          Request Appointment
+                          No available times
                         </Text>
-                      </>
-                    )}
-                  </TouchableOpacity>
 
-                  <View
-                    style={
-                      styles.safetyCard
-                    }
-                  >
-                    <MaterialCommunityIcons
-                      name="shield-lock"
-                      size={22}
-                      color="#1e40af"
-                    />
+                        <Text
+                          style={
+                            styles.emptyText
+                          }
+                        >
+                          No available viewing times were returned.
+                        </Text>
+
+                        <TouchableOpacity
+                          style={
+                            styles.primaryButton
+                          }
+                          onPress={
+                            () =>
+                              prepareAppointment(
+                                selectedProperty
+                              )
+                          }
+                        >
+                          <Text
+                            style={
+                              styles.primaryButtonText
+                            }
+                          >
+                            Refresh Availability
+                          </Text>
+                        </TouchableOpacity>
+                      </View>
+                    ) : (
+                      availableDays.map(
+                        (
+                          day
+                        ) => (
+                          <View
+                            key={
+                              day.date
+                            }
+                            style={
+                              styles.availableDayCard
+                            }
+                          >
+                            <View
+                              style={
+                                styles.availableDayHeader
+                              }
+                            >
+                              <View
+                                style={
+                                  styles.calendarIconBox
+                                }
+                              >
+                                <MaterialCommunityIcons
+                                  name="calendar"
+                                  size={22}
+                                  color="#2563eb"
+                                />
+                              </View>
+
+                              <View
+                                style={{
+                                  flex: 1,
+                                }}
+                              >
+                                <Text
+                                  style={
+                                    styles.availableDayTitle
+                                  }
+                                >
+                                  {
+                                    day.label
+                                  }
+                                </Text>
+
+                                <Text
+                                  style={
+                                    styles.availableDayCount
+                                  }
+                                >
+                                  {
+                                    day.slots
+                                      .length
+                                  }
+                                  {" "}
+                                  {day
+                                    .slots
+                                    .length ===
+                                  1
+                                    ? "available time"
+                                    : "available times"}
+                                </Text>
+                              </View>
+                            </View>
+
+                            <View
+                              style={
+                                styles.daySlotsContainer
+                              }
+                            >
+                              {day.slots.map(
+                                (
+                                  slot,
+                                  index
+                                ) => {
+                                  const selected =
+                                    selectedSlot
+                                      ?.date ===
+                                      slot.date &&
+                                    selectedSlot
+                                      ?.start_time ===
+                                      slot.start_time &&
+                                    selectedSlot
+                                      ?.end_time ===
+                                      slot.end_time;
+
+                                  return (
+                                    <TouchableOpacity
+                                      key={`${slot.date}-${slot.start_time}-${slot.end_time}-${index}`}
+                                      style={[
+                                        styles.slotCard,
+
+                                        selected &&
+                                          styles.selectedSlotCard,
+                                      ]}
+                                      onPress={
+                                        () =>
+                                          setSelectedSlot(
+                                            slot
+                                          )
+                                      }
+                                    >
+                                      <View
+                                        style={
+                                          styles.slotTimeRow
+                                        }
+                                      >
+                                        <MaterialCommunityIcons
+                                          name="clock-outline"
+                                          size={19}
+                                          color={
+                                            selected
+                                              ? "#ffffff"
+                                              : "#2563eb"
+                                          }
+                                        />
+
+                                        <Text
+                                          style={[
+                                            styles.slotTime,
+
+                                            selected && {
+                                              color:
+                                                "#ffffff",
+                                            },
+                                          ]}
+                                        >
+                                          {formatSlotTime(
+                                            slot.start_time
+                                          )}
+                                          {" - "}
+                                          {formatSlotTime(
+                                            slot.end_time
+                                          )}
+                                        </Text>
+                                      </View>
+
+                                      <MaterialCommunityIcons
+                                        name={
+                                          selected
+                                            ? "check-circle"
+                                            : "circle-outline"
+                                        }
+                                        size={23}
+                                        color={
+                                          selected
+                                            ? "#ffffff"
+                                            : "#2563eb"
+                                        }
+                                      />
+                                    </TouchableOpacity>
+                                  );
+                                }
+                              )}
+                            </View>
+                          </View>
+                        )
+                      )
+                    )}
 
                     <Text
-                      style={
-                        styles.safetyText
+                      style={[
+                        styles.label,
+                        {
+                          marginTop:
+                            20,
+                        },
+                      ]}
+                    >
+                      Note to Lister{" "}
+                      <Text
+                        style={
+                          styles.optional
+                        }
+                      >
+                        optional
+                      </Text>
+                    </Text>
+
+                    <TextInput
+                      value={
+                        customerNote
+                      }
+                      onChangeText={
+                        setCustomerNote
+                      }
+                      placeholder="Example: I would like to inspect the property before making a decision."
+                      placeholderTextColor="#94a3b8"
+                      style={[
+                        styles.input,
+                        styles.noteInput,
+                      ]}
+                      multiline
+                      maxLength={
+                        500
+                      }
+                    />
+
+                    {selectedSlot && (
+                      <View
+                        style={
+                          styles.summaryCard
+                        }
+                      >
+                        <MaterialCommunityIcons
+                          name="calendar-check"
+                          size={24}
+                          color="#047857"
+                        />
+
+                        <View
+                          style={{
+                            flex: 1,
+                          }}
+                        >
+                          <Text
+                            style={
+                              styles.summaryTitle
+                            }
+                          >
+                            Viewing selected
+                          </Text>
+
+                          <Text
+                            style={
+                              styles.summaryText
+                            }
+                          >
+                            {
+                              selectedSlot.date
+                            }
+                            {" · "}
+                            {formatSlotTime(
+                              selectedSlot.start_time
+                            )}
+                            {" - "}
+                            {formatSlotTime(
+                              selectedSlot.end_time
+                            )}
+                          </Text>
+                        </View>
+                      </View>
+                    )}
+
+                    <TouchableOpacity
+                      style={[
+                        styles.bookButton,
+
+                        (
+                          !selectedSlot ||
+                          booking
+                        ) &&
+                          styles.disabledButton,
+                      ]}
+                      disabled={
+                        !selectedSlot ||
+                        booking
+                      }
+                      onPress={
+                        bookAppointment
                       }
                     >
-                      Keep appointment communication and payments inside OHLAM. Do not send money directly to a lister or share private contact details unnecessarily.
-                    </Text>
-                  </View>
-                </>
-              )}
+                      {booking ? (
+                        <ActivityIndicator
+                          color="#ffffff"
+                        />
+                      ) : (
+                        <>
+                          <MaterialCommunityIcons
+                            name="calendar-check"
+                            size={21}
+                            color="#ffffff"
+                          />
+
+                          <Text
+                            style={
+                              styles.bookButtonText
+                            }
+                          >
+                            Request Appointment
+                          </Text>
+                        </>
+                      )}
+                    </TouchableOpacity>
+
+                    <View
+                      style={
+                        styles.safetyCard
+                      }
+                    >
+                      <MaterialCommunityIcons
+                        name="shield-lock"
+                        size={22}
+                        color="#1e40af"
+                      />
+
+                      <Text
+                        style={
+                          styles.safetyText
+                        }
+                      >
+                        Keep appointment communication and payments inside OHLAM. Do not send money directly to a lister or share private contact details unnecessarily.
+                      </Text>
+                    </View>
+                  </>
+                )}
             </>
           )}
 
@@ -2148,6 +2303,126 @@ availableDays.length ===
 
 /*
 |--------------------------------------------------------------------------
+| Status Card
+|--------------------------------------------------------------------------
+*/
+
+function StatusCard({
+  icon,
+  title,
+  message,
+  type,
+  children,
+}: {
+  icon: any;
+
+  title: string;
+
+  message: string;
+
+  type:
+    | "warning"
+    | "info";
+
+  children?:
+    React.ReactNode;
+}) {
+  const warning =
+    type ===
+    "warning";
+
+  return (
+    <View
+      style={[
+        styles.statusCard,
+
+        warning
+          ? styles.statusWarningCard
+          : styles.statusInfoCard,
+      ]}
+    >
+      <MaterialCommunityIcons
+        name={
+          icon
+        }
+        size={32}
+        color={
+          warning
+            ? "#b45309"
+            : "#2563eb"
+        }
+      />
+
+      <Text
+        style={
+          styles.statusTitle
+        }
+      >
+        {title}
+      </Text>
+
+      <Text
+        style={
+          styles.statusMessage
+        }
+      >
+        {message}
+      </Text>
+
+      {children}
+    </View>
+  );
+}
+
+/*
+|--------------------------------------------------------------------------
+| Money row
+|--------------------------------------------------------------------------
+*/
+
+function MoneyRow({
+  label,
+  value,
+  danger = false,
+}: {
+  label: string;
+
+  value: string;
+
+  danger?: boolean;
+}) {
+  return (
+    <View
+      style={
+        styles.moneyRow
+      }
+    >
+      <Text
+        style={
+          styles.moneyLabel
+        }
+      >
+        {label}
+      </Text>
+
+      <Text
+        style={[
+          styles.moneyValue,
+
+          danger && {
+            color:
+              "#dc2626",
+          },
+        ]}
+      >
+        {value}
+      </Text>
+    </View>
+  );
+}
+
+/*
+|--------------------------------------------------------------------------
 | Property Choice Card
 |--------------------------------------------------------------------------
 */
@@ -2158,7 +2433,8 @@ function PropertyChoiceCard({
 }: {
   property: PropertyItem;
 
-  onChoose: () => void;
+  onChoose:
+    () => void;
 }) {
   const imageUrl =
     getImageUrl(
@@ -2179,7 +2455,8 @@ function PropertyChoiceCard({
         {imageUrl ? (
           <Image
             source={{
-              uri: imageUrl,
+              uri:
+                imageUrl,
             }}
             style={
               styles.propertyImage
@@ -2198,26 +2475,6 @@ function PropertyChoiceCard({
             />
           </View>
         )}
-
-        <View
-          style={
-            styles.interestedBadge
-          }
-        >
-          <MaterialCommunityIcons
-            name="heart"
-            size={14}
-            color="#dc2626"
-          />
-
-          <Text
-            style={
-              styles.interestedText
-            }
-          >
-            Interested
-          </Text>
-        </View>
       </View>
 
       <View
@@ -2255,19 +2512,6 @@ function PropertyChoiceCard({
           )}
         </Text>
 
-        <Text
-          style={
-            styles.escrowPreview
-          }
-        >
-          Viewing escrow requirement:{" "}
-          {money(
-            calculateOnePercent(
-              property.amount
-            )
-          )}
-        </Text>
-
         <TouchableOpacity
           style={
             styles.chooseButton
@@ -2281,7 +2525,7 @@ function PropertyChoiceCard({
               styles.chooseButtonText
             }
           >
-            Choose
+            Check Viewing Availability
           </Text>
 
           <MaterialCommunityIcons
@@ -2297,22 +2541,21 @@ function PropertyChoiceCard({
 
 /*
 |--------------------------------------------------------------------------
-| Selected Property
+| Selected Property Card
 |--------------------------------------------------------------------------
 */
 
 function SelectedPropertyCard({
   property,
-
   canChange,
-
   onChange,
 }: {
   property: PropertyItem;
 
   canChange: boolean;
 
-  onChange: () => void;
+  onChange:
+    () => void;
 }) {
   const imageUrl =
     getImageUrl(
@@ -2328,7 +2571,8 @@ function SelectedPropertyCard({
       {imageUrl ? (
         <Image
           source={{
-            uri: imageUrl,
+            uri:
+              imageUrl,
           }}
           style={
             styles.selectedPropertyImage
@@ -2413,268 +2657,166 @@ const styles =
   StyleSheet.create({
     page: {
       flex: 1,
-
       backgroundColor:
         "#f8fafc",
     },
 
     container: {
       padding: 18,
-
       flexGrow: 1,
     },
 
     center: {
       flex: 1,
-
       alignItems:
         "center",
-
       justifyContent:
         "center",
-
       padding: 20,
-
       backgroundColor:
         "#f8fafc",
     },
 
     loadingText: {
       marginTop: 12,
-
       color: "#64748b",
-
-      fontWeight: "700",
+      fontWeight:
+        "700",
     },
 
     header: {
       flexDirection:
         "row",
-
       alignItems:
         "flex-start",
-
       gap: 12,
-
       marginBottom: 24,
     },
 
     backButton: {
       width: 42,
-
       height: 42,
-
       borderRadius: 21,
-
       backgroundColor:
         "#ffffff",
-
       alignItems:
         "center",
-
       justifyContent:
         "center",
-
       borderWidth: 1,
-
       borderColor:
         "#e2e8f0",
     },
 
     heading: {
       fontSize: 26,
-
-      fontWeight: "900",
-
+      fontWeight:
+        "900",
       color: "#0f172a",
     },
 
     headingSubtitle: {
       color: "#64748b",
-
       marginTop: 5,
-
       lineHeight: 20,
-
-      fontWeight: "600",
-    },
-
-    sectionHeader: {
-      marginBottom: 14,
+      fontWeight:
+        "600",
     },
 
     sectionTitle: {
       color: "#0f172a",
-
       fontSize: 19,
-
-      fontWeight: "900",
-
+      fontWeight:
+        "900",
       marginBottom: 5,
     },
 
     sectionSubtitle: {
       color: "#64748b",
-
       lineHeight: 19,
-
       fontSize: 13,
-
-      fontWeight: "600",
+      fontWeight:
+        "600",
     },
 
-    /*
-    |--------------------------------------------------------------------------
-    | Empty
-    |--------------------------------------------------------------------------
-    */
-
     emptyCard: {
+      marginTop: 14,
       backgroundColor:
         "#ffffff",
-
       padding: 26,
-
       borderRadius: 20,
-
       alignItems:
         "center",
-
       borderWidth: 1,
-
       borderColor:
         "#e2e8f0",
     },
 
     emptyTitle: {
       marginTop: 12,
-
       color: "#0f172a",
-
       fontSize: 17,
-
-      fontWeight: "900",
-
+      fontWeight:
+        "900",
       textAlign:
         "center",
     },
 
     emptyText: {
       color: "#64748b",
-
       marginTop: 7,
-
       lineHeight: 20,
-
       textAlign:
         "center",
-
-      fontWeight: "600",
+      fontWeight:
+        "600",
     },
 
     browseButton: {
       marginTop: 16,
-
       backgroundColor:
         "#2563eb",
-
-      paddingHorizontal:
-        18,
-
-      paddingVertical:
-        12,
-
+      paddingHorizontal: 18,
+      paddingVertical: 12,
       borderRadius: 12,
     },
 
     browseButtonText: {
       color: "#ffffff",
-
-      fontWeight: "900",
+      fontWeight:
+        "900",
     },
-
-    /*
-    |--------------------------------------------------------------------------
-    | Property choice
-    |--------------------------------------------------------------------------
-    */
 
     propertyCard: {
       backgroundColor:
         "#ffffff",
-
       borderRadius: 20,
-
       overflow:
         "hidden",
-
-      marginBottom: 16,
-
+      marginTop: 14,
+      marginBottom: 2,
       borderWidth: 1,
-
       borderColor:
         "#e2e8f0",
-
-      elevation: 2,
     },
 
     propertyImageContainer: {
       height: 155,
-
       backgroundColor:
         "#e2e8f0",
     },
 
     propertyImage: {
       width: "100%",
-
       height: "100%",
     },
 
     noImage: {
       flex: 1,
-
       alignItems:
         "center",
-
       justifyContent:
         "center",
-    },
-
-    interestedBadge: {
-      position:
-        "absolute",
-
-      top: 12,
-
-      left: 12,
-
-      backgroundColor:
-        "#ffffff",
-
-      borderRadius: 999,
-
-      flexDirection:
-        "row",
-
-      alignItems:
-        "center",
-
-      gap: 5,
-
-      paddingHorizontal:
-        10,
-
-      paddingVertical:
-        6,
-    },
-
-    interestedText: {
-      color: "#991b1b",
-
-      fontSize: 11,
-
-      fontWeight: "900",
     },
 
     propertyBody: {
@@ -2683,409 +2825,412 @@ const styles =
 
     propertyTitle: {
       color: "#0f172a",
-
       fontSize: 18,
-
-      fontWeight: "900",
+      fontWeight:
+        "900",
     },
 
     propertyLocation: {
       color: "#64748b",
-
       marginTop: 5,
-
-      fontWeight: "600",
+      fontWeight:
+        "600",
     },
 
     propertyAmount: {
       color: "#0f172a",
-
       marginTop: 9,
-
       fontSize: 20,
-
-      fontWeight: "900",
-    },
-
-    escrowPreview: {
-      color: "#475569",
-
-      marginTop: 6,
-
-      fontSize: 12,
-
-      fontWeight: "700",
+      fontWeight:
+        "900",
     },
 
     chooseButton: {
       backgroundColor:
         "#2563eb",
-
-      paddingVertical:
-        12,
-
-      paddingHorizontal:
-        14,
-
+      paddingVertical: 12,
+      paddingHorizontal: 14,
       borderRadius: 13,
-
       marginTop: 14,
-
       flexDirection:
         "row",
-
       alignItems:
         "center",
-
       justifyContent:
         "center",
-
       gap: 5,
     },
 
     chooseButtonText: {
       color: "#ffffff",
-
-      fontWeight: "900",
-
+      fontWeight:
+        "900",
       fontSize: 14,
     },
 
-    /*
-    |--------------------------------------------------------------------------
-    | Selected property
-    |--------------------------------------------------------------------------
-    */
-
-    selectedPropertyCard:
-      {
-        backgroundColor:
-          "#ffffff",
-
-        borderRadius: 18,
-
-        padding: 12,
-
-        flexDirection:
-          "row",
-
-        gap: 12,
-
-        borderWidth: 1,
-
-        borderColor:
-          "#e2e8f0",
-      },
-
-    selectedPropertyImage:
-      {
-        width: 92,
-
-        height: 92,
-
-        borderRadius: 14,
-
-        backgroundColor:
-          "#e2e8f0",
-      },
-
-    selectedPropertyNoImage:
-      {
-        width: 92,
-
-        height: 92,
-
-        borderRadius: 14,
-
-        backgroundColor:
-          "#e2e8f0",
-
-        alignItems:
-          "center",
-
-        justifyContent:
-          "center",
-      },
-
-    selectedPropertyTitle:
-      {
-        color: "#0f172a",
-
-        fontSize: 16,
-
-        fontWeight: "900",
-      },
-
-    selectedPropertyLocation:
-      {
-        color: "#64748b",
-
-        marginTop: 4,
-
-        fontSize: 12,
-
-        fontWeight: "600",
-      },
-
-    selectedPropertyAmount:
-      {
-        color: "#0f172a",
-
-        marginTop: 7,
-
-        fontSize: 17,
-
-        fontWeight: "900",
-      },
-
-    changeProperty: {
-      marginTop: 7,
-
-      color: "#2563eb",
-
-      fontSize: 12,
-
-      fontWeight: "900",
-    },
-
-    /*
-    |--------------------------------------------------------------------------
-    | Escrow
-    |--------------------------------------------------------------------------
-    */
-
-    loadingCard: {
+    selectedPropertyCard: {
       backgroundColor:
         "#ffffff",
-
-      borderRadius: 16,
-
-      padding: 20,
-
+      borderRadius: 18,
+      padding: 12,
       flexDirection:
         "row",
-
-      alignItems:
-        "center",
-
-      gap: 10,
-
+      gap: 12,
       borderWidth: 1,
-
       borderColor:
         "#e2e8f0",
     },
 
-    loadingCardText: {
-      color: "#64748b",
+    selectedPropertyImage: {
+      width: 92,
+      height: 92,
+      borderRadius: 14,
+      backgroundColor:
+        "#e2e8f0",
+    },
 
-      fontWeight: "700",
+    selectedPropertyNoImage: {
+      width: 92,
+      height: 92,
+      borderRadius: 14,
+      backgroundColor:
+        "#e2e8f0",
+      alignItems:
+        "center",
+      justifyContent:
+        "center",
+    },
+
+    selectedPropertyTitle: {
+      color: "#0f172a",
+      fontSize: 16,
+      fontWeight:
+        "900",
+    },
+
+    selectedPropertyLocation: {
+      color: "#64748b",
+      marginTop: 4,
+      fontSize: 12,
+      fontWeight:
+        "600",
+    },
+
+    selectedPropertyAmount: {
+      color: "#0f172a",
+      marginTop: 7,
+      fontSize: 17,
+      fontWeight:
+        "900",
+    },
+
+    changeProperty: {
+      marginTop: 7,
+      color: "#2563eb",
+      fontSize: 12,
+      fontWeight:
+        "900",
+    },
+
+    preparingCard: {
+      marginTop: 20,
+      backgroundColor:
+        "#eff6ff",
+      borderWidth: 1,
+      borderColor:
+        "#bfdbfe",
+      borderRadius: 17,
+      padding: 16,
+      flexDirection:
+        "row",
+      alignItems:
+        "center",
+      gap: 12,
+    },
+
+    preparingTitle: {
+      color: "#1e3a8a",
+      fontWeight:
+        "900",
+    },
+
+    preparingText: {
+      color: "#475569",
+      fontSize: 12,
+      fontWeight:
+        "600",
+      lineHeight: 18,
+      marginTop: 3,
+    },
+
+    statusCard: {
+      marginTop: 20,
+      borderRadius: 18,
+      padding: 20,
+      alignItems:
+        "center",
+      borderWidth: 1,
+    },
+
+    statusWarningCard: {
+      backgroundColor:
+        "#fffbeb",
+      borderColor:
+        "#fde68a",
+    },
+
+    statusInfoCard: {
+      backgroundColor:
+        "#eff6ff",
+      borderColor:
+        "#bfdbfe",
+    },
+
+    statusTitle: {
+      marginTop: 10,
+      color: "#0f172a",
+      fontSize: 17,
+      fontWeight:
+        "900",
+      textAlign:
+        "center",
+    },
+
+    statusMessage: {
+      marginTop: 7,
+      color: "#475569",
+      textAlign:
+        "center",
+      lineHeight: 20,
+      fontWeight:
+        "600",
+    },
+
+    existingAppointmentBox: {
+      width: "100%",
+      marginTop: 14,
+      backgroundColor:
+        "#ffffff",
+      borderRadius: 12,
+      padding: 12,
+    },
+
+    existingAppointmentLabel: {
+      color: "#64748b",
+      fontSize: 11,
+      fontWeight:
+        "800",
+    },
+
+    existingAppointmentValue: {
+      color: "#0f172a",
+      marginTop: 4,
+      fontWeight:
+        "900",
+    },
+
+    notificationInfo: {
+      marginTop: 12,
+      color: "#475569",
+      textAlign:
+        "center",
+      fontSize: 12,
+      lineHeight: 18,
+      fontWeight:
+        "600",
+    },
+
+    primaryButton: {
+      marginTop: 16,
+      backgroundColor:
+        "#2563eb",
+      paddingHorizontal: 18,
+      paddingVertical: 12,
+      borderRadius: 12,
+      flexDirection:
+        "row",
+      alignItems:
+        "center",
+      justifyContent:
+        "center",
+      gap: 6,
+    },
+
+    primaryButtonText: {
+      color: "#ffffff",
+      fontWeight:
+        "900",
     },
 
     escrowSuccessCard: {
       backgroundColor:
         "#ecfdf5",
-
       borderWidth: 1,
-
       borderColor:
         "#a7f3d0",
-
       borderRadius: 18,
-
       padding: 16,
     },
 
     escrowWarningCard: {
       backgroundColor:
         "#fffbeb",
-
       borderWidth: 1,
-
       borderColor:
         "#fde68a",
-
       borderRadius: 18,
-
       padding: 16,
     },
 
     escrowHeader: {
       flexDirection:
         "row",
-
       alignItems:
         "flex-start",
-
       gap: 10,
-
       marginBottom: 14,
     },
 
     escrowTitle: {
+      color: "#0f172a",
       fontSize: 15,
-
-      fontWeight: "900",
+      fontWeight:
+        "900",
     },
 
     escrowDescription: {
       color: "#475569",
-
       lineHeight: 18,
-
       fontSize: 12,
-
       marginTop: 4,
-
-      fontWeight: "600",
+      fontWeight:
+        "600",
     },
 
     moneyRow: {
       flexDirection:
         "row",
-
       justifyContent:
         "space-between",
-
-      paddingVertical:
-        8,
-
+      paddingVertical: 8,
       borderTopWidth: 1,
-
       borderTopColor:
         "rgba(100,116,139,0.15)",
-
       gap: 12,
     },
 
     moneyLabel: {
       color: "#64748b",
-
       fontSize: 12,
-
-      fontWeight: "700",
-
+      fontWeight:
+        "700",
       flex: 1,
     },
 
     moneyValue: {
       color: "#0f172a",
-
       fontSize: 13,
-
-      fontWeight: "900",
+      fontWeight:
+        "900",
     },
 
     fundEscrowButton: {
       marginTop: 14,
-
       backgroundColor:
         "#d97706",
-
-      paddingVertical:
-        13,
-
+      paddingVertical: 13,
       borderRadius: 13,
-
       flexDirection:
         "row",
-
       alignItems:
         "center",
-
       justifyContent:
         "center",
-
       gap: 7,
     },
 
     fundEscrowText: {
       color: "#ffffff",
-
-      fontWeight: "900",
+      fontWeight:
+        "900",
     },
 
-    /*
-    |--------------------------------------------------------------------------
-    | Date / Slots
-    |--------------------------------------------------------------------------
-    */
-
-    label: {
+    noAvailabilityCard: {
       marginTop: 16,
-
-      marginBottom: 7,
-
-      color: "#334155",
-
-      fontWeight: "800",
-
-      fontSize: 13,
-    },
-
-    optional: {
-      color: "#94a3b8",
-
-      fontWeight: "600",
-    },
-
-    input: {
       backgroundColor:
         "#ffffff",
-
+      borderRadius: 18,
+      padding: 22,
+      alignItems:
+        "center",
       borderWidth: 1,
-
       borderColor:
-        "#cbd5e1",
+        "#e2e8f0",
+    },
 
-      borderRadius: 13,
+    availableDayCard: {
+      marginTop: 15,
+      backgroundColor:
+        "#ffffff",
+      borderRadius: 18,
+      borderWidth: 1,
+      borderColor:
+        "#e2e8f0",
+      padding: 14,
+    },
 
-      paddingHorizontal:
-        14,
+    availableDayHeader: {
+      flexDirection:
+        "row",
+      alignItems:
+        "center",
+      gap: 10,
+      marginBottom: 12,
+    },
 
-      paddingVertical:
-        13,
+    calendarIconBox: {
+      width: 42,
+      height: 42,
+      borderRadius: 12,
+      alignItems:
+        "center",
+      justifyContent:
+        "center",
+      backgroundColor:
+        "#eff6ff",
+    },
 
+    availableDayTitle: {
       color: "#0f172a",
-
-      fontSize: 14,
+      fontSize: 15,
+      fontWeight:
+        "900",
     },
 
-    noteInput: {
-      minHeight: 100,
-
-      textAlignVertical:
-        "top",
+    availableDayCount: {
+      color: "#64748b",
+      fontSize: 11,
+      fontWeight:
+        "700",
+      marginTop: 3,
     },
 
-   
-
-   
-    slotsContainer: {
-      marginTop: 14,
-
-      gap: 9,
+    daySlotsContainer: {
+      gap: 8,
     },
 
     slotCard: {
       backgroundColor:
         "#ffffff",
-
       borderWidth: 1,
-
       borderColor:
         "#bfdbfe",
-
       borderRadius: 14,
-
       padding: 14,
-
       flexDirection:
         "row",
-
       alignItems:
         "center",
-
       justifyContent:
         "space-between",
     },
@@ -3093,86 +3238,101 @@ const styles =
     selectedSlotCard: {
       backgroundColor:
         "#2563eb",
-
       borderColor:
         "#2563eb",
     },
 
+    slotTimeRow: {
+      flexDirection:
+        "row",
+      alignItems:
+        "center",
+      gap: 9,
+    },
+
     slotTime: {
       color: "#0f172a",
-
-      fontWeight: "900",
-
+      fontWeight:
+        "900",
       fontSize: 15,
     },
 
-   
-    /*
-    |--------------------------------------------------------------------------
-    | Summary / Booking
-    |--------------------------------------------------------------------------
-    */
+    label: {
+      marginTop: 16,
+      marginBottom: 7,
+      color: "#334155",
+      fontWeight:
+        "800",
+      fontSize: 13,
+    },
+
+    optional: {
+      color: "#94a3b8",
+      fontWeight:
+        "600",
+    },
+
+    input: {
+      backgroundColor:
+        "#ffffff",
+      borderWidth: 1,
+      borderColor:
+        "#cbd5e1",
+      borderRadius: 13,
+      paddingHorizontal: 14,
+      paddingVertical: 13,
+      color: "#0f172a",
+      fontSize: 14,
+    },
+
+    noteInput: {
+      minHeight: 100,
+      textAlignVertical:
+        "top",
+    },
 
     summaryCard: {
       marginTop: 18,
-
       backgroundColor:
         "#ecfdf5",
-
       borderRadius: 14,
-
       padding: 14,
-
       flexDirection:
         "row",
-
       alignItems:
         "center",
-
       gap: 10,
-
       borderWidth: 1,
-
       borderColor:
         "#a7f3d0",
     },
 
     summaryTitle: {
       color: "#065f46",
-
-      fontWeight: "900",
+      fontWeight:
+        "900",
     },
 
     summaryText: {
       marginTop: 3,
-
       color: "#047857",
-
       fontSize: 12,
-
-      fontWeight: "700",
+      fontWeight:
+        "700",
     },
 
     bookButton: {
       marginTop: 20,
-
       backgroundColor:
         "#16a34a",
-
-      paddingVertical:
-        15,
-
+      paddingVertical: 15,
       borderRadius: 14,
-
       flexDirection:
         "row",
-
       alignItems:
         "center",
-
       justifyContent:
         "center",
-
       gap: 7,
     },
 
@@ -3182,240 +3342,33 @@ const styles =
 
     bookButtonText: {
       color: "#ffffff",
-
-      fontWeight: "900",
-
+      fontWeight:
+        "900",
       fontSize: 15,
     },
 
     safetyCard: {
       marginTop: 16,
-
       backgroundColor:
         "#eff6ff",
-
       borderRadius: 15,
-
       padding: 14,
-
       flexDirection:
         "row",
-
       alignItems:
         "flex-start",
-
       gap: 9,
-
       borderWidth: 1,
-
       borderColor:
         "#bfdbfe",
     },
 
     safetyText: {
       flex: 1,
-
       color: "#1e3a8a",
-
       lineHeight: 19,
-
       fontSize: 12,
-
-      fontWeight: "600",
+      fontWeight:
+        "600",
     },
-
-    availabilityLoadingCard: {
-  marginTop: 16,
-
-  backgroundColor:
-    "#eff6ff",
-
-  borderRadius: 16,
-
-  padding: 16,
-
-  flexDirection:
-    "row",
-
-  alignItems:
-    "center",
-
-  gap: 12,
-
-  borderWidth: 1,
-
-  borderColor:
-    "#bfdbfe",
-},
-
-availabilityLoadingTitle: {
-  color: "#1e3a8a",
-
-  fontWeight: "900",
-
-  fontSize: 14,
-},
-
-availabilityLoadingText: {
-  color: "#64748b",
-
-  fontWeight: "600",
-
-  fontSize: 12,
-
-  marginTop: 3,
-
-  lineHeight: 17,
-},
-
-noAvailabilityCard: {
-  marginTop: 16,
-
-  backgroundColor:
-    "#ffffff",
-
-  borderRadius: 18,
-
-  padding: 22,
-
-  alignItems:
-    "center",
-
-  borderWidth: 1,
-
-  borderColor:
-    "#e2e8f0",
-},
-
-noAvailabilityTitle: {
-  marginTop: 10,
-
-  color: "#0f172a",
-
-  fontWeight: "900",
-
-  fontSize: 16,
-
-  textAlign:
-    "center",
-},
-
-noAvailabilityText: {
-  marginTop: 6,
-
-  color: "#64748b",
-
-  lineHeight: 19,
-
-  textAlign:
-    "center",
-
-  fontWeight: "600",
-
-  fontSize: 12,
-},
-
-refreshAvailabilityButton: {
-  marginTop: 15,
-
-  backgroundColor:
-    "#2563eb",
-
-  paddingHorizontal: 18,
-
-  paddingVertical: 11,
-
-  borderRadius: 11,
-
-  flexDirection:
-    "row",
-
-  alignItems:
-    "center",
-
-  gap: 6,
-},
-
-refreshAvailabilityText: {
-  color: "#ffffff",
-
-  fontWeight: "900",
-},
-
-availableDayCard: {
-  marginTop: 15,
-
-  backgroundColor:
-    "#ffffff",
-
-  borderRadius: 18,
-
-  borderWidth: 1,
-
-  borderColor:
-    "#e2e8f0",
-
-  padding: 14,
-},
-
-availableDayHeader: {
-  flexDirection:
-    "row",
-
-  alignItems:
-    "center",
-
-  gap: 10,
-
-  marginBottom: 12,
-},
-
-calendarIconBox: {
-  width: 42,
-
-  height: 42,
-
-  borderRadius: 12,
-
-  alignItems:
-    "center",
-
-  justifyContent:
-    "center",
-
-  backgroundColor:
-    "#eff6ff",
-},
-
-availableDayTitle: {
-  color: "#0f172a",
-
-  fontSize: 15,
-
-  fontWeight: "900",
-},
-
-availableDayCount: {
-  color: "#64748b",
-
-  fontSize: 11,
-
-  fontWeight: "700",
-
-  marginTop: 3,
-},
-
-daySlotsContainer: {
-  gap: 8,
-},
-
-slotTimeRow: {
-  flexDirection:
-    "row",
-
-  alignItems:
-    "center",
-
-  gap: 9,
-},
   });

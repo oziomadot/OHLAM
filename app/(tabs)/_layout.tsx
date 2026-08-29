@@ -2,6 +2,7 @@ import { Tabs, usePathname } from "expo-router";
 import { useEffect } from "react";
 import AsyncStorage from "@react-native-async-storage/async-storage";
 import { MaterialIcons } from "@expo/vector-icons";
+import {registerPushTokenWithBackend,} from "@/src/services/notifications";
 
 const LAST_VISITED_ROUTE_KEY = "@opaam_last_visited_route";
 
@@ -11,6 +12,18 @@ export default function TabLayout() {
   useEffect(() => {
     AsyncStorage.setItem(LAST_VISITED_ROUTE_KEY, pathname).catch(console.error);
   }, [pathname]);
+
+
+useEffect(() => {
+  registerPushTokenWithBackend().catch(
+    (error) => {
+      console.error(
+        "Push registration failed:",
+        error
+      );
+    }
+  );
+}, []);
 
   return (
     <Tabs

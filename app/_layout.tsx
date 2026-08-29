@@ -5,6 +5,7 @@ import { useEffect, useState } from "react";
 import { OramexBanner } from "../components/OramexBanner";
 import { SafeAreaProvider, SafeAreaView } from "react-native-safe-area-context";
 import { captureInstallReferral } from "@/src/services/referralService";
+import { setupNotificationChannels } from "@/src/services/notifications";
 
 export default function RootLayout() {
   const [isReady, setIsReady] = useState(false);
@@ -40,6 +41,15 @@ export default function RootLayout() {
 
   initialiseReferral();
 }, []);
+
+
+ useEffect(() => {
+    setupNotificationChannels().catch((error) => {
+      console.error("Failed to setup notification channels:", error);
+    });
+  }, []);
+
+  
 
   if (!isReady) {
     return (

@@ -21,6 +21,21 @@ const dayNames: any = {
   6: 'Saturday',
 };
 
+type AvailabilitySlot = {
+  id: number;
+  day_of_week: number;
+  start_time: string;
+  end_time: string;
+};
+
+type BlockedDate = {
+  id: number;
+  date: string;
+  start_time?: string | null;
+  end_time?: string | null;
+  reason?: string | null;
+};
+
 export default function ListerAvailabilityView() {
   const [availability, setAvailability] = useState<any[]>([]);
   const [blockedDates, setBlockedDates] = useState<any[]>([]);
@@ -30,17 +45,23 @@ export default function ListerAvailabilityView() {
   const [endTime, setEndTime] = useState('');
   const [reason, setReason] = useState('');
 
+  const [deletingAvailabilityId, setDeletingAvailabilityId] =
+    useState<number | null>(null);
+
+  const [deletingBlockedDateId, setDeletingBlockedDateId] =
+    useState<number | null>(null);
+
   useEffect(() => {
     loadData();
   }, []);
 
   const loadData = async () => {
     try {
-      const availabilityRes = await API.get('/lister/availability');
-      const blockedRes = await API.get('/lister/unavailable-dates');
+      const availabilityRes = await API.get<AvailabilitySlot[]>('/lister/availability');
+      const blockedRes = await API.get<BlockedDate[]>('/lister/unavailable-dates');
 
-      setAvailability(availabilityRes.data.data);
-      setBlockedDates(blockedRes.data.data);
+      setAvailability(availabilityRes.data || []);
+      setBlockedDates(blockedRes.data || []);
     } catch (error) {
       Alert.alert('Error', 'Could not load availability.');
     }
@@ -57,7 +78,7 @@ export default function ListerAvailabilityView() {
         date,
         start_time: startTime || null,
         end_time: endTime || null,
-        reason,
+        reason: reason || null,
       });
 
       setDate('');
@@ -66,7 +87,8 @@ export default function ListerAvailabilityView() {
       setReason('');
 
       Alert.alert('Success', 'Date blocked.');
-      loadData();
+
+      await loadData();
     } catch (error: any) {
       Alert.alert(
         'Error',
@@ -75,31 +97,139 @@ export default function ListerAvailabilityView() {
     }
   };
 
-  const removeBlockedDate = async (id: number) => {
+  const confirmRemoveAvailability = (item: any) => {
+    Alert.alert(
+      'Remove Availability',
+      `Remove your ${dayNames[item.day_of_week]} availability from ${
+        item.start_time
+      } to ${item.end_time}?`,
+      [
+        {
+          text: 'Cancel',
+          style: 'cancel',
+        },
+        {
+          text: 'Remove',
+          style: 'destructive',
+          onPress: () => removeAvailability(item.id),
+        },
+      ]
+    );
+  };
+
+  const removeAvailability = async (id: number) => {
+    if (deletingAvailabilityId) {
+      return;
+    }
+
     try {
+      setDeletingAvailabilityId(id);
+
+      await API.delete(`/lister/availability/${id}`);
+
+      setAvailability((current) =>
+        current.filter((item) => item.id !== id)
+      );
+
+      Alert.alert('Success', 'Availability removed.');
+    } catch (error: any) {
+      Alert.alert(
+        'Error',
+        error.response?.data?.message ||
+          'Could not remove availability.'
+      );
+    } finally {
+      setDeletingAvailabilityId(null);
+    }
+  };
+
+  const confirmRemoveBlockedDate = (item: any) => {
+    Alert.alert(
+      'Remove Blocked Date',
+      `Remove the block for ${item.date}?`,
+      [
+        {
+          text: 'Cancel',
+          style: 'cancel',
+        },
+        {
+          text: 'Remove',
+          style: 'destructive',
+          onPress: () => removeBlockedDate(item.id),
+        },
+      ]
+    );
+  };
+
+  const removeBlockedDate = async (id: number) => {
+    if (deletingBlockedDateId) {
+      return;
+    }
+
+    try {
+      setDeletingBlockedDateId(id);
+
       await API.delete(`/lister/unavailable-dates/${id}`);
+
+      setBlockedDates((current) =>
+        current.filter((item) => item.id !== id)
+      );
+
       Alert.alert('Success', 'Blocked date removed.');
-      loadData();
-    } catch (error) {
-      Alert.alert('Error', 'Could not remove blocked date.');
+    } catch (error: any) {
+      Alert.alert(
+        'Error',
+        error.response?.data?.message ||
+          'Could not remove blocked date.'
+      );
+    } finally {
+      setDeletingBlockedDateId(null);
     }
   };
 
   return (
-    <ScrollView style={styles.container}>
+    <ScrollView
+      style={styles.container}
+      contentContainerStyle={styles.contentContainer}
+    >
       <Text style={styles.title}>My Availability</Text>
 
       <Text style={styles.sectionTitle}>Weekly Availability</Text>
 
       {availability.length === 0 ? (
-        <Text style={styles.empty}>No weekly availability created yet.</Text>
+        <Text style={styles.empty}>
+          No weekly availability created yet.
+        </Text>
       ) : (
         availability.map((item) => (
           <View key={item.id} style={styles.card}>
-            <Text style={styles.cardTitle}>{dayNames[item.day_of_week]}</Text>
-            <Text>
-              {item.start_time} - {item.end_time}
-            </Text>
+            <View style={styles.cardHeader}>
+              <View style={styles.cardInfo}>
+                <Text style={styles.cardTitle}>
+                  {dayNames[item.day_of_week] ?? 'Unknown day'}
+                </Text>
+
+                <Text style={styles.timeText}>
+                  {item.start_time} - {item.end_time}
+                </Text>
+              </View>
+
+              <TouchableOpacity
+                style={[
+                  styles.deleteButton,
+                  deletingAvailabilityId === item.id &&
+                    styles.disabledButton,
+                ]}
+                disabled={deletingAvailabilityId === item.id}
+                onPress={() => confirmRemoveAvailability(item)}
+              >
+                <Text style={styles.deleteText}>
+                  {deletingAvailabilityId === item.id
+                    ? 'Removing...'
+                    : 'Remove'}
+                </Text>
+              </TouchableOpacity>
+            </View>
           </View>
         ))
       )}
@@ -135,15 +265,22 @@ export default function ListerAvailabilityView() {
           style={styles.input}
         />
 
-        <TouchableOpacity style={styles.button} onPress={blockDate}>
-          <Text style={styles.buttonText}>Block Date</Text>
+        <TouchableOpacity
+          style={styles.button}
+          onPress={blockDate}
+        >
+          <Text style={styles.buttonText}>
+            Block Date
+          </Text>
         </TouchableOpacity>
       </View>
 
       <Text style={styles.sectionTitle}>Blocked Dates</Text>
 
       {blockedDates.length === 0 ? (
-        <Text style={styles.empty}>No blocked dates.</Text>
+        <Text style={styles.empty}>
+          No blocked dates.
+        </Text>
       ) : (
         <FlatList
           scrollEnabled={false}
@@ -151,19 +288,38 @@ export default function ListerAvailabilityView() {
           keyExtractor={(item) => String(item.id)}
           renderItem={({ item }) => (
             <View style={styles.card}>
-              <Text style={styles.cardTitle}>{item.date}</Text>
-              <Text>
+              <Text style={styles.cardTitle}>
+                {item.date}
+              </Text>
+
+              <Text style={styles.timeText}>
                 {item.start_time && item.end_time
                   ? `${item.start_time} - ${item.end_time}`
                   : 'Whole day blocked'}
               </Text>
-              {item.reason ? <Text>{item.reason}</Text> : null}
+
+              {item.reason ? (
+                <Text style={styles.reasonText}>
+                  {item.reason}
+                </Text>
+              ) : null}
 
               <TouchableOpacity
-                style={styles.deleteButton}
-                onPress={() => removeBlockedDate(item.id)}
+                style={[
+                  styles.deleteButtonBottom,
+                  deletingBlockedDateId === item.id &&
+                    styles.disabledButton,
+                ]}
+                disabled={deletingBlockedDateId === item.id}
+                onPress={() =>
+                  confirmRemoveBlockedDate(item)
+                }
               >
-                <Text style={styles.deleteText}>Remove</Text>
+                <Text style={styles.deleteText}>
+                  {deletingBlockedDateId === item.id
+                    ? 'Removing...'
+                    : 'Remove'}
+                </Text>
               </TouchableOpacity>
             </View>
           )}
@@ -174,10 +330,34 @@ export default function ListerAvailabilityView() {
 }
 
 const styles = StyleSheet.create({
-  container: { flex: 1, padding: 16, backgroundColor: '#f8fafc' },
-  title: { fontSize: 22, fontWeight: '700', marginBottom: 16 },
-  sectionTitle: { fontSize: 17, fontWeight: '700', marginTop: 18, marginBottom: 10 },
-  empty: { color: '#64748b', marginBottom: 10 },
+  container: {
+    flex: 1,
+    backgroundColor: '#f8fafc',
+  },
+
+  contentContainer: {
+    padding: 16,
+    paddingBottom: 40,
+  },
+
+  title: {
+    fontSize: 22,
+    fontWeight: '700',
+    marginBottom: 16,
+  },
+
+  sectionTitle: {
+    fontSize: 17,
+    fontWeight: '700',
+    marginTop: 18,
+    marginBottom: 10,
+  },
+
+  empty: {
+    color: '#64748b',
+    marginBottom: 10,
+  },
+
   card: {
     backgroundColor: '#fff',
     padding: 14,
@@ -186,6 +366,18 @@ const styles = StyleSheet.create({
     borderWidth: 1,
     borderColor: '#e5e7eb',
   },
+
+  cardHeader: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    gap: 12,
+  },
+
+  cardInfo: {
+    flex: 1,
+  },
+
   formCard: {
     backgroundColor: '#fff',
     padding: 14,
@@ -193,16 +385,65 @@ const styles = StyleSheet.create({
     borderWidth: 1,
     borderColor: '#e5e7eb',
   },
-  cardTitle: { fontWeight: '700', fontSize: 15, marginBottom: 4 },
+
+  cardTitle: {
+    fontWeight: '700',
+    fontSize: 15,
+    marginBottom: 4,
+  },
+
+  timeText: {
+    color: '#475569',
+  },
+
+  reasonText: {
+    color: '#475569',
+    marginTop: 5,
+  },
+
   input: {
     borderWidth: 1,
     borderColor: '#cbd5e1',
     borderRadius: 8,
     padding: 12,
     marginBottom: 10,
+    backgroundColor: '#fff',
   },
-  button: { backgroundColor: '#111827', padding: 14, borderRadius: 10 },
-  buttonText: { color: '#fff', fontWeight: '700', textAlign: 'center' },
-  deleteButton: { marginTop: 10 },
-  deleteText: { color: '#dc2626', fontWeight: '700' },
+
+  button: {
+    backgroundColor: '#111827',
+    padding: 14,
+    borderRadius: 10,
+  },
+
+  buttonText: {
+    color: '#fff',
+    fontWeight: '700',
+    textAlign: 'center',
+  },
+
+  deleteButton: {
+    paddingVertical: 8,
+    paddingHorizontal: 12,
+    borderRadius: 8,
+    backgroundColor: '#fee2e2',
+  },
+
+  deleteButtonBottom: {
+    marginTop: 12,
+    alignSelf: 'flex-start',
+    paddingVertical: 8,
+    paddingHorizontal: 12,
+    borderRadius: 8,
+    backgroundColor: '#fee2e2',
+  },
+
+  deleteText: {
+    color: '#dc2626',
+    fontWeight: '700',
+  },
+
+  disabledButton: {
+    opacity: 0.5,
+  },
 });
