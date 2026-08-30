@@ -16,6 +16,7 @@ export default {
 
     android: {
       package: "com.oramexglobals.ohlam",
+      "googleServicesFile": "./google-services.json",
       versionCode: 2,
       permissions: [
         "CAMERA",
