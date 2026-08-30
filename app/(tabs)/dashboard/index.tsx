@@ -124,7 +124,7 @@ export default function Dashboard() {
       "Appointments",
       `${summary?.counts?.appointments || 0} appointment records`,
       "calendar-clock",
-      "/(tabs)/appointment/my-appointments",
+      "/(tabs)/appointment/lister/request",
     ],
     [
       "Messages",
