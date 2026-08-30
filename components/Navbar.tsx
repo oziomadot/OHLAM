@@ -174,56 +174,7 @@ export default function Navbar() {
     {
       label: "Appointment",
       path:
-        "/(tabs)/appointment",
-
-      children: [
-         {
-          label:
-            "Dashboard",
-
-          path:
-            "/(tabs)/appointment",
-        },
-        {
-          label:
-            "My Appointments",
-
-          path:
-            "/(tabs)/appointment/customer",
-        },
-
-        {
-          label:
-            "Book Appointment",
-
-          path:
-            "/(tabs)/appointment/customer/create",
-        },
-
-        {
-          label:
-            "Create Availability",
-
-          path:
-            "/(tabs)/appointment/lister/create",
-        },
-
-        {
-          label:
-            "Appointment Requests",
-
-          path:
-            "/(tabs)/appointment/lister/request",
-        },
-
-        {
-          label:
-            "Manage Appointments",
-
-          path:
-            "/(tabs)/appointment/lister/view",
-        },
-      ],
+        "/(tabs)/appointment",      
     },
 
     {
