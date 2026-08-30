@@ -2,12 +2,9 @@ import { Platform } from "react-native";
 import * as Notifications from "expo-notifications";
 import * as Device from "expo-device";
 import Constants from "expo-constants";
+
 import API from "@/src/services/api";
 
-/**
- * Configure how notifications behave when
- * OHLAM is currently open.
- */
 Notifications.setNotificationHandler({
   handleNotification: async () => ({
     shouldShowBanner: true,
@@ -17,13 +14,12 @@ Notifications.setNotificationHandler({
   }),
 });
 
-/**
- * Configure Android notification channels.
- */
 export async function setupNotificationChannels() {
   if (Platform.OS !== "android") {
     return;
   }
+
+  console.log("🔔 PUSH: Creating Android notification channel...");
 
   await Notifications.setNotificationChannelAsync("default", {
     name: "OHLAM Notifications",
@@ -34,79 +30,104 @@ export async function setupNotificationChannels() {
     enableVibrate: true,
     showBadge: true,
   });
+
+  console.log("✅ PUSH: Android notification channel ready.");
 }
 
-/**
- * Ask the user for permission and obtain
- * this device's Expo Push Token.
- */
-export async function getOhlamExpoPushToken(): Promise<
-  string | null
-> {
+export async function getOhlamExpoPushToken(): Promise<string | null> {
   try {
+    console.log("====================================");
+    console.log("🔔 PUSH: Starting push registration");
+    console.log("====================================");
+
     /*
-     * Push notifications are intended for actual
-     * app installations/devices.
+     * 1. Check physical device
      */
+    console.log("📱 PUSH: Physical device:", Device.isDevice);
+    console.log("📱 PUSH: Device name:", Device.deviceName);
+    console.log("📱 PUSH: Model:", Device.modelName);
+    console.log("📱 PUSH: Platform:", Platform.OS);
+
     if (!Device.isDevice) {
-      console.log(
-        "Push notification registration skipped: not a physical device."
+      console.warn(
+        "❌ PUSH: This is not a physical device. Push registration stopped."
       );
 
       return null;
     }
 
     /*
-     * Android channel should exist BEFORE asking
-     * Android for notification permission/token.
+     * 2. Android notification channel
      */
     await setupNotificationChannels();
 
     /*
-     * Check existing permission.
+     * 3. Check current notification permission
      */
+    console.log("🔐 PUSH: Checking notification permission...");
+
     const existingPermissions =
       await Notifications.getPermissionsAsync();
+
+    console.log(
+      "🔐 PUSH: Existing permission:",
+      existingPermissions.status
+    );
 
     let finalStatus = existingPermissions.status;
 
     /*
-     * Only ask if permission hasn't already
-     * been granted.
+     * 4. Ask permission when needed
      */
     if (finalStatus !== "granted") {
+      console.log("🔐 PUSH: Requesting permission...");
+
       const requestedPermissions =
         await Notifications.requestPermissionsAsync();
 
       finalStatus = requestedPermissions.status;
+
+      console.log(
+        "🔐 PUSH: Permission after request:",
+        finalStatus
+      );
     }
 
     if (finalStatus !== "granted") {
-      console.log(
-        "Notification permission was not granted."
+      console.warn(
+        "❌ PUSH: Notification permission was denied."
       );
 
       return null;
     }
 
     /*
-     * Get OHLAM's EAS project ID.
+     * 5. Find EAS project ID
      */
     const projectId =
       Constants.expoConfig?.extra?.eas?.projectId ??
       Constants.easConfig?.projectId;
 
+    console.log(
+      "🆔 PUSH: EAS project ID:",
+      projectId ?? "NOT FOUND"
+    );
+
     if (!projectId) {
       console.error(
-        "EAS projectId could not be found."
+        "❌ PUSH: EAS projectId could not be found."
       );
 
       return null;
     }
 
     /*
-     * Obtain Expo Push Token.
+     * 6. Ask Android/Expo for push token
      */
+    console.log(
+      "🌐 PUSH: Requesting Expo push token..."
+    );
+
     const tokenResponse =
       await Notifications.getExpoPushTokenAsync({
         projectId,
@@ -114,14 +135,37 @@ export async function getOhlamExpoPushToken(): Promise<
 
     const token = tokenResponse.data;
 
+    if (!token) {
+      console.error(
+        "❌ PUSH: Expo returned an empty token."
+      );
+
+      return null;
+    }
+
+    /*
+     * Display while testing only.
+     *
+     * Remove this console log later.
+     */
     console.log(
-      "Expo push token obtained successfully."
+      "✅ PUSH: Expo push token:",
+      token
     );
 
     return token;
-  } catch (error) {
+  } catch (error: any) {
     console.error(
-      "Failed to obtain Expo push token:",
+      "❌ PUSH: Failed obtaining Expo push token"
+    );
+
+    console.error(
+      "❌ PUSH ERROR:",
+      error?.message ?? error
+    );
+
+    console.error(
+      "❌ PUSH FULL ERROR:",
       error
     );
 
@@ -131,26 +175,46 @@ export async function getOhlamExpoPushToken(): Promise<
 
 export async function registerPushTokenWithBackend() {
   try {
-    const token = await getOhlamExpoPushToken();
+    console.log(
+      "🚀 PUSH: Registering device with OHLAM backend..."
+    );
+
+    const token =
+      await getOhlamExpoPushToken();
 
     if (!token) {
+      console.warn(
+        "⚠️ PUSH: No Expo token obtained. Backend registration skipped."
+      );
+
       return null;
     }
+
+    console.log(
+      "🌐 PUSH: Sending push token to Laravel..."
+    );
 
     const response = await API.post(
       "/push-tokens",
       {
         token,
         platform: Platform.OS,
+
         device_name:
           Device.deviceName ?? null,
+
         device_model:
           Device.modelName ?? null,
       }
     );
 
     console.log(
-      "Push notification device registered with OHLAM."
+      "✅ PUSH: Device registered with Laravel."
+    );
+
+    console.log(
+      "✅ PUSH: Laravel response:",
+      response.data
     );
 
     return {
@@ -159,10 +223,22 @@ export async function registerPushTokenWithBackend() {
     };
   } catch (error: any) {
     console.error(
-      "Failed to register push token with OHLAM:",
-      error?.response?.data ??
-        error?.message ??
-        error
+      "❌ PUSH: Laravel registration failed."
+    );
+
+    console.error(
+      "❌ Status:",
+      error?.response?.status
+    );
+
+    console.error(
+      "❌ Laravel response:",
+      error?.response?.data
+    );
+
+    console.error(
+      "❌ Error:",
+      error?.message
     );
 
     return null;

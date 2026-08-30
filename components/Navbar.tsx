@@ -177,6 +177,13 @@ export default function Navbar() {
         "/(tabs)/appointment",
 
       children: [
+         {
+          label:
+            "Dashboard",
+
+          path:
+            "/(tabs)/appointment",
+        },
         {
           label:
             "My Appointments",

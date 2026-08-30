@@ -1,0 +1,29 @@
+{
+  "project_info": {
+    "project_number": "859954057673",
+    "project_id": "ohlam-dc72c",
+    "storage_bucket": "ohlam-dc72c.firebasestorage.app"
+  },
+  "client": [
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:859954057673:android:7e3e718faa401effe3d818",
+        "android_client_info": {
+          "package_name": "com.oramexglobals.ohlam"
+        }
+      },
+      "oauth_client": [],
+      "api_key": [
+        {
+          "current_key": "AIzaSyBKw2b0owqXMKEHoz3HzfEYD9-scklbG-s"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": []
+        }
+      }
+    }
+  ],
+  "configuration_version": "1"
+}
