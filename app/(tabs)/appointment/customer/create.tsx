@@ -2682,7 +2682,7 @@ const bookAppointment = async () => {
                       </View>
                     )}
 
-                    <TouchableOpacity
+                    {/* <TouchableOpacity
                       style={[
                         styles.bookButton,
 
@@ -2721,8 +2721,77 @@ const bookAppointment = async () => {
                           </Text>
                         </>
                       )}
-                    </TouchableOpacity>
+                    </TouchableOpacity> */}
 
+
+<TouchableOpacity
+  style={[
+    styles.bookButton,
+    booking &&
+      styles.disabledButton,
+  ]}
+  disabled={booking}
+  activeOpacity={0.7}
+  onPress={() => {
+    console.log(
+      "🔥 REQUEST APPOINTMENT BUTTON PRESSED"
+    );
+
+    console.log(
+      "selectedProperty:",
+      selectedProperty
+    );
+
+    console.log(
+      "preparation:",
+      preparation
+    );
+
+    console.log(
+      "selectedDate:",
+      selectedDate
+    );
+
+    console.log(
+      "selectedSlot:",
+      selectedSlot
+    );
+
+    console.log(
+      "booking:",
+      booking
+    );
+
+    Alert.alert(
+      "Debug",
+      "Request Appointment button was pressed."
+    );
+
+    bookAppointment();
+  }}
+>
+  {booking ? (
+    <ActivityIndicator
+      color="#ffffff"
+    />
+  ) : (
+    <>
+      <MaterialCommunityIcons
+        name="calendar-check"
+        size={21}
+        color="#ffffff"
+      />
+
+      <Text
+        style={
+          styles.bookButtonText
+        }
+      >
+        Request Appointment
+      </Text>
+    </>
+  )}
+</TouchableOpacity>
                     <View
                       style={
                         styles.safetyCard
