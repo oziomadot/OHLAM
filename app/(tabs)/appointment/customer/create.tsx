@@ -193,29 +193,13 @@ function money(
     | null
     | undefined
 ): string {
-  if (
-    value === undefined ||
-    value === null ||
-    value === ""
-  ) {
+  if ( value === undefined || value === null || value === "") {
     return "₦0";
   }
 
-  const amount =
-    Number(
-      String(
-        value
-      ).replace(
-        /,/g,
-        ""
-      )
-    );
+  const amount = Number(String(value).replace(/,/g,""));
 
-  if (
-    Number.isNaN(
-      amount
-    )
-  ) {
+  if (Number.isNaN(amount)) {
     return "₦0";
   }
 
@@ -431,8 +415,7 @@ function getImageUrl(
       ""
     );
 
-  return `${baseOrigin}/storage/${raw.replace(
-    /^\/+/,
+  return `${baseOrigin}/storage/${raw.replace( /^\/+/,
     ""
   )}`;
 }
@@ -447,12 +430,11 @@ export default function CustomerCreateAppointment() {
   const router =
     useRouter();
 
-  const params =
-    useLocalSearchParams<{
-      property_id?:
-        | string
-        | string[];
-    }>();
+  const params = useLocalSearchParams<{
+    property_id?:
+      | string
+      | string[];
+  }>();
 
   const initialPropertyId =
     normalizeParam(
@@ -630,9 +612,7 @@ export default function CustomerCreateAppointment() {
             null
           );
 
-          const data =
-            await API
-              .preparePropertyAppointment(
+          const data =  await API.preparePropertyAppointment(
                 property.id
               );
 

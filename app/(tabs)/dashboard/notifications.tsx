@@ -327,193 +327,108 @@
 //   },
 // });
 
-import React from "react";
+import React, { useEffect } from "react";
 import {
   Alert,
   Button,
+  Platform,
   View,
 } from "react-native";
 
 import * as Notifications from "expo-notifications";
-import Constants from "expo-constants";
-import * as Device from "expo-device";
-import { Platform } from "react-native";
 
 Notifications.setNotificationHandler({
   handleNotification: async () => ({
     shouldShowBanner: true,
     shouldShowList: true,
     shouldPlaySound: true,
-    shouldSetBadge: false,
+    shouldSetBadge: true,
   }),
 });
 
 export default function NotificationTestScreen() {
-  const requestPermission = async () => {
-    const existing =
-      await Notifications.getPermissionsAsync();
+  useEffect(() => {
+    setupNotificationChannel();
+  }, []);
 
-    console.log(
-      "Current notification permission:",
-      existing
-    );
-
-    let status = existing.status;
-
-    if (status !== "granted") {
-      const requested =
-        await Notifications.requestPermissionsAsync();
-
-      status = requested.status;
-    }
-
-    console.log(
-      "Final notification permission:",
-      status
-    );
-
-    if (status !== "granted") {
-      Alert.alert(
-        "Permission denied",
-        "Notification permission was not granted."
-      );
-
-      return false;
-    }
-
-    return true;
-  };
-
-
-
-
-
-  const getPushToken = async () => {
-  try {
-    if (!Device.isDevice) {
-      Alert.alert(
-        "Physical device required",
-        "Test OHLAM push notifications on your installed Android app."
-      );
-
-      return;
-    }
-
+  const setupNotificationChannel = async () => {
     if (Platform.OS === "android") {
       await Notifications.setNotificationChannelAsync(
-        "default",
+        "ohlam-default",
         {
           name: "OHLAM Notifications",
+          description: "General OHLAM notifications",
           importance:
-            Notifications.AndroidImportance.MAX,
-          vibrationPattern: [0, 250, 250, 250],
+            Notifications.AndroidImportance.HIGH,
           sound: "default",
+          vibrationPattern: [0, 250, 250, 250],
+          enableVibrate: true,
+          showBadge: true,
+          lockscreenVisibility:
+            Notifications.AndroidNotificationVisibility.PUBLIC,
         }
       );
     }
-
-    const permissions =
-      await Notifications.getPermissionsAsync();
-
-    let status = permissions.status;
-
-    if (status !== "granted") {
-      const requested =
-        await Notifications.requestPermissionsAsync();
-
-      status = requested.status;
-    }
-
-    if (status !== "granted") {
-      Alert.alert(
-        "Permission required",
-        "Please allow notifications for OHLAM."
-      );
-
-      return;
-    }
-
-    const projectId =
-      Constants.expoConfig?.extra?.eas?.projectId ??
-      Constants.easConfig?.projectId;
-
-    console.log(
-      "EAS project ID:",
-      projectId
-    );
-
-    if (!projectId) {
-      throw new Error(
-        "EAS projectId is missing."
-      );
-    }
-
-    const token =
-      await Notifications.getExpoPushTokenAsync({
-        projectId,
-      });
-
-    console.log(
-      "OHLAM EXPO PUSH TOKEN:",
-      token.data
-    );
-
-    Alert.alert(
-      "Push Token",
-      token.data
-    );
-  } catch (error) {
-    console.error(
-      "Push token registration failed:",
-      error
-    );
-
-    Alert.alert(
-      "Push Token Error",
-      error instanceof Error
-        ? error.message
-        : String(error)
-    );
-  }
-};
-
-
-
-
+  };
 
   const testLocalNotification = async () => {
     try {
-      const allowed =
-        await requestPermission();
+      const permission =
+        await Notifications.getPermissionsAsync();
 
-      if (!allowed) {
+      let status = permission.status;
+
+      if (status !== "granted") {
+        const requested =
+          await Notifications.requestPermissionsAsync();
+
+        status = requested.status;
+      }
+
+      if (status !== "granted") {
+        Alert.alert(
+          "Permission required",
+          "Please allow notifications for OHLAM."
+        );
+
         return;
       }
 
+      await setupNotificationChannel();
+
       await Notifications.scheduleNotificationAsync({
         content: {
-          title: "OHLAM Test Notification",
-          body: "Your OHLAM notification system is working.",
+          title: "OHLAM Test",
+          body:
+            "This notification should remain in your notification panel.",
           sound: "default",
           data: {
             type: "test",
           },
         },
 
-        trigger: null,
+        trigger:
+          Platform.OS === "android"
+            ? {
+                type:
+                  Notifications
+                    .SchedulableTriggerInputTypes
+                    .TIME_INTERVAL,
+                seconds: 1,
+                channelId: "ohlam-default",
+              }
+            : null,
       });
 
-      console.log(
-        "Local notification scheduled successfully"
+      Alert.alert(
+        "Test sent",
+        "Check your notification panel."
       );
     } catch (error) {
-      console.error(
-        "Local notification error:",
-        error
-      );
+      console.error(error);
 
       Alert.alert(
-        "Notification Error",
+        "Notification error",
         String(error)
       );
     }
@@ -522,20 +437,14 @@ export default function NotificationTestScreen() {
   return (
     <View
       style={{
-        padding: 30,
-        marginTop: 80,
+        marginTop: 100,
+        padding: 24,
       }}
     >
       <Button
         title="Test Local Notification"
         onPress={testLocalNotification}
       />
-
-
-      <Button
-  title="Get Expo Push Token"
-  onPress={getPushToken}
-/>
     </View>
   );
 }
