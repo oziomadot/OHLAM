@@ -1,6 +1,14 @@
 import API from "@/src/services/api";
-import { MaterialCommunityIcons } from "@expo/vector-icons";
-import { useFocusEffect, useRouter } from "expo-router";
+
+import {
+  MaterialCommunityIcons,
+} from "@expo/vector-icons";
+
+import {
+  useFocusEffect,
+  useRouter,
+} from "expo-router";
+
 import React, {
   useCallback,
   useState,
@@ -17,52 +25,119 @@ import {
   View,
 } from "react-native";
 
+/*
+|--------------------------------------------------------------------------
+| Types
+|--------------------------------------------------------------------------
+*/
+
 type AppointmentStatus = {
   id?: number | string;
   code?: string | null;
   name?: string | null;
 };
 
-type AppointmentProperty = {
+type Property = {
   id?: number | string;
+
   title?: string | null;
   name?: string | null;
 
+  amount?: string | number | null;
+
   property_type?: {
+    id?: number | string;
     name?: string | null;
   } | null;
 
   area?: {
+    id?: number | string;
     name?: string | null;
   } | null;
 
   state?: {
+    id?: number | string;
     name?: string | null;
+  } | null;
+
+  rental_detail?: {
+    building_type?: {
+      name?: string | null;
+    } | null;
+
+    flat_type?: {
+      name?: string | null;
+    } | null;
+
+    building?: {
+      name?: string | null;
+    } | null;
+  } | null;
+
+  house_sale?: {
+    building_type?: {
+      name?: string | null;
+    } | null;
+
+    building?: {
+      name?: string | null;
+    } | null;
+  } | null;
+
+  land_sale?: {
+    measurement?: string | null;
   } | null;
 };
 
 type Appointment = {
   id: number | string;
 
-  property_id: number | string;
+  uuid?: string | null;
 
-  customer_id?: number | string;
+  property_id:
+    | number
+    | string;
 
-  lister_id?: number | string;
+  customer_id:
+    | number
+    | string;
 
-  appointment_date: string;
+  lister_id:
+    | number
+    | string;
 
-  start_time: string;
+  status_id?:
+    | number
+    | string;
 
-  end_time: string;
+  status?:
+    | AppointmentStatus
+    | string
+    | null;
 
-  customer_note?: string | null;
+  status_code?:
+    | string
+    | null;
 
-  status_id?: number | string;
+  appointment_date?:
+    | string
+    | null;
 
-  status?: AppointmentStatus | string | null;
+  start_time?:
+    | string
+    | null;
 
-  property?: AppointmentProperty | null;
+  end_time?:
+    | string
+    | null;
+
+  customer_note?:
+    | string
+    | null;
+
+  property?:
+    | Property
+    | null;
 
   lister?: {
     id?: number | string;
@@ -70,7 +145,319 @@ type Appointment = {
   } | null;
 };
 
-export default function CustomerAppointmentView() {
+type CustomerAppointmentsResponse = {
+  success?: boolean;
+
+  message?: string;
+
+  data?: Appointment[];
+
+  appointments?: Appointment[];
+};
+
+/*
+|--------------------------------------------------------------------------
+| Helpers
+|--------------------------------------------------------------------------
+*/
+
+function getStatusCode(
+  appointment: Appointment
+): string {
+  if (
+    typeof appointment.status ===
+    "string"
+  ) {
+    return appointment.status
+      .trim()
+      .toLowerCase();
+  }
+
+  if (
+    appointment.status &&
+    typeof appointment.status ===
+      "object"
+  ) {
+    return (
+      appointment.status.code ||
+      ""
+    )
+      .trim()
+      .toLowerCase();
+  }
+
+  return (
+    appointment.status_code ||
+    ""
+  )
+    .trim()
+    .toLowerCase();
+}
+
+function getStatusLabel(
+  appointment: Appointment
+): string {
+  if (
+    typeof appointment.status ===
+      "object" &&
+    appointment.status?.name
+  ) {
+    return appointment.status.name;
+  }
+
+  const code =
+    getStatusCode(
+      appointment
+    );
+
+  switch (code) {
+    case "appointment_pending":
+    case "pending":
+      return "Pending";
+
+    case "appointment_confirmed":
+    case "confirmed":
+    case "appointment_accepted":
+    case "accepted":
+      return "Confirmed";
+
+    case "appointment_rejected":
+    case "rejected":
+    case "appointment_declined":
+    case "declined":
+      return "Rejected";
+
+    case "appointment_cancelled":
+    case "cancelled":
+      return "Cancelled";
+
+    case "appointment_completed":
+    case "completed":
+      return "Completed";
+
+    case "appointment_expired":
+    case "expired":
+      return "Expired";
+
+    case "appointment_rescheduled":
+    case "rescheduled":
+      return "Rescheduled";
+
+    case "appointment_reschedule_requested":
+    case "reschedule_requested":
+      return "Reschedule Requested";
+
+    default:
+      return (
+        code
+          .replace(
+            /^appointment_/,
+            ""
+          )
+          .replace(
+            /_/g,
+            " "
+          )
+          .replace(
+            /\b\w/g,
+            character =>
+              character.toUpperCase()
+          ) ||
+        "Unknown"
+      );
+  }
+}
+
+function getStatusColor(
+  appointment: Appointment
+): string {
+  const code =
+    getStatusCode(
+      appointment
+    );
+
+  if (
+    [
+      "appointment_confirmed",
+      "appointment_accepted",
+      "confirmed",
+      "accepted",
+      "appointment_completed",
+      "completed",
+    ].includes(code)
+  ) {
+    return "#16a34a";
+  }
+
+  if (
+    [
+      "appointment_pending",
+      "pending",
+      "appointment_reschedule_requested",
+      "reschedule_requested",
+    ].includes(code)
+  ) {
+    return "#ca8a04";
+  }
+
+  if (
+    [
+      "appointment_rejected",
+      "appointment_declined",
+      "rejected",
+      "declined",
+    ].includes(code)
+  ) {
+    return "#dc2626";
+  }
+
+  return "#64748b";
+}
+
+function getPropertyTitle(
+  appointment: Appointment
+): string {
+  const property =
+    appointment.property;
+
+  if (!property) {
+    return `Property #${appointment.property_id}`;
+  }
+
+  if (
+    property.title
+  ) {
+    return property.title;
+  }
+
+  if (
+    property.name
+  ) {
+    return property.name;
+  }
+
+  if (
+    Number(
+      property.property_type?.id
+    ) === 1
+  ) {
+    return (
+      property.rental_detail
+        ?.flat_type?.name ||
+      property.rental_detail
+        ?.building_type?.name ||
+      property.rental_detail
+        ?.building?.name ||
+      "Rental Property"
+    );
+  }
+
+  if (
+    Number(
+      property.property_type?.id
+    ) === 2
+  ) {
+    return (
+      property.house_sale
+        ?.building_type?.name ||
+      property.house_sale
+        ?.building?.name ||
+      "House for Sale"
+    );
+  }
+
+  if (
+    Number(
+      property.property_type?.id
+    ) === 3
+  ) {
+    return property.land_sale
+      ?.measurement
+      ? `${property.land_sale.measurement} Land`
+      : "Land for Sale";
+  }
+
+  return (
+    property.property_type
+      ?.name ||
+    `Property #${appointment.property_id}`
+  );
+}
+
+function getLocation(
+  appointment: Appointment
+): string | null {
+  const parts = [
+    appointment.property
+      ?.area?.name,
+
+    appointment.property
+      ?.state?.name,
+  ].filter(Boolean);
+
+  return parts.length
+    ? parts.join(", ")
+    : null;
+}
+
+function formatTime(
+  value?:
+    | string
+    | null
+): string {
+  if (!value) {
+    return "--";
+  }
+
+  const parts =
+    value.split(":");
+
+  if (
+    parts.length <
+    2
+  ) {
+    return value;
+  }
+
+  const hour =
+    Number(parts[0]);
+
+  const minute =
+    Number(parts[1]);
+
+  if (
+    Number.isNaN(hour) ||
+    Number.isNaN(minute)
+  ) {
+    return value;
+  }
+
+  const date =
+    new Date();
+
+  date.setHours(
+    hour,
+    minute,
+    0,
+    0
+  );
+
+  return date.toLocaleTimeString(
+    [],
+    {
+      hour: "numeric",
+      minute: "2-digit",
+    }
+  );
+}
+
+/*
+|--------------------------------------------------------------------------
+| Screen
+|--------------------------------------------------------------------------
+*/
+
+export default function CustomerAppointmentsScreen() {
   const router =
     useRouter();
 
@@ -78,7 +465,9 @@ export default function CustomerAppointmentView() {
     appointments,
     setAppointments,
   ] =
-    useState<Appointment[]>([]);
+    useState<Appointment[]>(
+      []
+    );
 
   const [
     loading,
@@ -94,142 +483,18 @@ export default function CustomerAppointmentView() {
 
   /*
   |--------------------------------------------------------------------------
-  | Status helper
-  |--------------------------------------------------------------------------
-  */
-
-  const getStatusCode = (
-    appointment: Appointment
-  ): string => {
-    if (
-      typeof appointment.status ===
-      "string"
-    ) {
-      return appointment.status;
-    }
-
-    return (
-      appointment.status?.code ||
-      ""
-    );
-  };
-
-  /*
-  |--------------------------------------------------------------------------
-  | Human-readable status
-  |--------------------------------------------------------------------------
-  */
-
-  const getStatusLabel = (
-    code: string
-  ): string => {
-    switch (code) {
-      case "appointment_pending":
-      case "pending":
-        return "Pending";
-
-      case "appointment_confirmed":
-      case "appointment_accepted":
-      case "accepted":
-      case "confirmed":
-        return "Confirmed";
-
-      case "appointment_rejected":
-      case "rejected":
-        return "Rejected";
-
-      case "appointment_cancelled":
-      case "cancelled":
-        return "Cancelled";
-
-      case "appointment_expired":
-      case "expired":
-        return "Expired";
-
-      case "appointment_rescheduled":
-      case "rescheduled":
-        return "Rescheduled";
-
-      case "appointment_completed":
-      case "completed":
-        return "Completed";
-
-      default:
-        return (
-          code
-            ?.replace(
-              /^appointment_/,
-              ""
-            )
-            ?.replace(
-              /_/g,
-              " "
-            )
-            ?.replace(
-              /\b\w/g,
-              char =>
-                char.toUpperCase()
-            ) ||
-          "Unknown"
-        );
-    }
-  };
-
-  /*
-  |--------------------------------------------------------------------------
-  | Status color
-  |--------------------------------------------------------------------------
-  */
-
-  const statusColor = (
-    code: string
-  ) => {
-    switch (code) {
-      case "appointment_confirmed":
-      case "appointment_accepted":
-      case "accepted":
-      case "confirmed":
-        return "#16a34a";
-
-      case "appointment_pending":
-      case "pending":
-        return "#ca8a04";
-
-      case "appointment_rejected":
-      case "rejected":
-        return "#dc2626";
-
-      case "appointment_cancelled":
-      case "cancelled":
-        return "#64748b";
-
-      case "appointment_expired":
-      case "expired":
-        return "#64748b";
-
-      case "appointment_completed":
-      case "completed":
-        return "#2563eb";
-
-      default:
-        return "#334155";
-    }
-  };
-
-  /*
-  |--------------------------------------------------------------------------
-  | Load appointments
+  | Load appointments where user is CUSTOMER
   |--------------------------------------------------------------------------
   */
 
   const loadAppointments =
     useCallback(
       async (
-        showLoading = true
+        showLoader = true
       ) => {
         try {
           if (
-            showLoading
+            showLoader
           ) {
             setLoading(
               true
@@ -237,61 +502,59 @@ export default function CustomerAppointmentView() {
           }
 
           console.log(
-            "Loading customer appointments..."
+            "======================================"
+          );
+
+          console.log(
+            "Loading CUSTOMER appointments..."
           );
 
           const response =
-            await API.get(
+            await API.get<CustomerAppointmentsResponse>(
               "/customer/interested-appointments"
             );
 
           console.log(
-            "Customer appointments response:",
-            response.data
+            "Customer appointment API response:",
+            JSON.stringify(
+              response.data,
+              null,
+              2
+            )
           );
 
-          /*
-           * Accept:
-           *
-           * {
-           *   success: true,
-           *   data: [...]
-           * }
-           *
-           * and protect against malformed/null responses.
-           */
-          const result =
-            response?.data?.data;
+          const responseData =
+            response.data;
 
-          if (
-            !Array.isArray(
-              result
+          const loadedAppointments =
+            Array.isArray(
+              responseData?.data
             )
-          ) {
-            console.warn(
-              "Appointments response was not an array:",
-              result
-            );
+              ? responseData.data
+              : Array.isArray(
+                    responseData
+                      ?.appointments
+                  )
+                ? responseData.appointments
+                : [];
 
-            setAppointments(
-              []
-            );
-
-            return;
-          }
+          console.log(
+            "Appointment count:",
+            loadedAppointments.length
+          );
 
           setAppointments(
-            result
+            loadedAppointments
           );
         } catch (
           error: any
         ) {
           console.error(
-            "CUSTOMER APPOINTMENTS ERROR"
+            "CUSTOMER APPOINTMENT LIST ERROR"
           );
 
           console.error(
-            "Status:",
+            "HTTP status:",
             error?.response
               ?.status
           );
@@ -311,13 +574,35 @@ export default function CustomerAppointmentView() {
             []
           );
 
+          if (
+            error?.response
+              ?.status === 401
+          ) {
+            Alert.alert(
+              "Session expired",
+              "Please sign in again.",
+              [
+                {
+                  text:
+                    "Sign In",
+
+                  onPress: () =>
+                    router.replace(
+                      "/login" as never
+                    ),
+                },
+              ]
+            );
+
+            return;
+          }
+
           Alert.alert(
             "Could not load appointments",
             error?.response
-              ?.data
-              ?.message ||
+              ?.data?.message ||
               error?.message ||
-              "OHLAM could not load your appointments."
+              "Unable to load your property appointments."
           );
         } finally {
           setLoading(
@@ -329,19 +614,23 @@ export default function CustomerAppointmentView() {
           );
         }
       },
-      []
+      [
+        router,
+      ]
     );
 
   /*
   |--------------------------------------------------------------------------
-  | Reload whenever screen receives focus
+  | Refresh every time screen receives focus
   |--------------------------------------------------------------------------
   */
 
   useFocusEffect(
     useCallback(
       () => {
-        loadAppointments();
+        loadAppointments(
+          true
+        );
       },
       [
         loadAppointments,
@@ -351,74 +640,34 @@ export default function CustomerAppointmentView() {
 
   /*
   |--------------------------------------------------------------------------
-  | Refresh
+  | Open ONE appointment
   |--------------------------------------------------------------------------
   */
 
-  const refresh =
-    () => {
-      setRefreshing(
-        true
+  const openAppointment =
+    (
+      appointment: Appointment
+    ) => {
+      const appointmentId =
+        String(
+          appointment.uuid ||
+            appointment.id
+        );
+
+      console.log(
+        "Opening customer appointment:",
+        appointmentId
       );
 
-      loadAppointments(
-        false
-      );
+      router.push({
+        pathname:
+          "/appointment/customer/view" as never,
+
+        params: {
+          appointmentId,
+        },
+      });
     };
-
-  /*
-  |--------------------------------------------------------------------------
-  | Property title
-  |--------------------------------------------------------------------------
-  */
-
-  const propertyTitle = (
-    appointment: Appointment
-  ) => {
-    return (
-      appointment
-        .property
-        ?.title ||
-      appointment
-        .property
-        ?.name ||
-      appointment
-        .property
-        ?.property_type
-        ?.name ||
-      `Property #${appointment.property_id}`
-    );
-  };
-
-  /*
-  |--------------------------------------------------------------------------
-  | Location
-  |--------------------------------------------------------------------------
-  */
-
-  const propertyLocation = (
-    appointment: Appointment
-  ) => {
-    const values = [
-      appointment
-        .property
-        ?.area
-        ?.name,
-
-      appointment
-        .property
-        ?.state
-        ?.name,
-    ].filter(
-      Boolean
-    );
-
-    return values.length
-      ? values.join(
-          ", "
-        )
-      : null;
-  };
 
   /*
   |--------------------------------------------------------------------------
@@ -437,7 +686,7 @@ export default function CustomerAppointmentView() {
       >
         <ActivityIndicator
           size="large"
-          color="#2563eb"
+          color="#147D64"
         />
 
         <Text
@@ -445,7 +694,7 @@ export default function CustomerAppointmentView() {
             styles.loadingText
           }
         >
-          Loading appointments...
+          Loading your appointments...
         </Text>
       </View>
     );
@@ -457,6 +706,12 @@ export default function CustomerAppointmentView() {
         styles.container
       }
     >
+      {/*
+      |--------------------------------------------------------------------------
+      | Header
+      |--------------------------------------------------------------------------
+      */}
+
       <View
         style={
           styles.header
@@ -473,7 +728,7 @@ export default function CustomerAppointmentView() {
         >
           <MaterialCommunityIcons
             name="arrow-left"
-            size={23}
+            size={24}
             color="#0f172a"
           />
         </TouchableOpacity>
@@ -488,7 +743,7 @@ export default function CustomerAppointmentView() {
               styles.title
             }
           >
-            My Appointments
+            Appointments I Booked
           </Text>
 
           <Text
@@ -496,7 +751,7 @@ export default function CustomerAppointmentView() {
               styles.subtitle
             }
           >
-            Property viewing appointments you have requested.
+            Property viewings where you are the customer.
           </Text>
         </View>
       </View>
@@ -508,8 +763,15 @@ export default function CustomerAppointmentView() {
         keyExtractor={
           item =>
             String(
-              item.id
+              item.uuid ||
+                item.id
             )
+        }
+        contentContainerStyle={
+          appointments.length ===
+          0
+            ? styles.emptyList
+            : styles.list
         }
         refreshControl={
           <RefreshControl
@@ -517,15 +779,17 @@ export default function CustomerAppointmentView() {
               refreshing
             }
             onRefresh={
-              refresh
+              () => {
+                setRefreshing(
+                  true
+                );
+
+                loadAppointments(
+                  false
+                );
+              }
             }
           />
-        }
-        contentContainerStyle={
-          appointments.length ===
-          0
-            ? styles.emptyList
-            : styles.list
         }
         renderItem={({
           item,
@@ -535,55 +799,37 @@ export default function CustomerAppointmentView() {
               item
             );
 
-          const label =
-            getStatusLabel(
-              code
-            );
-
           const location =
-            propertyLocation(
+            getLocation(
               item
             );
 
-          const waiting =
-            code ===
-              "appointment_pending" ||
-            code ===
-              "pending";
-
-          const confirmed =
+          const pending =
             [
-              "appointment_confirmed",
-              "appointment_accepted",
-              "confirmed",
-              "accepted",
-            ].includes(
-              code
-            );
-
-          const canBookAgain =
-            [
-              "appointment_rejected",
-              "appointment_cancelled",
-              "appointment_expired",
-              "appointment_rescheduled",
-              "rejected",
-              "cancelled",
-              "expired",
-              "rescheduled",
+              "appointment_pending",
+              "pending",
             ].includes(
               code
             );
 
           return (
-            <View
+            <TouchableOpacity
               style={
                 styles.card
+              }
+              activeOpacity={
+                0.85
+              }
+              onPress={
+                () =>
+                  openAppointment(
+                    item
+                  )
               }
             >
               <View
                 style={
-                  styles.cardHeader
+                  styles.cardTop
                 }
               >
                 <View
@@ -596,21 +842,33 @@ export default function CustomerAppointmentView() {
                       styles.propertyTitle
                     }
                   >
-                    {propertyTitle(
+                    {getPropertyTitle(
                       item
                     )}
                   </Text>
 
                   {location && (
-                    <Text
+                    <View
                       style={
-                        styles.location
+                        styles.locationRow
                       }
                     >
-                      {
-                        location
-                      }
-                    </Text>
+                      <MaterialCommunityIcons
+                        name="map-marker-outline"
+                        size={17}
+                        color="#64748b"
+                      />
+
+                      <Text
+                        style={
+                          styles.location
+                        }
+                      >
+                        {
+                          location
+                        }
+                      </Text>
+                    </View>
                   )}
                 </View>
 
@@ -620,30 +878,36 @@ export default function CustomerAppointmentView() {
 
                     {
                       borderColor:
-                        statusColor(
-                          code
+                        getStatusColor(
+                          item
                         ),
                     },
                   ]}
                 >
                   <Text
                     style={[
-                      styles.status,
+                      styles.statusText,
 
                       {
                         color:
-                          statusColor(
-                            code
+                          getStatusColor(
+                            item
                           ),
                       },
                     ]}
                   >
-                    {
-                      label
-                    }
+                    {getStatusLabel(
+                      item
+                    )}
                   </Text>
                 </View>
               </View>
+
+              <View
+                style={
+                  styles.divider
+                }
+              />
 
               <View
                 style={
@@ -652,8 +916,8 @@ export default function CustomerAppointmentView() {
               >
                 <MaterialCommunityIcons
                   name="calendar-outline"
-                  size={20}
-                  color="#64748b"
+                  size={19}
+                  color="#147D64"
                 />
 
                 <Text
@@ -661,9 +925,8 @@ export default function CustomerAppointmentView() {
                     styles.detailText
                   }
                 >
-                  {
-                    item.appointment_date
-                  }
+                  {item.appointment_date ||
+                    "Date unavailable"}
                 </Text>
               </View>
 
@@ -674,8 +937,8 @@ export default function CustomerAppointmentView() {
               >
                 <MaterialCommunityIcons
                   name="clock-outline"
-                  size={20}
-                  color="#64748b"
+                  size={19}
+                  color="#147D64"
                 />
 
                 <Text
@@ -683,20 +946,20 @@ export default function CustomerAppointmentView() {
                     styles.detailText
                   }
                 >
-                  {
+                  {formatTime(
                     item.start_time
-                  }
+                  )}
                   {" - "}
-                  {
+                  {formatTime(
                     item.end_time
-                  }
+                  )}
                 </Text>
               </View>
 
-              {waiting && (
+              {pending && (
                 <View
                   style={
-                    styles.pendingBox
+                    styles.pendingCard
                   }
                 >
                   <MaterialCommunityIcons
@@ -715,72 +978,26 @@ export default function CustomerAppointmentView() {
                 </View>
               )}
 
-              {confirmed && (
-                <TouchableOpacity
+              <View
+                style={
+                  styles.viewRow
+                }
+              >
+                <Text
                   style={
-                    styles.chatButton
-                  }
-                  onPress={
-                    () => {
-                      Alert.alert(
-                        "SecureChat",
-                        "SecureChat integration will open the conversation with this property lister."
-                      );
-                    }
+                    styles.viewText
                   }
                 >
-                  <MaterialCommunityIcons
-                    name="chat-lock-outline"
-                    size={19}
-                    color="#ffffff"
-                  />
+                  View Appointment
+                </Text>
 
-                  <Text
-                    style={
-                      styles.chatText
-                    }
-                  >
-                    Chat with Lister
-                  </Text>
-                </TouchableOpacity>
-              )}
-
-              {canBookAgain && (
-                <TouchableOpacity
-                  style={
-                    styles.bookAgainButton
-                  }
-                  onPress={
-                    () =>
-                      router.push({
-                        pathname:
-                          "/appointment/customer/create" as never,
-
-                        params: {
-                          property_id:
-                            String(
-                              item.property_id
-                            ),
-                        },
-                      })
-                  }
-                >
-                  <MaterialCommunityIcons
-                    name="calendar-refresh"
-                    size={19}
-                    color="#111827"
-                  />
-
-                  <Text
-                    style={
-                      styles.bookAgainText
-                    }
-                  >
-                    Choose New Time
-                  </Text>
-                </TouchableOpacity>
-              )}
-            </View>
+                <MaterialCommunityIcons
+                  name="chevron-right"
+                  size={21}
+                  color="#147D64"
+                />
+              </View>
+            </TouchableOpacity>
           );
         }}
         ListEmptyComponent={
@@ -791,7 +1008,7 @@ export default function CustomerAppointmentView() {
           >
             <MaterialCommunityIcons
               name="calendar-blank-outline"
-              size={50}
+              size={52}
               color="#94a3b8"
             />
 
@@ -805,11 +1022,37 @@ export default function CustomerAppointmentView() {
 
             <Text
               style={
-                styles.empty
+                styles.emptyText
               }
             >
-              Property viewing appointments you request will appear here.
+              Viewing appointments you request as a customer will appear here.
             </Text>
+
+            <TouchableOpacity
+              style={
+                styles.createButton
+              }
+              onPress={
+                () =>
+                  router.push(
+                    "/appointment/customer/create" as never
+                  )
+              }
+            >
+              <MaterialCommunityIcons
+                name="calendar-plus"
+                size={19}
+                color="#ffffff"
+              />
+
+              <Text
+                style={
+                  styles.createButtonText
+                }
+              >
+                Book a Viewing
+              </Text>
+            </TouchableOpacity>
           </View>
         }
       />
@@ -821,9 +1064,9 @@ const styles =
   StyleSheet.create({
     container: {
       flex: 1,
-      paddingHorizontal: 16,
       backgroundColor:
         "#f8fafc",
+      paddingHorizontal: 16,
     },
 
     loadingContainer: {
@@ -845,7 +1088,7 @@ const styles =
 
     header: {
       paddingTop: 18,
-      paddingBottom: 16,
+      paddingBottom: 18,
       flexDirection:
         "row",
       alignItems:
@@ -869,16 +1112,17 @@ const styles =
     },
 
     title: {
-      fontSize: 22,
-      fontWeight:
-        "800",
       color: "#0f172a",
+      fontSize: 21,
+      fontWeight:
+        "900",
     },
 
     subtitle: {
       color: "#64748b",
       marginTop: 3,
       fontSize: 12,
+      lineHeight: 17,
     },
 
     list: {
@@ -893,46 +1137,60 @@ const styles =
       backgroundColor:
         "#ffffff",
       padding: 16,
-      borderRadius: 16,
-      marginBottom: 12,
+      borderRadius: 17,
+      marginBottom: 13,
       borderWidth: 1,
       borderColor:
         "#e2e8f0",
     },
 
-    cardHeader: {
+    cardTop: {
       flexDirection:
         "row",
       alignItems:
         "flex-start",
       gap: 10,
-      marginBottom: 14,
     },
 
     propertyTitle: {
-      fontSize: 16,
-      fontWeight:
-        "800",
       color: "#0f172a",
+      fontWeight:
+        "900",
+      fontSize: 16,
+    },
+
+    locationRow: {
+      marginTop: 5,
+      flexDirection:
+        "row",
+      alignItems:
+        "center",
+      gap: 4,
     },
 
     location: {
       color: "#64748b",
-      marginTop: 4,
       fontSize: 12,
     },
 
     statusBadge: {
+      borderWidth: 1,
+      borderRadius: 20,
       paddingHorizontal: 9,
       paddingVertical: 5,
-      borderRadius: 20,
-      borderWidth: 1,
     },
 
-    status: {
+    statusText: {
       fontWeight:
         "800",
       fontSize: 11,
+    },
+
+    divider: {
+      height: 1,
+      backgroundColor:
+        "#f1f5f9",
+      marginVertical: 14,
     },
 
     detailRow: {
@@ -946,14 +1204,15 @@ const styles =
 
     detailText: {
       color: "#334155",
+      fontSize: 13,
       fontWeight:
-        "600",
+        "700",
     },
 
-    pendingBox: {
+    pendingCard: {
       marginTop: 14,
+      borderRadius: 11,
       padding: 11,
-      borderRadius: 10,
       backgroundColor:
         "#fffbeb",
       flexDirection:
@@ -972,51 +1231,25 @@ const styles =
         "600",
     },
 
-    chatButton: {
-      backgroundColor:
-        "#111827",
-      padding: 12,
-      borderRadius: 10,
-      marginTop: 14,
+    viewRow: {
+      marginTop: 15,
+      paddingTop: 12,
+      borderTopWidth: 1,
+      borderTopColor:
+        "#f1f5f9",
       flexDirection:
         "row",
+      justifyContent:
+        "space-between",
       alignItems:
         "center",
-      justifyContent:
-        "center",
-      gap: 7,
     },
 
-    chatText: {
-      color: "#ffffff",
-      textAlign:
-        "center",
+    viewText: {
+      color: "#147D64",
       fontWeight:
-        "700",
-    },
-
-    bookAgainButton: {
-      borderWidth: 1,
-      borderColor:
-        "#111827",
-      padding: 12,
-      borderRadius: 10,
-      marginTop: 14,
-      flexDirection:
-        "row",
-      alignItems:
-        "center",
-      justifyContent:
-        "center",
-      gap: 7,
-    },
-
-    bookAgainText: {
-      color: "#111827",
-      textAlign:
-        "center",
-      fontWeight:
-        "700",
+        "800",
+      fontSize: 13,
     },
 
     emptyContainer: {
@@ -1029,18 +1262,38 @@ const styles =
     },
 
     emptyTitle: {
-      marginTop: 12,
+      marginTop: 13,
       color: "#0f172a",
-      fontSize: 18,
       fontWeight:
-        "800",
+        "900",
+      fontSize: 18,
     },
 
-    empty: {
+    emptyText: {
+      marginTop: 7,
       textAlign:
         "center",
       color: "#64748b",
-      marginTop: 7,
       lineHeight: 20,
+    },
+
+    createButton: {
+      marginTop: 18,
+      backgroundColor:
+        "#147D64",
+      paddingHorizontal: 18,
+      paddingVertical: 12,
+      borderRadius: 12,
+      flexDirection:
+        "row",
+      alignItems:
+        "center",
+      gap: 7,
+    },
+
+    createButtonText: {
+      color: "#ffffff",
+      fontWeight:
+        "800",
     },
   });

@@ -1045,79 +1045,81 @@ export default function AppointmentIndexScreen() {
   | Open appointment
   |--------------------------------------------------------------------------
   */
+const openAppointment =
+  (
+    appointment: Appointment
+  ) => {
+    const role =
+      determineRole(
+        appointment,
+        user?.id
+      );
 
-  const openAppointment =
-    (
-      appointment: Appointment
-    ) => {
-      const role =
-        determineRole(
-          appointment,
-          user?.id
-        );
+    if (!role) {
+      Alert.alert(
+        "Appointment unavailable",
+        "You are not a participant in this appointment."
+      );
 
-      /*
-       * Security:
-       *
-       * If the returned appointment does not
-       * belong to this user as customer OR
-       * lister, do not navigate.
-       *
-       * Laravel policy must enforce this too.
-       */
+      return;
+    }
 
-      if (!role) {
-        Alert.alert(
-          "Appointment unavailable",
+    const appointmentId =
+      String(
+        appointment.uuid ||
+          appointment.id
+      );
 
-          "You are not a participant in this appointment."
-        );
-
-        return;
+    console.log(
+      "Opening appointment:",
+      {
+        appointmentId,
+        role,
+        customer_id:
+          appointment.customer_id,
+        lister_id:
+          appointment.lister_id,
+        current_user_id:
+          user?.id,
       }
+    );
 
-      const appointmentId =
-        String(
-          appointment.uuid ||
-            appointment.id
-        );
+    /*
+    |--------------------------------------------------------------------------
+    | Lister appointment
+    |--------------------------------------------------------------------------
+    */
 
-      /*
-       * Existing OHLAM structure:
-       *
-       * lister/view.tsx
-       */
-
-      if (role === "lister") {
-        router.push({
-          pathname: "/appointment/lister/view" as never,
-
-          params: {
-            appointmentId,
-          },
-        });
-
-        return;
-      }
-
-      /*
-       * Existing customer screen.
-       *
-       * Later we can replace both customer
-       * and lister detail routes with:
-       *
-       * /appointment/[appointmentId]
-       */
-
+    if (
+      role === "lister"
+    ) {
       router.push({
         pathname:
-          "/appointment/customer/index" as never,
+          "/appointment/lister/view" as never,
 
         params: {
           appointmentId,
         },
       });
-    };
+
+      return;
+    }
+
+    /*
+    |--------------------------------------------------------------------------
+    | Customer appointment
+    |--------------------------------------------------------------------------
+    */
+
+    router.push({
+      pathname:
+        "/appointment/customer/view" as never,
+
+      params: {
+        appointmentId,
+      },
+    });
+  };
 
   /*
   |--------------------------------------------------------------------------
