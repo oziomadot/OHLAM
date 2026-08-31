@@ -79,6 +79,12 @@ type Appointment = {
   } | null;
 };
 
+type AppointmentResponse =
+  Appointment & {
+    data?: Appointment;
+    appointment?: Appointment;
+  };
+
 export default function CustomerAppointmentDetailScreen() {
   const router =
     useRouter();
@@ -147,7 +153,7 @@ export default function CustomerAppointmentDetailScreen() {
           );
 
           const response =
-            await API.get(
+            await API.get<AppointmentResponse>(
               `/customer/appointments/${appointmentId}`
             );
 
@@ -685,3 +691,4 @@ const styles =
         "800",
     },
   });
+  
