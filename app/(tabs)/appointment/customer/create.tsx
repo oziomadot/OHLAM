@@ -1001,17 +1001,11 @@ export default function CustomerCreateAppointment() {
 
   const bookAppointment =
     async () => {
-      if (
-        !selectedProperty
-      ) {
+      if (!selectedProperty ) {
         return;
       }
 
-      if (
-        preparation
-          ?.code !==
-        "READY_TO_BOOK"
-      ) {
+      if (preparation?.code !== "READY_TO_BOOK") {
         Alert.alert(
           "Appointment not ready",
           preparation
@@ -1022,9 +1016,7 @@ export default function CustomerCreateAppointment() {
         return;
       }
 
-      if (
-        !selectedSlot
-      ) {
+      if (!selectedSlot) {
         Alert.alert(
           "Choose viewing time",
           "Select an available date and viewing time."
@@ -1034,13 +1026,9 @@ export default function CustomerCreateAppointment() {
       }
 
       try {
-        setBooking(
-          true
-        );
+        setBooking(true);
 
-        const response =
-          await API
-            .createAppointment({
+        const response = await API.createAppointment({
               property_id:
                 selectedProperty.id,
 
@@ -1071,7 +1059,7 @@ export default function CustomerCreateAppointment() {
 
               onPress:
                 () => {
-                  router.replace(
+                  router.push(
                     "/appointment" as never
                   );
                 },
@@ -1146,7 +1134,7 @@ export default function CustomerCreateAppointment() {
 
                 onPress:
                   () =>
-                    router.replace(
+                    router.push(
                       "/appointment" as never
                     ),
               },
@@ -1178,37 +1166,51 @@ export default function CustomerCreateAppointment() {
         }
 
         if (
-          error
-            ?.response
-            ?.status ===
-          409
-        ) {
-          Alert.alert(
-            "Viewing time changed",
-            data?.message ||
-              "This viewing time is no longer available. The available times will be refreshed."
-          );
+  error?.response?.status ===
+  409
+) {
+  Alert.alert(
+    "Viewing time changed",
+    data?.message ||
+      "This viewing time is no longer available. The available times will be refreshed."
+  );
 
-          setSelectedSlot(
-            null
-          );
+  setSelectedSlot(
+    null
+  );
 
-          setSelectedDate(
-            null
-          );
+  setSelectedDate(
+    null
+  );
 
-          await prepareAppointment(
-            selectedProperty
-          );
+  await prepareAppointment(
+    selectedProperty
+  );
 
-          return;
-        }
+  return;
+}
 
-        Alert.alert(
-          "Could not book appointment",
-          data?.message ||
-            "Unable to book this appointment."
-        );
+const status =
+  error?.response?.status;
+
+const serverMessage =
+  data?.message ||
+  data?.error ||
+  error?.message ||
+  "Unknown server error";
+
+console.error(
+  "Appointment booking failed:",
+  {
+    status,
+    data,
+    selectedSlot,
+    propertyId:
+      selectedProperty?.id,
+  }
+);
+
+        
       } finally {
         setBooking(
           false

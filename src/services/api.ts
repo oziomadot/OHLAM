@@ -2709,7 +2709,7 @@ async initializePropertyPayment(
       `/property-settlements/${settlementId}/pay`,
       {}
     );
-
+c
   return response.data;
 }
 
