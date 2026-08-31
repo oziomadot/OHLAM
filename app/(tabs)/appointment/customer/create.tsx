@@ -998,225 +998,487 @@ export default function CustomerCreateAppointment() {
   | Book appointment
   |--------------------------------------------------------------------------
   */
+const bookAppointment = async () => {
+  /*
+  |--------------------------------------------------------------------------
+  | Validate property
+  |--------------------------------------------------------------------------
+  */
 
-  const bookAppointment =
-    async () => {
-      if (!selectedProperty ) {
-        return;
-      }
+  if (!selectedProperty?.id) {
+    Alert.alert(
+      "Property missing",
+      "The selected property could not be identified. Please reopen the property and try again."
+    );
 
-      if (preparation?.code !== "READY_TO_BOOK") {
-        Alert.alert(
-          "Appointment not ready",
-          preparation
-            ?.message ||
-            "This appointment cannot currently be booked."
-        );
-
-        return;
-      }
-
-      if (!selectedSlot) {
-        Alert.alert(
-          "Choose viewing time",
-          "Select an available date and viewing time."
-        );
-
-        return;
-      }
-
-      try {
-        setBooking(true);
-
-        const response = await API.createAppointment({
-              property_id:
-                selectedProperty.id,
-
-              appointment_date:
-                selectedSlot.date,
-
-              start_time:
-                selectedSlot.start_time,
-
-              end_time:
-                selectedSlot.end_time,
-
-              customer_note:
-                customerNote
-                  .trim() ||
-                null,
-            });
-
-        Alert.alert(
-          "Appointment requested",
-          response.data
-            ?.message ||
-            "Your property viewing appointment has been submitted.",
-          [
-            {
-              text:
-                "View Appointments",
-
-              onPress:
-                () => {
-                  router.push(
-                    "/appointment" as never
-                  );
-                },
-            },
-          ]
-        );
-      } catch (
-        error: any
-      ) {
-        const data =
-          error
-            ?.response
-            ?.data;
-
-        const code =
-          data?.code;
-
-        console.error(
-          "Appointment booking error:",
-          data ||
-            error
-        );
-
-        if (
-          code ===
-          "INSUFFICIENT_ESCROW"
-        ) {
-          setEligibility({
-            allowed:
-              false,
-
-            required_escrow:
-              data.required_escrow,
-
-            current_balance:
-              data.current_balance,
-
-            amount_needed:
-              data.amount_needed,
-
-            message:
-              data.message,
-          });
-
-          setSelectedSlot(
-            null
-          );
-
-          Alert.alert(
-            "Escrow balance changed",
-            data?.message ||
-              "Your escrow balance is no longer sufficient."
-          );
-
-          return;
-        }
-
-        if (
-          code ===
-            "ACTIVE_APPOINTMENT_EXISTS" ||
-          code ===
-            "EXISTING_APPOINTMENT"
-        ) {
-          Alert.alert(
-            "Appointment already exists",
-            data?.message ||
-              "You already have an active viewing appointment for this property.",
-            [
-              {
-                text:
-                  "View Appointments",
-
-                onPress:
-                  () =>
-                    router.push(
-                      "/appointment" as never
-                    ),
-              },
-            ]
-          );
-
-          await prepareAppointment(
-            selectedProperty
-          );
-
-          return;
-        }
-
-        if (
-          code ===
-          "PROPERTY_NOT_AVAILABLE"
-        ) {
-          Alert.alert(
-            "Property no longer available",
-            data?.message ||
-              "This property is no longer available for viewing."
-          );
-
-          await prepareAppointment(
-            selectedProperty
-          );
-
-          return;
-        }
-
-        if (
-  error?.response?.status ===
-  409
-) {
-  Alert.alert(
-    "Viewing time changed",
-    data?.message ||
-      "This viewing time is no longer available. The available times will be refreshed."
-  );
-
-  setSelectedSlot(
-    null
-  );
-
-  setSelectedDate(
-    null
-  );
-
-  await prepareAppointment(
-    selectedProperty
-  );
-
-  return;
-}
-
-const status =
-  error?.response?.status;
-
-const serverMessage =
-  data?.message ||
-  data?.error ||
-  error?.message ||
-  "Unknown server error";
-
-console.error(
-  "Appointment booking failed:",
-  {
-    status,
-    data,
-    selectedSlot,
-    propertyId:
-      selectedProperty?.id,
+    return;
   }
-);
 
-        
-      } finally {
-        setBooking(
-          false
+  /*
+  |--------------------------------------------------------------------------
+  | Validate preparation
+  |--------------------------------------------------------------------------
+  */
+
+  if (
+    preparation?.code !==
+    "READY_TO_BOOK"
+  ) {
+    Alert.alert(
+      "Appointment not ready",
+      preparation?.message ||
+        "This appointment cannot currently be booked."
+    );
+
+    return;
+  }
+
+  /*
+  |--------------------------------------------------------------------------
+  | Validate selected date
+  |--------------------------------------------------------------------------
+  */
+
+  if (!selectedDate) {
+    Alert.alert(
+      "Choose viewing date",
+      "Please choose an available viewing date."
+    );
+
+    return;
+  }
+
+  /*
+  |--------------------------------------------------------------------------
+  | Validate selected slot
+  |--------------------------------------------------------------------------
+  */
+
+  if (
+    !selectedSlot?.date ||
+    !selectedSlot?.start_time ||
+    !selectedSlot?.end_time
+  ) {
+    Alert.alert(
+      "Choose viewing time",
+      "Please choose one of the available viewing times."
+    );
+
+    return;
+  }
+
+  /*
+  |--------------------------------------------------------------------------
+  | Prevent inconsistent date/slot
+  |--------------------------------------------------------------------------
+  */
+
+  if (
+    selectedSlot.date !==
+    selectedDate
+  ) {
+    Alert.alert(
+      "Viewing time changed",
+      "The selected time does not belong to the selected date. Please select the viewing time again."
+    );
+
+    setSelectedSlot(
+      null
+    );
+
+    return;
+  }
+
+  /*
+  |--------------------------------------------------------------------------
+  | Build payload
+  |--------------------------------------------------------------------------
+  */
+
+  const payload = {
+    property_id:
+      selectedProperty.id,
+
+    appointment_date:
+      selectedSlot.date,
+
+    start_time:
+      selectedSlot.start_time,
+
+    end_time:
+      selectedSlot.end_time,
+
+    customer_note:
+      customerNote.trim() ||
+      null,
+  };
+
+  console.log(
+    "========== APPOINTMENT REQUEST =========="
+  );
+
+  console.log(
+    "Appointment payload:",
+    JSON.stringify(
+      payload,
+      null,
+      2
+    )
+  );
+
+  console.log(
+    "Property:",
+    selectedProperty.id
+  );
+
+  console.log(
+    "Selected date:",
+    selectedDate
+  );
+
+  console.log(
+    "Selected slot:",
+    selectedSlot
+  );
+
+  console.log(
+    "========================================="
+  );
+
+  try {
+    setBooking(
+      true
+    );
+
+    /*
+    |--------------------------------------------------------------------------
+    | Send directly to Laravel
+    |--------------------------------------------------------------------------
+    |
+    | Do not use API.createAppointment here for now.
+    |
+    | This sends:
+    |
+    | POST /appointments
+    |
+    */
+
+    const response =
+      await API.post<{ message?: string }>(
+        "/appointments",
+        payload
+      );
+
+    console.log(
+      "Appointment response:",
+      response?.data
+    );
+
+    Alert.alert(
+      "Appointment requested",
+      response?.data?.message ||
+        "Your property viewing appointment has been submitted.",
+      [
+        {
+          text:
+            "View Appointments",
+
+          onPress: () => {
+            router.replace(
+              "/appointment" as never
+            );
+          },
+        },
+      ]
+    );
+  } catch (
+    error: any
+  ) {
+    /*
+    |--------------------------------------------------------------------------
+    | Capture complete API error
+    |--------------------------------------------------------------------------
+    */
+
+    const status =
+      error?.response?.status;
+
+    const data =
+      error?.response?.data;
+
+    const code =
+      data?.code;
+
+    console.error(
+      "========== APPOINTMENT ERROR =========="
+    );
+
+    console.error(
+      "Status:",
+      status
+    );
+
+    console.error(
+      "Code:",
+      code
+    );
+
+    console.error(
+      "Response:",
+      data
+    );
+
+    console.error(
+      "Error message:",
+      error?.message
+    );
+
+    console.error(
+      "Payload:",
+      payload
+    );
+
+    console.error(
+      "======================================="
+    );
+
+    /*
+    |--------------------------------------------------------------------------
+    | Authentication
+    |--------------------------------------------------------------------------
+    */
+
+    if (
+      status === 401
+    ) {
+      Alert.alert(
+        "Session expired",
+        "Please sign in again before booking an appointment.",
+        [
+          {
+            text: "Sign In",
+
+            onPress: () =>
+              router.replace(
+                "/login" as never
+              ),
+          },
+        ]
+      );
+
+      return;
+    }
+
+    /*
+    |--------------------------------------------------------------------------
+    | Validation
+    |--------------------------------------------------------------------------
+    */
+
+    if (
+      status === 422
+    ) {
+      const validationErrors =
+        data?.errors;
+
+      if (
+        validationErrors &&
+        typeof validationErrors ===
+          "object"
+      ) {
+        const messages =
+          Object.values(
+            validationErrors
+          )
+            .flat()
+            .map(
+              (
+                value
+              ) =>
+                String(
+                  value
+                )
+            )
+            .join(
+              "\n"
+            );
+
+        Alert.alert(
+          "Appointment validation failed",
+          messages ||
+            data?.message ||
+            "Please check the appointment details."
         );
+
+        return;
       }
-    };
+
+      Alert.alert(
+        "Could not book appointment",
+        data?.message ||
+          "The appointment details were rejected."
+      );
+
+      return;
+    }
+
+    /*
+    |--------------------------------------------------------------------------
+    | Escrow
+    |--------------------------------------------------------------------------
+    */
+
+    if (
+      code ===
+      "INSUFFICIENT_ESCROW"
+    ) {
+      setEligibility({
+        allowed:
+          false,
+
+        required_escrow:
+          data?.required_escrow,
+
+        current_balance:
+          data?.current_balance,
+
+        amount_needed:
+          data?.amount_needed,
+
+        message:
+          data?.message,
+      });
+
+      setSelectedSlot(
+        null
+      );
+
+      Alert.alert(
+        "Escrow balance changed",
+        data?.message ||
+          "Your escrow balance is no longer sufficient."
+      );
+
+      return;
+    }
+
+    /*
+    |--------------------------------------------------------------------------
+    | Existing appointment
+    |--------------------------------------------------------------------------
+    */
+
+    if (
+      code ===
+        "ACTIVE_APPOINTMENT_EXISTS" ||
+      code ===
+        "EXISTING_APPOINTMENT"
+    ) {
+      Alert.alert(
+        "Appointment already exists",
+        data?.message ||
+          "You already have an active viewing appointment for this property.",
+        [
+          {
+            text:
+              "View Appointments",
+
+            onPress: () =>
+              router.replace(
+                "/appointment" as never
+              ),
+          },
+        ]
+      );
+
+      return;
+    }
+
+    /*
+    |--------------------------------------------------------------------------
+    | Property unavailable
+    |--------------------------------------------------------------------------
+    */
+
+    if (
+      code ===
+      "PROPERTY_NOT_AVAILABLE"
+    ) {
+      Alert.alert(
+        "Property no longer available",
+        data?.message ||
+          "This property is no longer available for viewing."
+      );
+
+      await prepareAppointment(
+        selectedProperty
+      );
+
+      return;
+    }
+
+    /*
+    |--------------------------------------------------------------------------
+    | Slot collision
+    |--------------------------------------------------------------------------
+    */
+
+    if (
+      status === 409
+    ) {
+      Alert.alert(
+        "Viewing time changed",
+        data?.message ||
+          "This viewing time is no longer available. Please choose another time."
+      );
+
+      setSelectedSlot(
+        null
+      );
+
+      await prepareAppointment(
+        selectedProperty
+      );
+
+      return;
+    }
+
+    /*
+    |--------------------------------------------------------------------------
+    | Network error
+    |--------------------------------------------------------------------------
+    */
+
+    if (
+      !error?.response
+    ) {
+      Alert.alert(
+        "Connection problem",
+        error?.message ||
+          "OHLAM could not connect to the server. Please check your connection and try again."
+      );
+
+      return;
+    }
+
+    /*
+    |--------------------------------------------------------------------------
+    | Unexpected backend error
+    |--------------------------------------------------------------------------
+    */
+
+    Alert.alert(
+      "Could not book appointment",
+      data?.message ||
+        data?.error ||
+        `The server returned status ${status ?? "unknown"}.`
+    );
+  } finally {
+    setBooking(
+      false
+    );
+  }
+};
 
   /*
   |--------------------------------------------------------------------------
