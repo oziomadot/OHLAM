@@ -193,13 +193,29 @@ function money(
     | null
     | undefined
 ): string {
-  if ( value === undefined || value === null || value === "") {
+  if (
+    value === undefined ||
+    value === null ||
+    value === ""
+  ) {
     return "₦0";
   }
 
-  const amount = Number(String(value).replace(/,/g,""));
+  const amount =
+    Number(
+      String(
+        value
+      ).replace(
+        /,/g,
+        ""
+      )
+    );
 
-  if (Number.isNaN(amount)) {
+  if (
+    Number.isNaN(
+      amount
+    )
+  ) {
     return "₦0";
   }
 
@@ -415,7 +431,8 @@ function getImageUrl(
       ""
     );
 
-  return `${baseOrigin}/storage/${raw.replace( /^\/+/,
+  return `${baseOrigin}/storage/${raw.replace(
+    /^\/+/,
     ""
   )}`;
 }
@@ -430,11 +447,12 @@ export default function CustomerCreateAppointment() {
   const router =
     useRouter();
 
-  const params = useLocalSearchParams<{
-    property_id?:
-      | string
-      | string[];
-  }>();
+  const params =
+    useLocalSearchParams<{
+      property_id?:
+        | string
+        | string[];
+    }>();
 
   const initialPropertyId =
     normalizeParam(
@@ -488,11 +506,35 @@ export default function CustomerCreateAppointment() {
     >([]);
 
   const [
+    selectedDate,
+    setSelectedDate,
+  ] =
+    useState<string | null>(
+      null
+    );
+
+  const [
     selectedSlot,
     setSelectedSlot,
   ] =
     useState<AvailableSlot | null>(
       null
+    );
+
+  const [
+    dateDropdownOpen,
+    setDateDropdownOpen,
+  ] =
+    useState(
+      false
+    );
+
+  const [
+    timeDropdownOpen,
+    setTimeDropdownOpen,
+  ] =
+    useState(
+      false
     );
 
   const [
@@ -535,6 +577,38 @@ export default function CustomerCreateAppointment() {
 
   /*
   |--------------------------------------------------------------------------
+  | Selected available day
+  |--------------------------------------------------------------------------
+  */
+
+  const selectedAvailableDay =
+    useMemo(
+      () => {
+        if (
+          !selectedDate
+        ) {
+          return null;
+        }
+
+        return (
+          availableDays.find(
+            (
+              day
+            ) =>
+              day.date ===
+              selectedDate
+          ) ||
+          null
+        );
+      },
+      [
+        availableDays,
+        selectedDate,
+      ]
+    );
+
+  /*
+  |--------------------------------------------------------------------------
   | Bookable properties
   |--------------------------------------------------------------------------
   */
@@ -572,18 +646,6 @@ export default function CustomerCreateAppointment() {
   |--------------------------------------------------------------------------
   | Prepare appointment
   |--------------------------------------------------------------------------
-  |
-  | ONE backend request performs:
-  |
-  | 1. property availability
-  | 2. own-property check
-  | 3. existing appointment check
-  | 4. escrow requirement
-  | 5. inspection entitlement
-  | 6. next 28 days lister availability
-  | 7. lister notification if no availability
-  |
-  |--------------------------------------------------------------------------
   */
 
   const prepareAppointment =
@@ -608,29 +670,31 @@ export default function CustomerCreateAppointment() {
             []
           );
 
+          setSelectedDate(
+            null
+          );
+
           setSelectedSlot(
             null
           );
 
-          const data =  await API.preparePropertyAppointment(
+          setDateDropdownOpen(
+            false
+          );
+
+          setTimeDropdownOpen(
+            false
+          );
+
+          const data =
+            await API
+              .preparePropertyAppointment(
                 property.id
               );
 
           setPreparation(
             data
           );
-
-          /*
-           * Do NOT use:
-           *
-           * allowed = data.can_book
-           *
-           * because:
-           *
-           * LISTER_NO_AVAILABILITY means customer
-           * may have enough escrow even though
-           * booking cannot continue yet.
-           */
 
           const escrowSatisfied =
             data.code ===
@@ -702,6 +766,14 @@ export default function CustomerCreateAppointment() {
             []
           );
 
+          setSelectedDate(
+            null
+          );
+
+          setSelectedSlot(
+            null
+          );
+
           Alert.alert(
             "Unable to prepare appointment",
             error
@@ -732,14 +804,6 @@ export default function CustomerCreateAppointment() {
           setLoading(
             true
           );
-
-          /*
-           * Customer came from:
-           *
-           * Property Details
-           *      ↓
-           * I AM INTERESTED
-           */
 
           if (
             initialPropertyId
@@ -773,11 +837,6 @@ export default function CustomerCreateAppointment() {
 
             return;
           }
-
-          /*
-           * Customer entered appointment
-           * creation from dashboard.
-           */
 
           await loadBookableProperties();
         } catch (
@@ -968,7 +1027,7 @@ export default function CustomerCreateAppointment() {
       ) {
         Alert.alert(
           "Choose viewing time",
-          "Select one of the available viewing times."
+          "Select an available date and viewing time."
         );
 
         return;
@@ -1036,11 +1095,6 @@ export default function CustomerCreateAppointment() {
             error
         );
 
-        /*
-         * Escrow changed between screen load
-         * and appointment submission.
-         */
-
         if (
           code ===
           "INSUFFICIENT_ESCROW"
@@ -1075,10 +1129,6 @@ export default function CustomerCreateAppointment() {
           return;
         }
 
-        /*
-         * Customer already booked property.
-         */
-
         if (
           code ===
             "ACTIVE_APPOINTMENT_EXISTS" ||
@@ -1110,10 +1160,6 @@ export default function CustomerCreateAppointment() {
           return;
         }
 
-        /*
-         * Property became unavailable.
-         */
-
         if (
           code ===
           "PROPERTY_NOT_AVAILABLE"
@@ -1131,10 +1177,6 @@ export default function CustomerCreateAppointment() {
           return;
         }
 
-        /*
-         * Slot became unavailable.
-         */
-
         if (
           error
             ?.response
@@ -1148,6 +1190,10 @@ export default function CustomerCreateAppointment() {
           );
 
           setSelectedSlot(
+            null
+          );
+
+          setSelectedDate(
             null
           );
 
@@ -1223,8 +1269,20 @@ export default function CustomerCreateAppointment() {
         []
       );
 
+      setSelectedDate(
+        null
+      );
+
       setSelectedSlot(
         null
+      );
+
+      setDateDropdownOpen(
+        false
+      );
+
+      setTimeDropdownOpen(
+        false
       );
 
       setCustomerNote(
@@ -1303,12 +1361,6 @@ export default function CustomerCreateAppointment() {
             />
           }
         >
-          {/*
-          |--------------------------------------------------------------------------
-          | Header
-          |--------------------------------------------------------------------------
-          */}
-
           <View
             style={
               styles.header
@@ -1352,12 +1404,6 @@ export default function CustomerCreateAppointment() {
               </Text>
             </View>
           </View>
-
-          {/*
-          |--------------------------------------------------------------------------
-          | Choose property
-          |--------------------------------------------------------------------------
-          */}
 
           {!selectedProperty && (
             <>
@@ -1476,12 +1522,6 @@ export default function CustomerCreateAppointment() {
                 }
               />
 
-              {/*
-              |--------------------------------------------------------------------------
-              | Preparing
-              |--------------------------------------------------------------------------
-              */}
-
               {preparing && (
                 <View
                   style={
@@ -1515,12 +1555,6 @@ export default function CustomerCreateAppointment() {
                   </View>
                 </View>
               )}
-
-              {/*
-              |--------------------------------------------------------------------------
-              | Property unavailable
-              |--------------------------------------------------------------------------
-              */}
 
               {!preparing &&
                 preparation
@@ -1557,12 +1591,6 @@ export default function CustomerCreateAppointment() {
                   </StatusCard>
                 )}
 
-              {/*
-              |--------------------------------------------------------------------------
-              | Own property
-              |--------------------------------------------------------------------------
-              */}
-
               {!preparing &&
                 preparation
                   ?.code ===
@@ -1577,12 +1605,6 @@ export default function CustomerCreateAppointment() {
                     type="warning"
                   />
                 )}
-
-              {/*
-              |--------------------------------------------------------------------------
-              | Existing appointment
-              |--------------------------------------------------------------------------
-              */}
 
               {!preparing &&
                 preparation
@@ -1659,12 +1681,6 @@ export default function CustomerCreateAppointment() {
                     </TouchableOpacity>
                   </StatusCard>
                 )}
-
-              {/*
-              |--------------------------------------------------------------------------
-              | Escrow
-              |--------------------------------------------------------------------------
-              */}
 
               {!preparing &&
                 (
@@ -1823,12 +1839,6 @@ export default function CustomerCreateAppointment() {
                   </>
                 )}
 
-              {/*
-              |--------------------------------------------------------------------------
-              | Lister has no availability
-              |--------------------------------------------------------------------------
-              */}
-
               {!preparing &&
                 preparation
                   ?.code ===
@@ -1881,12 +1891,6 @@ export default function CustomerCreateAppointment() {
                   </StatusCard>
                 )}
 
-              {/*
-              |--------------------------------------------------------------------------
-              | Ready to book
-              |--------------------------------------------------------------------------
-              */}
-
               {!preparing &&
                 preparation
                   ?.code ===
@@ -1909,7 +1913,7 @@ export default function CustomerCreateAppointment() {
                         styles.sectionSubtitle
                       }
                     >
-                      Select one of the lister&apos;s available viewing times within the next four weeks.
+                      First select an available date, then choose a viewing time.
                     </Text>
 
                     {availableDays.length ===
@@ -1962,163 +1966,371 @@ export default function CustomerCreateAppointment() {
                         </TouchableOpacity>
                       </View>
                     ) : (
-                      availableDays.map(
-                        (
-                          day
-                        ) => (
-                          <View
-                            key={
-                              day.date
+                      <View
+                        style={
+                          styles.bookingSelectorCard
+                        }
+                      >
+                        <Text
+                          style={
+                            styles.selectorLabel
+                          }
+                        >
+                          Available Date
+                        </Text>
+
+                        <TouchableOpacity
+                          activeOpacity={
+                            0.8
+                          }
+                          style={[
+                            styles.selectInput,
+
+                            dateDropdownOpen &&
+                              styles.selectInputActive,
+                          ]}
+                          onPress={
+                            () => {
+                              setDateDropdownOpen(
+                                (
+                                  current
+                                ) =>
+                                  !current
+                              );
+
+                              setTimeDropdownOpen(
+                                false
+                              );
                             }
+                          }
+                        >
+                          <View
                             style={
-                              styles.availableDayCard
+                              styles.selectInputLeft
                             }
                           >
-                            <View
+                            <MaterialCommunityIcons
+                              name="calendar-outline"
+                              size={21}
+                              color="#2563eb"
+                            />
+
+                            <Text
                               style={
-                                styles.availableDayHeader
+                                selectedDate
+                                  ? styles.selectValue
+                                  : styles.selectPlaceholder
+                              }
+                              numberOfLines={
+                                1
                               }
                             >
-                              <View
-                                style={
-                                  styles.calendarIconBox
-                                }
-                              >
-                                <MaterialCommunityIcons
-                                  name="calendar"
-                                  size={22}
-                                  color="#2563eb"
-                                />
-                              </View>
+                              {selectedAvailableDay
+                                ?.label ||
+                                "Select available date"}
+                            </Text>
+                          </View>
 
-                              <View
-                                style={{
-                                  flex: 1,
-                                }}
-                              >
-                                <Text
-                                  style={
-                                    styles.availableDayTitle
-                                  }
-                                >
-                                  {
-                                    day.label
-                                  }
-                                </Text>
+                          <MaterialCommunityIcons
+                            name={
+                              dateDropdownOpen
+                                ? "chevron-up"
+                                : "chevron-down"
+                            }
+                            size={23}
+                            color="#64748b"
+                          />
+                        </TouchableOpacity>
 
-                                <Text
-                                  style={
-                                    styles.availableDayCount
-                                  }
-                                >
-                                  {
-                                    day.slots
-                                      .length
-                                  }
-                                  {" "}
-                                  {day
-                                    .slots
-                                    .length ===
-                                  1
-                                    ? "available time"
-                                    : "available times"}
-                                </Text>
-                              </View>
-                            </View>
+                        {dateDropdownOpen && (
+                          <View
+                            style={
+                              styles.dropdownBox
+                            }
+                          >
+                            {availableDays.map(
+                              (
+                                day
+                              ) => {
+                                const selected =
+                                  selectedDate ===
+                                  day.date;
 
-                            <View
-                              style={
-                                styles.daySlotsContainer
-                              }
-                            >
-                              {day.slots.map(
-                                (
-                                  slot,
-                                  index
-                                ) => {
-                                  const selected =
-                                    selectedSlot
-                                      ?.date ===
-                                      slot.date &&
-                                    selectedSlot
-                                      ?.start_time ===
-                                      slot.start_time &&
-                                    selectedSlot
-                                      ?.end_time ===
-                                      slot.end_time;
+                                return (
+                                  <TouchableOpacity
+                                    key={
+                                      day.date
+                                    }
+                                    style={[
+                                      styles.dropdownOption,
 
-                                  return (
-                                    <TouchableOpacity
-                                      key={`${slot.date}-${slot.start_time}-${slot.end_time}-${index}`}
-                                      style={[
-                                        styles.slotCard,
+                                      selected &&
+                                        styles.dropdownOptionSelected,
+                                    ]}
+                                    onPress={
+                                      () => {
+                                        setSelectedDate(
+                                          day.date
+                                        );
 
-                                        selected &&
-                                          styles.selectedSlotCard,
-                                      ]}
-                                      onPress={
-                                        () =>
-                                          setSelectedSlot(
-                                            slot
-                                          )
+                                        setSelectedSlot(
+                                          null
+                                        );
+
+                                        setDateDropdownOpen(
+                                          false
+                                        );
+
+                                        setTimeDropdownOpen(
+                                          false
+                                        );
                                       }
+                                    }
+                                  >
+                                    <View
+                                      style={{
+                                        flex: 1,
+                                      }}
                                     >
-                                      <View
+                                      <Text
+                                        style={[
+                                          styles.dropdownOptionTitle,
+
+                                          selected &&
+                                            styles.dropdownOptionTitleSelected,
+                                        ]}
+                                      >
+                                        {
+                                          day.label
+                                        }
+                                      </Text>
+
+                                      <Text
                                         style={
-                                          styles.slotTimeRow
+                                          styles.dropdownOptionSubtitle
                                         }
                                       >
-                                        <MaterialCommunityIcons
-                                          name="clock-outline"
-                                          size={19}
-                                          color={
-                                            selected
-                                              ? "#ffffff"
-                                              : "#2563eb"
-                                          }
-                                        />
+                                        {
+                                          day
+                                            .slots
+                                            .length
+                                        }{" "}
+                                        {day
+                                          .slots
+                                          .length ===
+                                        1
+                                          ? "time available"
+                                          : "times available"}
+                                      </Text>
+                                    </View>
 
-                                        <Text
-                                          style={[
-                                            styles.slotTime,
-
-                                            selected && {
-                                              color:
-                                                "#ffffff",
-                                            },
-                                          ]}
-                                        >
-                                          {formatSlotTime(
-                                            slot.start_time
-                                          )}
-                                          {" - "}
-                                          {formatSlotTime(
-                                            slot.end_time
-                                          )}
-                                        </Text>
-                                      </View>
-
+                                    {selected && (
                                       <MaterialCommunityIcons
-                                        name={
-                                          selected
-                                            ? "check-circle"
-                                            : "circle-outline"
-                                        }
-                                        size={23}
-                                        color={
-                                          selected
-                                            ? "#ffffff"
-                                            : "#2563eb"
-                                        }
+                                        name="check-circle"
+                                        size={21}
+                                        color="#2563eb"
                                       />
-                                    </TouchableOpacity>
-                                  );
-                                }
-                              )}
-                            </View>
+                                    )}
+                                  </TouchableOpacity>
+                                );
+                              }
+                            )}
                           </View>
-                        )
-                      )
+                        )}
+
+                        <Text
+                          style={[
+                            styles.selectorLabel,
+                            {
+                              marginTop:
+                                16,
+                            },
+                          ]}
+                        >
+                          Available Time
+                        </Text>
+
+                        <TouchableOpacity
+                          activeOpacity={
+                            0.8
+                          }
+                          disabled={
+                            !selectedAvailableDay
+                          }
+                          style={[
+                            styles.selectInput,
+
+                            !selectedAvailableDay &&
+                              styles.selectInputDisabled,
+
+                            timeDropdownOpen &&
+                              styles.selectInputActive,
+                          ]}
+                          onPress={
+                            () => {
+                              if (
+                                !selectedAvailableDay
+                              ) {
+                                return;
+                              }
+
+                              setTimeDropdownOpen(
+                                (
+                                  current
+                                ) =>
+                                  !current
+                              );
+
+                              setDateDropdownOpen(
+                                false
+                              );
+                            }
+                          }
+                        >
+                          <View
+                            style={
+                              styles.selectInputLeft
+                            }
+                          >
+                            <MaterialCommunityIcons
+                              name="clock-outline"
+                              size={21}
+                              color={
+                                selectedAvailableDay
+                                  ? "#2563eb"
+                                  : "#94a3b8"
+                              }
+                            />
+
+                            <Text
+                              style={
+                                selectedSlot
+                                  ? styles.selectValue
+                                  : styles.selectPlaceholder
+                              }
+                              numberOfLines={
+                                1
+                              }
+                            >
+                              {selectedSlot
+                                ? `${formatSlotTime(
+                                    selectedSlot.start_time
+                                  )} - ${formatSlotTime(
+                                    selectedSlot.end_time
+                                  )}`
+                                : selectedAvailableDay
+                                ? "Select available time"
+                                : "Select a date first"}
+                            </Text>
+                          </View>
+
+                          <MaterialCommunityIcons
+                            name={
+                              timeDropdownOpen
+                                ? "chevron-up"
+                                : "chevron-down"
+                            }
+                            size={23}
+                            color={
+                              selectedAvailableDay
+                                ? "#64748b"
+                                : "#94a3b8"
+                            }
+                          />
+                        </TouchableOpacity>
+
+                        {timeDropdownOpen &&
+                          selectedAvailableDay && (
+                            <View
+                              style={
+                                styles.dropdownBox
+                              }
+                            >
+                              {selectedAvailableDay
+                                .slots.map(
+                                  (
+                                    slot,
+                                    index
+                                  ) => {
+                                    const selected =
+                                      selectedSlot
+                                        ?.date ===
+                                        slot.date &&
+                                      selectedSlot
+                                        ?.start_time ===
+                                        slot.start_time &&
+                                      selectedSlot
+                                        ?.end_time ===
+                                        slot.end_time;
+
+                                    return (
+                                      <TouchableOpacity
+                                        key={`${slot.date}-${slot.start_time}-${slot.end_time}-${index}`}
+                                        style={[
+                                          styles.dropdownOption,
+
+                                          selected &&
+                                            styles.dropdownOptionSelected,
+                                        ]}
+                                        onPress={
+                                          () => {
+                                            setSelectedSlot(
+                                              slot
+                                            );
+
+                                            setTimeDropdownOpen(
+                                              false
+                                            );
+                                          }
+                                        }
+                                      >
+                                        <View
+                                          style={
+                                            styles.timeOptionRow
+                                          }
+                                        >
+                                          <MaterialCommunityIcons
+                                            name="clock-outline"
+                                            size={19}
+                                            color={
+                                              selected
+                                                ? "#2563eb"
+                                                : "#64748b"
+                                            }
+                                          />
+
+                                          <Text
+                                            style={[
+                                              styles.dropdownOptionTitle,
+
+                                              selected &&
+                                                styles.dropdownOptionTitleSelected,
+                                            ]}
+                                          >
+                                            {formatSlotTime(
+                                              slot.start_time
+                                            )}
+                                            {" - "}
+                                            {formatSlotTime(
+                                              slot.end_time
+                                            )}
+                                          </Text>
+                                        </View>
+
+                                        {selected && (
+                                          <MaterialCommunityIcons
+                                            name="check-circle"
+                                            size={21}
+                                            color="#2563eb"
+                                          />
+                                        )}
+                                      </TouchableOpacity>
+                                    );
+                                  }
+                                )}
+                            </View>
+                          )}
+                      </View>
                     )}
 
                     <Text
@@ -2190,7 +2402,8 @@ export default function CustomerCreateAppointment() {
                             }
                           >
                             {
-                              selectedSlot.date
+                              selectedAvailableDay
+                                ?.label
                             }
                             {" · "}
                             {formatSlotTime(
@@ -2356,7 +2569,7 @@ function StatusCard({
 
 /*
 |--------------------------------------------------------------------------
-| Money row
+| Money Row
 |--------------------------------------------------------------------------
 */
 
@@ -3148,93 +3361,138 @@ const styles =
         "#e2e8f0",
     },
 
-    availableDayCard: {
-      marginTop: 15,
+    bookingSelectorCard: {
+      marginTop: 16,
       backgroundColor:
         "#ffffff",
       borderRadius: 18,
+      padding: 16,
       borderWidth: 1,
       borderColor:
         "#e2e8f0",
-      padding: 14,
     },
 
-    availableDayHeader: {
-      flexDirection:
-        "row",
-      alignItems:
-        "center",
-      gap: 10,
-      marginBottom: 12,
-    },
-
-    calendarIconBox: {
-      width: 42,
-      height: 42,
-      borderRadius: 12,
-      alignItems:
-        "center",
-      justifyContent:
-        "center",
-      backgroundColor:
-        "#eff6ff",
-    },
-
-    availableDayTitle: {
-      color: "#0f172a",
-      fontSize: 15,
+    selectorLabel: {
+      color: "#334155",
+      fontSize: 13,
       fontWeight:
-        "900",
+        "800",
+      marginBottom: 7,
     },
 
-    availableDayCount: {
-      color: "#64748b",
-      fontSize: 11,
-      fontWeight:
-        "700",
-      marginTop: 3,
-    },
-
-    daySlotsContainer: {
-      gap: 8,
-    },
-
-    slotCard: {
-      backgroundColor:
-        "#ffffff",
+    selectInput: {
+      minHeight: 54,
       borderWidth: 1,
       borderColor:
-        "#bfdbfe",
-      borderRadius: 14,
-      padding: 14,
+        "#cbd5e1",
+      backgroundColor:
+        "#ffffff",
+      borderRadius: 13,
+      paddingHorizontal: 14,
       flexDirection:
         "row",
       alignItems:
         "center",
       justifyContent:
         "space-between",
+      gap: 10,
     },
 
-    selectedSlotCard: {
-      backgroundColor:
-        "#2563eb",
+    selectInputActive: {
       borderColor:
         "#2563eb",
     },
 
-    slotTimeRow: {
+    selectInputDisabled: {
+      backgroundColor:
+        "#f8fafc",
+      opacity: 0.7,
+    },
+
+    selectInputLeft: {
+      flex: 1,
+      minWidth: 0,
+      flexDirection:
+        "row",
+      alignItems:
+        "center",
+      gap: 10,
+    },
+
+    selectValue: {
+      flex: 1,
+      color: "#0f172a",
+      fontSize: 14,
+      fontWeight:
+        "800",
+    },
+
+    selectPlaceholder: {
+      flex: 1,
+      color: "#94a3b8",
+      fontSize: 14,
+      fontWeight:
+        "600",
+    },
+
+    dropdownBox: {
+      marginTop: 7,
+      backgroundColor:
+        "#ffffff",
+      borderRadius: 13,
+      borderWidth: 1,
+      borderColor:
+        "#e2e8f0",
+      overflow:
+        "hidden",
+    },
+
+    dropdownOption: {
+      minHeight: 52,
+      paddingHorizontal: 14,
+      paddingVertical: 11,
+      flexDirection:
+        "row",
+      alignItems:
+        "center",
+      justifyContent:
+        "space-between",
+      gap: 10,
+      borderBottomWidth: 1,
+      borderBottomColor:
+        "#f1f5f9",
+    },
+
+    dropdownOptionSelected: {
+      backgroundColor:
+        "#eff6ff",
+    },
+
+    dropdownOptionTitle: {
+      color: "#0f172a",
+      fontSize: 14,
+      fontWeight:
+        "800",
+    },
+
+    dropdownOptionTitleSelected: {
+      color: "#1d4ed8",
+    },
+
+    dropdownOptionSubtitle: {
+      color: "#64748b",
+      fontSize: 11,
+      fontWeight:
+        "600",
+      marginTop: 3,
+    },
+
+    timeOptionRow: {
       flexDirection:
         "row",
       alignItems:
         "center",
       gap: 9,
-    },
-
-    slotTime: {
-      color: "#0f172a",
-      fontWeight:
-        "900",
-      fontSize: 15,
     },
 
     label: {
