@@ -36,6 +36,9 @@ import ScreenWrapper from "components/ScreenWrapper";
 
 import usePreventScreenCapture from "@/hooks/usePreventScreenCapture";
 
+
+
+
 /*
 |--------------------------------------------------------------------------
 | Categories
@@ -405,6 +408,11 @@ const loadUnreadNotificationCount =
     []
   )
 );
+
+
+
+
+
 
     const onRefresh =
       async () => {
@@ -807,6 +815,10 @@ const loadUnreadNotificationCount =
           lowerStatus.includes(
             "rented"
           );
+
+
+
+
 
         return (
           <TouchableOpacity

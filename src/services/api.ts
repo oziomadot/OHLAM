@@ -2330,7 +2330,7 @@ async verifyIdCard(formData: FormData) {
 
 
   async markNotificationAsRead(id: number | string) {
-    const response = await API.post(`/notifications/${id}/read`);
+    const response = await API.patch(`/notifications/${id}/read`);
     return response.data;
   }
 
@@ -2342,7 +2342,20 @@ async verifyIdCard(formData: FormData) {
   }
 
 
-  
+  async savePushToken(
+  payload: {
+    token: string;
+    platform: string;
+  }
+  ) {
+  const response =
+    await API.post(
+      "/notifications/push-token",
+      payload
+    );
+
+  return response.data;
+}
 
 async getUnreadNotificationCount() {
   const response = await API.get("/notifications/unread-count");

@@ -1,5 +1,7 @@
 import { Stack } from "expo-router";
 
+
+
 export default function HomeLayout() {
   return (
     <Stack
@@ -7,5 +9,7 @@ export default function HomeLayout() {
         headerShown: false,
       }}
     />
+
+   
   );
 }

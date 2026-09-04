@@ -57,7 +57,10 @@ export default {
       ],
       "expo-router",
       "expo-notifications",
-      "expo-video"
+      "expo-video",
+      {
+        "defaultChannel": "ohlam-default"
+      }
     ],
 
     updates: {

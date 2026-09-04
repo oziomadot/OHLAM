@@ -123,9 +123,135 @@
 //   );
 // }
 
+
+import React, {
+  useEffect,
+} from "react";
+
+import * as Notifications from "expo-notifications";
+
+import API from "@/src/services/api";
+
+import {
+  registerForPushNotifications,
+  setOhlamBadge,
+} from "@/src/services/pushNotifications";
 import { Stack } from "expo-router";
 
 export default function RootLayout() {
+
+
+   useEffect(
+    () => {
+      /*
+       * Register this phone and send its Expo push token
+       * to the Laravel backend.
+       */
+      registerForPushNotifications()
+        .then(
+          async () => {
+            /*
+             * Synchronize the launcher badge with Laravel
+             * when the authenticated tabs first load.
+             */
+            try {
+              const response =
+                await API
+                  .getUnreadNotificationCount();
+
+              await setOhlamBadge(
+                Number(
+                  response
+                    ?.unread_count ||
+                    0
+                )
+              );
+            } catch (
+              error
+            ) {
+              console.log(
+                "Unable to synchronize notification badge:",
+                error
+              );
+            }
+          }
+        )
+        .catch(
+          (
+            error
+          ) => {
+            console.log(
+              "Push registration failed:",
+              error
+            );
+          }
+        );
+
+      /*
+       * Called when a push notification arrives while
+       * OHLAM is open.
+       */
+      const receivedSubscription =
+        Notifications
+          .addNotificationReceivedListener(
+            async (
+              notification
+            ) => {
+              const incomingBadge =
+                Number(
+                  notification
+                    .request
+                    .content
+                    .badge ||
+                    0
+                );
+
+              if (
+                incomingBadge > 0
+              ) {
+                await setOhlamBadge(
+                  incomingBadge
+                );
+
+                return;
+              }
+
+              /*
+               * If the push did not include a badge,
+               * ask Laravel for the current unread count.
+               */
+              try {
+                const response =
+                  await API
+                    .getUnreadNotificationCount();
+
+                await setOhlamBadge(
+                  Number(
+                    response
+                      ?.unread_count ||
+                      0
+                  )
+                );
+              } catch (
+                error
+              ) {
+                console.log(
+                  "Unable to refresh notification badge:",
+                  error
+                );
+              }
+            }
+          );
+
+      return () => {
+        receivedSubscription
+          .remove();
+      };
+    },
+    []
+  );
+
+  
   return (
     <Stack
       screenOptions={{
