@@ -1223,7 +1223,7 @@ const loadUnreadNotificationCount =
       }
       onPress={() =>
         router.push(
-          "/(tabs)/dashboard/notification"
+          "/(tabs)/dashboard/notifications"
         )
       }
     >
@@ -1257,7 +1257,7 @@ const loadUnreadNotificationCount =
         </View>
       )}
     </TouchableOpacity>
-  
+  </View>
 
             <Text
               style={
