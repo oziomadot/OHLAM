@@ -20,9 +20,7 @@ import {
   RefreshControl,
 } from "react-native";
 
-import {
-  MaterialCommunityIcons,
-} from "@expo/vector-icons";
+import { MaterialCommunityIcons, } from "@expo/vector-icons";
 
 import {
   useVideoPlayer,
@@ -275,38 +273,23 @@ function PropertyMediaPreview({
 |--------------------------------------------------------------------------
 */
 
-const IndexScreen =
-  () => {
-    const [
-      properties,
-      setProperties,
-    ] =
-      useState<any>(
-        {}
-      );
+const IndexScreen = () => {
+    const [properties, setProperties] = useState<any>({});
 
-    const [
-      filters,
-      setFilters,
-    ] =
-      useState({
+    const [filters, setFilters] = useState({
         min: "",
         max: "",
         search: "",
       });
 
-    const [
+  
+
+      const [
       expandedSections,
       setExpandedSections,
     ] = useState<Record<string, boolean>>({});
 
-    const [
-      loading,
-      setLoading,
-    ] =
-      useState(
-        true
-      );
+    const [ loading, setLoading,] = useState(true);
 
     const [
       refreshing,
@@ -322,6 +305,56 @@ const IndexScreen =
     usePreventScreenCapture(
       true
     );
+
+
+
+    // NOTIFICATIONS
+
+    const [
+      unreadNotificationCount,
+      setUnreadNotificationCount,
+    ] = useState(0);
+
+
+
+const loadUnreadNotificationCount =
+  async () => {
+    try {
+      const response =
+        await API
+          .getUnreadNotificationCount();
+
+      setUnreadNotificationCount(
+        Number(
+          response
+            ?.unread_count ||
+            0
+        )
+      );
+    } catch (
+      error: any
+    ) {
+      /*
+       * The public home screen may also be opened by
+       * unauthenticated users. Do not show an error in
+       * that situation.
+       */
+      if (
+        error?.response
+          ?.status !== 401
+      ) {
+        console.log(
+          "Unable to load unread notification count:",
+          error
+        );
+      }
+
+      setUnreadNotificationCount(
+        0
+      );
+    }
+  };
+
 
     /*
     |--------------------------------------------------------------------------
@@ -363,14 +396,15 @@ const IndexScreen =
         }
       };
 
-    useFocusEffect(
-      useCallback(
-        () => {
-          loadProperties();
-        },
-        []
-      )
-    );
+   useFocusEffect(
+  useCallback(
+    () => {
+      loadProperties();
+      loadUnreadNotificationCount();
+    },
+    []
+  )
+);
 
     const onRefresh =
       async () => {
@@ -378,12 +412,15 @@ const IndexScreen =
           true
         );
 
-        await loadProperties();
+        await Promise.all([
+          loadProperties(),
+          loadUnreadNotificationCount(),
+        ]);
 
         setRefreshing(
           false
         );
-      };
+  };
 
     /*
     |--------------------------------------------------------------------------
@@ -1153,18 +1190,74 @@ const IndexScreen =
           ==========================================================
           */}
 
-          <View
+         <View
+  style={
+    styles.hero
+  }
+>
+  <View
+    style={
+      styles.heroTopRow
+    }
+  >
+    <Text
+      style={
+        styles.kicker
+      }
+    >
+      Smart Real Estate Marketplace
+    </Text>
+
+    <TouchableOpacity
+      style={
+        styles.notificationButton
+      }
+      activeOpacity={
+        0.8
+      }
+      accessibilityRole="button"
+      accessibilityLabel={
+        unreadNotificationCount > 0
+          ? `${unreadNotificationCount} unread notifications`
+          : "Notifications"
+      }
+      onPress={() =>
+        router.push(
+          "/(tabs)/dashboard/notification"
+        )
+      }
+    >
+      <MaterialCommunityIcons
+        name={
+          unreadNotificationCount > 0
+            ? "bell"
+            : "bell-outline"
+        }
+        size={26}
+        color="#0f172a"
+      />
+
+      {unreadNotificationCount >
+        0 && (
+        <View
+          style={
+            styles.notificationBadge
+          }
+        >
+          <Text
             style={
-              styles.hero
+              styles.notificationBadgeText
             }
           >
-            <Text
-              style={
-                styles.kicker
-              }
-            >
-              Smart Real Estate Marketplace
-            </Text>
+            {unreadNotificationCount >
+            99
+              ? "99+"
+              : unreadNotificationCount}
+          </Text>
+        </View>
+      )}
+    </TouchableOpacity>
+  
 
             <Text
               style={
@@ -2509,6 +2602,63 @@ const styles =
       fontWeight:
         "600",
     },
+
+
+    heroTopRow: {
+  flexDirection:
+    "row",
+  alignItems:
+    "center",
+  justifyContent:
+    "space-between",
+  marginBottom: 8,
+},
+
+notificationButton: {
+  width: 46,
+  height: 46,
+  borderRadius: 16,
+  backgroundColor:
+    "#f1f5f9",
+  alignItems:
+    "center",
+  justifyContent:
+    "center",
+  position:
+    "relative",
+  borderWidth: 1,
+  borderColor:
+    "#e2e8f0",
+},
+
+notificationBadge: {
+  position:
+    "absolute",
+  top: -5,
+  right: -7,
+  minWidth: 21,
+  height: 21,
+  borderRadius: 11,
+  paddingHorizontal: 5,
+  backgroundColor:
+    "#dc2626",
+  alignItems:
+    "center",
+  justifyContent:
+    "center",
+  borderWidth: 2,
+  borderColor:
+    "#ffffff",
+},
+
+notificationBadgeText: {
+  color:
+    "#ffffff",
+  fontSize: 10,
+  lineHeight: 13,
+  fontWeight:
+    "900",
+},
   });
 
 export default IndexScreen;

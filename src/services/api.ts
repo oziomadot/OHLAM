@@ -2330,20 +2330,31 @@ async verifyIdCard(formData: FormData) {
 
 
   async markNotificationAsRead(id: number | string) {
-
-    return API.post(`/notifications/${id}/read`);
-
+    const response = await API.post(`/notifications/${id}/read`);
+    return response.data;
   }
 
 
 
   async getNotifications() {
-
     const response = await API.get("/notifications");
-
     return response.data;
-
   }
+
+
+  
+
+async getUnreadNotificationCount() {
+  const response = await API.get("/notifications/unread-count");
+  return response.data;
+}
+
+
+
+async markAllNotificationsAsRead() {
+  const response = await API.patch("/notifications/read-all");
+  return response.data;
+}
 
 
 
