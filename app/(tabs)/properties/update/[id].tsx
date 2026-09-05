@@ -587,68 +587,121 @@ export default function EditProperty() {
    *
    * {...}
    */
-  const unwrapResponse = (
-    response: any
-  ) => {
-    if (
-      response?.data?.data
-    ) {
-      return response.data.data;
-    }
+const extractPropertyFromResponse = (
+  response: any
+) => {
+  /*
+   * Remove Axios response wrapper.
+   */
+  let payload =
+    response?.data ?? response;
 
-    if (response?.data) {
-      return response.data;
-    }
+  /*
+   * Support:
+   * {
+   *   data: {
+   *     property: {...}
+   *   }
+   * }
+   */
+  if (
+    payload?.data?.property
+  ) {
+    return payload.data.property;
+  }
 
-    return response;
-  };
+  /*
+   * Support:
+   * {
+   *   data: {...property fields}
+   * }
+   */
+  if (
+    payload?.data &&
+    typeof payload.data ===
+      "object"
+  ) {
+    payload = payload.data;
+  }
 
-  const getProperty = async (
-    id: string
-  ) => {
-    const api =
-      API as any;
+  /*
+   * Support:
+   * {
+   *   property: {...}
+   * }
+   */
+  if (
+    payload?.property
+  ) {
+    return payload.property;
+  }
 
-    /*
-     * Preferred OHLAM service methods.
-     */
-    if (
-      typeof api.getProperty ===
-      "function"
-    ) {
-      return unwrapResponse(
-        await api.getProperty(id)
-      );
-    }
+  /*
+   * Support Laravel resource:
+   * {
+   *   data: {
+   *     data: {...}
+   *   }
+   * }
+   */
+  if (
+    payload?.data?.data
+  ) {
+    return payload.data.data;
+  }
 
-    if (
-      typeof api.showProperty ===
-      "function"
-    ) {
-      return unwrapResponse(
-        await api.showProperty(id)
-      );
-    }
+  /*
+   * Support a property returned directly.
+   */
+  return payload;
+};
 
-    /*
-     * Axios-style fallback.
-     */
-    if (
-      typeof api.get ===
-      "function"
-    ) {
-      return unwrapResponse(
-        await api.get(
-          `/properties/${id}`
-        )
-      );
-    }
+const getProperty = async (
+  id: string
+) => {
+  const response: any =
+    await API.getProperty(id);
 
-    throw new Error(
-      "No property GET method exists in API service."
+  const property =
+    extractPropertyFromResponse(
+      response
     );
-  };
 
+  console.log(
+    "EDIT PROPERTY API RESPONSE:",
+    JSON.stringify(
+      response,
+      null,
+      2
+    )
+  );
+
+  console.log(
+    "EXTRACTED PROPERTY:",
+    JSON.stringify(
+      property,
+      null,
+      2
+    )
+  );
+
+  if (
+    !property ||
+    typeof property !== "object"
+  ) {
+    throw new Error(
+      "The server returned an invalid property response."
+    );
+  }
+
+  if (!property.id) {
+    throw new Error(
+      "The selected property was not found in the server response."
+    );
+  }
+
+  return property;
+};
   const updatePropertyApi =
     async (
       id: string,
@@ -698,6 +751,12 @@ export default function EditProperty() {
       );
     };
 
+  const unwrapResponse = (
+    response: any
+  ) =>
+    response?.data ??
+    response;
+
   const bool = (
     value: any
   ): boolean => {
@@ -733,30 +792,35 @@ export default function EditProperty() {
   const populateProperty =
     useCallback(
       (property: any) => {
-        const rental =
-          property?.rentalDetail ??
-          property?.rental_detail ??
-          property?.rental ??
-          {};
+       const rental =
+  property?.rentalDetail ??
+  property?.rental_detail ??
+  property?.rentalDetails ??
+  property?.rental_details ??
+  property?.rental ??
+  {};
 
-        const houseSale =
-          property?.houseSale ??
-          property?.house_sale ??
-          {};
+const houseSale =
+  property?.houseSale ??
+  property?.house_sale ??
+  property?.houseSaleDetail ??
+  property?.house_sale_detail ??
+  {};
 
-        const landSale =
-          property?.landSale ??
-          property?.land_sale ??
-          {};
+const landSale =
+  property?.landSale ??
+  property?.land_sale ??
+  property?.landSaleDetail ??
+  property?.land_sale_detail ??
+  {};
 
-        const propertyTypeId =
-          property
-            ?.property_type_id ??
-          property
-            ?.propertyType?.id ??
-          property
-            ?.property_type?.id ??
-          "";
+       const propertyTypeId =
+  property?.property_type_id ??
+  property?.propertyTypes ??
+  property?.property_type?.id ??
+  property?.propertyType?.id ??
+  property?.propertyTypeId ??
+  "";
 
         const commonDetail =
           Number(
@@ -1194,8 +1258,15 @@ export default function EditProperty() {
          * usePropertyFiles will replace
          * individual files.
          */
-        const media =
-          property.media ?? {};
+        const mediaSource =
+  property?.media ??
+  property?.propertyMedia ??
+  property?.property_media ??
+  {};
+
+const media = Array.isArray(mediaSource)
+  ? mediaSource[0] ?? {}
+  : mediaSource;
 
         setExistingMedia({
           wholeBuilding:

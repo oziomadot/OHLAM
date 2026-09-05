@@ -209,13 +209,13 @@ export default function FundWalletScreen() {
               {account.bank_name}
             </Text>
 
-            <Text
+            <Text 
               style={styles.label}
             >
               Account Number
             </Text>
 
-            <Text
+            <Text selectable
               style={
                 styles.accountNumber
               }
@@ -231,7 +231,7 @@ export default function FundWalletScreen() {
               Account Name
             </Text>
 
-            <Text
+            <Text selectable
               style={styles.value}
             >
               {
