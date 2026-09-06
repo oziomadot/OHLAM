@@ -27,6 +27,23 @@ export default function RentalFields({
   handleMoneyChange,
   handleMoneyBlur,
 }: Props) {
+
+useEffect(() => {
+  if (selectedBuildingType !== 3) {
+    setValue(
+      "flatType_id",
+      "",
+      {
+        shouldDirty: true,
+        shouldValidate: false,
+      }
+    );
+  }
+}, [
+  selectedBuildingType,
+  setValue,
+]);
+
   return (
     <>
       <Controller
