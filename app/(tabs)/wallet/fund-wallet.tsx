@@ -3,6 +3,8 @@ import React, {
   useState,
 } from "react";
 
+import * as Clipboard from "expo-clipboard";
+
 import {
   ActivityIndicator,
   Alert,
@@ -10,6 +12,7 @@ import {
   Text,
   TouchableOpacity,
   View,
+  Pressable,
 } from "react-native";
 
 import { MaterialCommunityIcons } from "@expo/vector-icons";
@@ -120,6 +123,13 @@ export default function FundWalletScreen() {
     );
   }
 
+
+  const copyText = async () => {
+    await Clipboard.setStringAsync(
+      account?.account_number ?? ""
+    );
+  };
+
   return (
     <View style={styles.container}>
       <Text style={styles.title}>
@@ -215,6 +225,7 @@ export default function FundWalletScreen() {
               Account Number
             </Text>
 
+      <View>
             <Text selectable
               style={
                 styles.accountNumber
@@ -224,6 +235,12 @@ export default function FundWalletScreen() {
                 account.account_number
               }
             </Text>
+
+             <Pressable onPress={copyText}>
+              <Text>Copy</Text>
+            </Pressable>
+
+            </View>
 
             <Text
               style={styles.label}

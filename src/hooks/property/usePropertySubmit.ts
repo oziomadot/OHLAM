@@ -171,83 +171,77 @@ export function usePropertySubmit({
     return true;
   };
 
-  const validateMedia = () => {
-    if (
-      selectedPropertyType === 1
-    ) {
-      const required = [
-        "wholeBuilding",
-        "sittingRoom",
-        "kitchenImage",
-        "room",
-        "toiletImage",
-      ];
+  const validateMedia = (): boolean => {
+  /*
+  |--------------------------------------------------------------------------
+  | PROPERTY MEDIA RULE
+  |--------------------------------------------------------------------------
+  |
+  | No individual media field is compulsory.
+  |
+  | Valid:
+  | - whole building photo only
+  | - sitting room photo only
+  | - kitchen photo only
+  | - room photo only
+  | - toilet photo only
+  | - video only
+  | - any combination of photos
+  | - photos + video
+  |
+  | Invalid:
+  | - no normal property media at all
+  |
+  | Floor plan and 360 video are enhancements
+  | and do not replace the normal property-media requirement.
+  |--------------------------------------------------------------------------
+  */
 
-      for (
-        const key of required
-      ) {
-        if (
-          !hasFile(
-            images?.[key]
-          )
-        ) {
-          showAlert(
-            "Missing Media",
-            `Please upload ${key
-              .replace(
-                /([A-Z])/g,
-                " $1"
-              )
-              .toLowerCase()}`
-          );
+  const hasWholeBuilding =
+    Boolean(images?.wholeBuilding?.uri);
 
-          return false;
-        }
-      }
-    }
+  const hasSittingRoom =
+    Boolean(images?.sittingRoom?.uri);
 
-    if (selectedPropertyType === 2) {
-      const hasImage =
-        hasFile(
-          images?.wholeBuilding
-        );
+  const hasKitchen =
+    Boolean(images?.kitchenImage?.uri);
 
-      const hasVideo = hasFile(video);
+  const hasRoom =
+    Boolean(images?.room?.uri);
 
-      if (!hasImage && !hasVideo) {
-        showAlert(
-          "Missing Property Media",
-          "Please upload at least one property image or one property video."
-        );
+  const hasToilet =
+    Boolean(images?.toiletImage?.uri);
 
-        return false;
-      }
-    }
+  const hasVideo =
+    Boolean(
+      video?.uri ||
+      video?.name
+    );
 
-    if ( selectedPropertyType === 3) {
-      const hasImage =
-        hasFile(
-          images?.wholeBuilding
-        );
+  const hasAnyPhoto =
+    hasWholeBuilding ||
+    hasSittingRoom ||
+    hasKitchen ||
+    hasRoom ||
+    hasToilet;
 
-      const hasVideo =
-        hasFile(video);
+  const hasAnyMedia =
+    hasAnyPhoto ||
+    hasVideo;
 
-      if (
-        !hasImage &&
-        !hasVideo
-      ) {
-        showAlert(
-          "Missing Land Media",
-          "Please upload at least one image of the land or one land video."
-        );
+  if (!hasAnyMedia) {
+    showAlert(
+      "Property Media Required",
+      selectedPropertyType === 3
+        ? "Please upload at least one land photo or one land video."
+        : "Please upload at least one property photo or one property video."
+    );
 
-        return false;
-      }
-    }
+    return false;
+  }
 
-    return true;
-  };
+  return true;
+};
 
   const appendFile = (
     data: FormData,

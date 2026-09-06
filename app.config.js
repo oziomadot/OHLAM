@@ -3,7 +3,7 @@ export default {
     name: "OHLAM",
     slug: "OHLAM",
     scheme: "ohlam",
-    version: "1.0.7",
+    version: "1.0.8",
 
 
      "runtimeVersion": {
@@ -64,7 +64,7 @@ export default {
       }
     ],
 
-    
+
     ],
 
     updates: {
