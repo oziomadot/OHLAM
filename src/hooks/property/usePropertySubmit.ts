@@ -171,70 +171,51 @@ export function usePropertySubmit({
     return true;
   };
 
-  const validateMedia = (): boolean => {
-  /*
-  |--------------------------------------------------------------------------
-  | PROPERTY MEDIA RULE
-  |--------------------------------------------------------------------------
-  |
-  | No individual media field is compulsory.
-  |
-  | Valid:
-  | - whole building photo only
-  | - sitting room photo only
-  | - kitchen photo only
-  | - room photo only
-  | - toilet photo only
-  | - video only
-  | - any combination of photos
-  | - photos + video
-  |
-  | Invalid:
-  | - no normal property media at all
-  |
-  | Floor plan and 360 video are enhancements
-  | and do not replace the normal property-media requirement.
-  |--------------------------------------------------------------------------
-  */
-
-  const hasWholeBuilding =
-    Boolean(images?.wholeBuilding?.uri);
-
-  const hasSittingRoom =
-    Boolean(images?.sittingRoom?.uri);
-
-  const hasKitchen =
-    Boolean(images?.kitchenImage?.uri);
-
-  const hasRoom =
-    Boolean(images?.room?.uri);
-
-  const hasToilet =
-    Boolean(images?.toiletImage?.uri);
-
+  
+const validateMedia = (): boolean => {
   const hasVideo =
     Boolean(
       video?.uri ||
       video?.name
     );
 
+  if (selectedPropertyType === 3) {
+    const hasLandPhoto =
+      Boolean(
+        images?.wholeBuilding?.uri
+      );
+
+    if (
+      !hasLandPhoto &&
+      !hasVideo
+    ) {
+      showAlert(
+        "Property Media Required",
+        "Please upload at least one land photo or one land video."
+      );
+
+      return false;
+    }
+
+    return true;
+  }
+
   const hasAnyPhoto =
-    hasWholeBuilding ||
-    hasSittingRoom ||
-    hasKitchen ||
-    hasRoom ||
-    hasToilet;
+    Boolean(
+      images?.wholeBuilding?.uri ||
+      images?.sittingRoom?.uri ||
+      images?.kitchenImage?.uri ||
+      images?.room?.uri ||
+      images?.toiletImage?.uri
+    );
 
-  const hasAnyMedia =
-    hasAnyPhoto ||
-    hasVideo;
-
-  if (!hasAnyMedia) {
+  if (
+    !hasAnyPhoto &&
+    !hasVideo
+  ) {
     showAlert(
       "Property Media Required",
-      selectedPropertyType === 3
-        ? "Please upload at least one land photo or one land video."
-        : "Please upload at least one property photo or one property video."
+      "Please upload at least one property photo or one property video."
     );
 
     return false;
@@ -242,6 +223,8 @@ export function usePropertySubmit({
 
   return true;
 };
+
+
 
   const appendFile = (
     data: FormData,

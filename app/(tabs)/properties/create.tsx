@@ -583,51 +583,7 @@ const submitProperty = handleSubmit(async (data) => {
   data.additional_expenses =
     expenseRows;
 
-  /*
-  |--------------------------------------------------------------------------
-  | MEDIA VALIDATION
-  |--------------------------------------------------------------------------
-  |
-  | Video only        = valid
-  | Any single photo  = valid
-  | Multiple photos   = valid
-  | Video + photos    = valid
-  | Nothing           = invalid
-  |
-  */
 
-  const hasAnyPhoto =
-  selectedPropertyType === 3
-    ? Boolean(
-        images?.wholeBuilding?.uri
-      )
-    : Boolean(
-        images?.wholeBuilding?.uri ||
-          images?.sittingRoom?.uri ||
-          images?.kitchenImage?.uri ||
-          images?.room?.uri ||
-          images?.toiletImage?.uri
-      );
-
-  const hasVideo = Boolean(
-    video?.uri ||
-      video?.name
-  );
-
-  if (
-    !hasAnyPhoto &&
-    !hasVideo
-  ) {
-    showAlert(
-      "Property Media Required",
-      selectedPropertyType ===
-        3
-        ? "Please upload at least one land photo or one land video."
-        : "Please upload at least one property photo or one property video."
-    );
-
-    return;
-  }
 
   await onSubmit(data);
 });

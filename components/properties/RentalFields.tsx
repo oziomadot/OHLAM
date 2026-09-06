@@ -1,7 +1,8 @@
-import React from "react";
+import React, {useEffect} from "react";
 import { Text, TextInput, View, Switch, StyleSheet } from "react-native";
 import { Controller } from "react-hook-form";
 import FormPicker from "./FormPicker";
+
 
 type Props = {
   control: any;
