@@ -28,8 +28,9 @@ const ScreenWrapper: React.FC<ScreenWrapperProps> = ({ children, style, scrollSt
           keyboardShouldPersistTaps="handled"
         >
           {children}
-          <FloatingRagButton />
+        
         </ScrollView>
+        <FloatingRagButton />
       </TouchableWithoutFeedback>
     </KeyboardAvoidingView>
   );
