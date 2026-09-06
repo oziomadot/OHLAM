@@ -29,8 +29,9 @@ const ScreenWrapper: React.FC<ScreenWrapperProps> = ({ children, style, scrollSt
         >
           {children}
         
-        </ScrollView>
         <FloatingRagButton />
+        </ScrollView>
+        
       </TouchableWithoutFeedback>
     </KeyboardAvoidingView>
   );
