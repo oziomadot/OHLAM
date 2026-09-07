@@ -23,44 +23,27 @@ import {
   useRouter,
 } from "expo-router";
 
-import Protected
-  from "components/Protected";
+import Protected from "components/Protected";
 
-import API
-  from "@/src/services/api";
+import API from "@/src/services/api";
 
 import usePreventScreenCapture
   from "@/hooks/usePreventScreenCapture";
 
 type WalletSummary = {
-  available_balance:
-    | string
-    | number;
-
-  locked_balance:
-    | string
-    | number;
-
-  escrow_balance:
-    | string
-    | number;
-
+  available_balance: string | number;
+  locked_balance: string | number;
+  escrow_balance: string | number;
   currency?: string;
 };
 
 type PayoutBankAccount = {
   id: number;
-
   bank_name: string;
-
   bank_code: string;
-
   account_name: string;
-
   account_number: string;
-
   is_verified: boolean;
-
   is_active: boolean;
 };
 
@@ -85,18 +68,13 @@ const money = (
     | undefined
 ) => {
   const numeric =
-    Number(
-      amount ?? 0
-    );
+    Number(amount ?? 0);
 
   return `₦${numeric.toLocaleString(
     "en-NG",
     {
-      minimumFractionDigits:
-        2,
-
-      maximumFractionDigits:
-        2,
+      minimumFractionDigits: 2,
+      maximumFractionDigits: 2,
     }
   )}`;
 };
@@ -108,23 +86,15 @@ const toNumber = (
     | null
     | undefined
 ) => {
-  const cleaned =   String(
-      value ?? ""
-    )
-      .replace(
-        /,/g,
-        ""
-      )
+  const cleaned =
+    String(value ?? "")
+      .replace(/,/g, "")
       .trim();
 
   const number =
-    Number(
-      cleaned
-    );
+    Number(cleaned);
 
-  return Number.isFinite(
-    number
-  )
+  return Number.isFinite(number)
     ? number
     : 0;
 };
@@ -133,19 +103,28 @@ export default function WithdrawScreen() {
   const router =
     useRouter();
 
-  usePreventScreenCapture(
-    true
-  );
+  usePreventScreenCapture(true);
 
   const [
     wallet,
     setWallet,
-  ] = useState<WalletSummary | null>(null);
+  ] = useState<WalletSummary | null>(
+    null
+  );
 
   const [
-    bankAccount,
-    setBankAccount,
-  ] = useState<PayoutBankAccount | null>(null);
+    bankAccounts,
+    setBankAccounts,
+  ] = useState<
+    PayoutBankAccount[]
+  >([]);
+
+  const [
+    selectedBankAccount,
+    setSelectedBankAccount,
+  ] = useState<
+    PayoutBankAccount | null
+  >(null);
 
   const [
     amount,
@@ -164,29 +143,32 @@ export default function WithdrawScreen() {
 
   const available =
     toNumber(
-      wallet
-        ?.available_balance
+      wallet?.available_balance
     );
 
   const requestedAmount =
-    toNumber(
-      amount
-    );
+    toNumber(amount);
 
-  const hasVerifiedAccount = !!bankAccount &&
-    bankAccount.is_active ===
+  const hasVerifiedAccount =
+    !!selectedBankAccount &&
+    selectedBankAccount.is_active ===
       true &&
-    bankAccount.is_verified ===
+    selectedBankAccount.is_verified ===
       true;
 
+  /*
+   * Load wallet and all active,
+   * verified payout bank accounts.
+   */
   const loadData =
     useCallback(
       async () => {
         try {
-          setLoading(
-            true
-          );
+          setLoading(true);
 
+          /*
+           * Load wallet.
+           */
           const walletResponse =
             await API
               .getWalletStatement();
@@ -197,11 +179,13 @@ export default function WithdrawScreen() {
             );
 
           setWallet(
-            walletBody
-              ?.wallet ??
+            walletBody?.wallet ??
               null
           );
 
+          /*
+           * Load payout accounts.
+           */
           try {
             const bankResponse =
               await API
@@ -212,10 +196,74 @@ export default function WithdrawScreen() {
                 bankResponse
               );
 
-            setBankAccount(
-              bankBody
-                ?.bank_account ??
-                null
+            const rawAccounts =
+              Array.isArray(
+                bankBody
+                  ?.bank_accounts
+              )
+                ? bankBody
+                    .bank_accounts
+                : [];
+
+            /*
+             * The backend should already
+             * return verified/active
+             * accounts only.
+             *
+             * We filter again on the
+             * frontend for safety and UX.
+             */
+            const accounts:
+              PayoutBankAccount[] =
+              rawAccounts.filter(
+                (
+                  account:
+                    PayoutBankAccount
+                ) =>
+                  account
+                    .is_verified ===
+                    true &&
+                  account
+                    .is_active ===
+                    true
+              );
+
+            setBankAccounts(
+              accounts
+            );
+
+            /*
+             * Keep currently selected
+             * account when possible.
+             */
+            setSelectedBankAccount(
+              (
+                current
+              ) => {
+                if (
+                  current
+                ) {
+                  const stillExists =
+                    accounts.find(
+                      (
+                        account
+                      ) =>
+                        account.id ===
+                        current.id
+                    );
+
+                  if (
+                    stillExists
+                  ) {
+                    return stillExists;
+                  }
+                }
+
+                return (
+                  accounts[0] ??
+                  null
+                );
+              }
             );
           } catch (
             bankError: any
@@ -228,7 +276,11 @@ export default function WithdrawScreen() {
                 bankError
             );
 
-            setBankAccount(
+            setBankAccounts(
+              []
+            );
+
+            setSelectedBankAccount(
               null
             );
           }
@@ -237,22 +289,22 @@ export default function WithdrawScreen() {
         ) {
           console.error(
             "Withdrawal load error:",
-            error?.response
+            error
+              ?.response
               ?.data ??
               error
           );
 
           Alert.alert(
             "Unable to Load Wallet",
-            error?.response
+            error
+              ?.response
               ?.data
               ?.message ??
               "Unable to load your withdrawal information."
           );
         } finally {
-          setLoading(
-            false
-          );
+          setLoading(false);
         }
       },
       []
@@ -266,6 +318,9 @@ export default function WithdrawScreen() {
     }, [loadData])
   );
 
+  /*
+   * Amount input.
+   */
   const handleAmountChange =
     (
       text: string
@@ -285,9 +340,7 @@ export default function WithdrawScreen() {
         return;
       }
 
-      setAmount(
-        clean
-      );
+      setAmount(clean);
     };
 
   const useMaximum =
@@ -299,49 +352,30 @@ export default function WithdrawScreen() {
       }
 
       setAmount(
-        String(
-          available
-        )
+        String(available)
       );
     };
 
+  /*
+   * Validate and ask user
+   * for confirmation.
+   */
   const requestWithdrawal =
     () => {
-      if (!bankAccount) {
+      if (
+        !selectedBankAccount
+      ) {
         Alert.alert(
           "Payout Account Required",
-          "Add and verify your payout bank account before requesting a withdrawal.",
-          [
-            { text: "Cancel", style: "cancel" },
-            {
-              text: "Add Bank Account",
-              onPress: () =>
-                router.push(
-                  "/(tabs)/wallet/bank-account" as any
-                ),
-            },
-          ]
-        );
-
-        return;
-      }
-
-      if (!bankAccount.is_verified) {
-        Alert.alert(
-          "Verify Payout Account",
-          "Your payout bank account has not been verified. Verify it before requesting a withdrawal.",
+          "Add and verify a payout bank account before requesting a withdrawal.",
           [
             {
-              text:
-                "Cancel",
-
-              style:
-                "cancel",
+              text: "Cancel",
+              style: "cancel",
             },
-
             {
               text:
-                "Verify Account",
+                "Add Bank Account",
 
               onPress: () =>
                 router.push(
@@ -355,8 +389,21 @@ export default function WithdrawScreen() {
       }
 
       if (
-        requestedAmount <=
-        0
+        !selectedBankAccount
+          .is_verified ||
+        !selectedBankAccount
+          .is_active
+      ) {
+        Alert.alert(
+          "Payout Account Unavailable",
+          "Please select an active verified payout bank account."
+        );
+
+        return;
+      }
+
+      if (
+        requestedAmount <= 0
       ) {
         Alert.alert(
           "Invalid Amount",
@@ -385,17 +432,21 @@ export default function WithdrawScreen() {
 
         `Request ${money(
           requestedAmount
-        )} to:\n\n${bankAccount.account_name}\n${bankAccount.bank_name}\nAccount ending ${bankAccount.account_number.slice(
-          -4
-        )}`,
+        )} to:\n\n${
+          selectedBankAccount
+            .account_name
+        }\n${
+          selectedBankAccount
+            .bank_name
+        }\nAccount ending ${String(
+          selectedBankAccount
+            .account_number
+        ).slice(-4)}`,
 
         [
           {
-            text:
-              "Cancel",
-
-            style:
-              "cancel",
+            text: "Cancel",
+            style: "cancel",
           },
 
           {
@@ -409,30 +460,37 @@ export default function WithdrawScreen() {
       );
     };
 
+  /*
+   * Submit selected bank account
+   * ID to the backend.
+   */
   const submitWithdrawal =
     async () => {
       if (
-        !bankAccount ||
-        !bankAccount
-          .is_verified
+        !selectedBankAccount ||
+        !selectedBankAccount
+          .is_verified ||
+        !selectedBankAccount
+          .is_active
       ) {
         return;
       }
 
       try {
-        setSubmitting(
-          true
-        );
+        setSubmitting(true);
 
         const response =
           await API
-            .requestWalletWithdrawal({
-              amount:
-                requestedAmount,
+            .requestWalletWithdrawal(
+              {
+                amount:
+                  requestedAmount,
 
-              bank_account_id:
-                bankAccount.id,
-            });
+                bank_account_id:
+                  selectedBankAccount
+                    .id,
+              }
+            );
 
         const body =
           normalizeBody(
@@ -450,9 +508,7 @@ export default function WithdrawScreen() {
               text: "OK",
 
               onPress: () => {
-                setAmount(
-                  ""
-                );
+                setAmount("");
 
                 loadData();
               },
@@ -464,14 +520,17 @@ export default function WithdrawScreen() {
       ) {
         console.error(
           "Withdrawal error:",
-          error?.response
+          error
+            ?.response
             ?.data ??
             error
         );
 
         const code =
-          error?.response
-            ?.data?.code;
+          error
+            ?.response
+            ?.data
+            ?.code;
 
         if (
           code ===
@@ -479,16 +538,15 @@ export default function WithdrawScreen() {
         ) {
           Alert.alert(
             "Verification Required",
-            "Your payout bank account must be verified before withdrawal.",
+            "The selected payout bank account is not verified.",
             [
               {
                 text: "OK",
 
-                onPress:
-                  () =>
-                    router.push(
-                      "/(tabs)/wallet/bank-account" as any
-                    ),
+                onPress: () =>
+                  router.push(
+                    "/(tabs)/wallet/bank-account" as any
+                  ),
               },
             ]
           );
@@ -496,23 +554,38 @@ export default function WithdrawScreen() {
           return;
         }
 
+        if (
+          code ===
+          "PAYOUT_BANK_ACCOUNT_NOT_FOUND"
+        ) {
+          Alert.alert(
+            "Bank Account Unavailable",
+            "The selected payout bank account could not be found. Please select or add another account."
+          );
+
+          loadData();
+
+          return;
+        }
+
         Alert.alert(
           "Withdrawal Failed",
-          error?.response
+
+          error
+            ?.response
             ?.data
             ?.message ??
             "Your withdrawal request could not be submitted."
         );
       } finally {
-        setSubmitting(
-          false
-        );
+        setSubmitting(false);
       }
     };
 
-  if (
-    loading
-  ) {
+  /*
+   * Loading state.
+   */
+  if (loading) {
     return (
       <Protected>
         <View
@@ -547,6 +620,8 @@ export default function WithdrawScreen() {
         }
         keyboardShouldPersistTaps="handled"
       >
+        {/* HEADER */}
+
         <View
           style={
             styles.heading
@@ -573,6 +648,8 @@ export default function WithdrawScreen() {
           </Text>
         </View>
 
+        {/* BALANCE */}
+
         <View
           style={
             styles.balanceCard
@@ -591,9 +668,7 @@ export default function WithdrawScreen() {
               styles.balanceAmount
             }
           >
-            {money(
-              available
-            )}
+            {money(available)}
           </Text>
 
           <Text
@@ -601,132 +676,240 @@ export default function WithdrawScreen() {
               styles.balanceHelp
             }
           >
-            Only available wallet funds can be withdrawn. Locked and escrow balances remain protected.
+            Only available wallet
+            funds can be withdrawn.
+            Locked and escrow
+            balances remain
+            protected.
           </Text>
         </View>
 
-        <Text
+        {/* PAYOUT ACCOUNTS */}
+
+        <View
           style={
-            styles.sectionTitle
+            styles.sectionHeader
           }
         >
-          Payout Account
-        </Text>
-
-        {bankAccount ? (
-          <View
-            style={[
-              styles.bankCard,
-
-              !bankAccount
-                .is_verified &&
-                styles.unverifiedBankCard,
-            ]}
+          <Text
+            style={
+              styles.sectionTitle
+            }
           >
-            <MaterialCommunityIcons
-              name="bank-outline"
-              size={29}
-              color="#2563eb"
-            />
+            Payout Account
+          </Text>
 
-            <View
+          {bankAccounts.length >
+            0 && (
+            <Text
               style={
-                styles.flex
+                styles.accountCount
               }
             >
-              <Text
-                style={
-                  styles.bankName
-                }
-              >
-                {
-                  bankAccount
-                    .bank_name
-                }
-              </Text>
+              {bankAccounts.length}
+              {" "}
+              {bankAccounts.length ===
+              1
+                ? "account"
+                : "accounts"}
+            </Text>
+          )}
+        </View>
 
-              <Text
-                style={
-                  styles.accountName
-                }
-              >
-                {
-                  bankAccount
-                    .account_name
-                }
-              </Text>
+        {bankAccounts.length >
+        0 ? (
+          <>
+            <Text
+              style={
+                styles.selectionHelp
+              }
+            >
+              Select the verified
+              bank account where you
+              want to receive this
+              withdrawal.
+            </Text>
 
-              <Text
-                style={
-                  styles.accountNumber
-                }
-              >
-                ••••••
-                {String(
-                  bankAccount
-                    .account_number
-                ).slice(-4)}
-              </Text>
+            {bankAccounts.map(
+              (account) => {
+                const selected =
+                  selectedBankAccount
+                    ?.id ===
+                  account.id;
 
-              <View
-                style={
-                  bankAccount
-                    .is_verified
-                    ? styles.verifiedRow
-                    : styles.unverifiedRow
-                }
-              >
-                <MaterialCommunityIcons
-                  name={
-                    bankAccount
-                      .is_verified
-                      ? "check-decagram"
-                      : "alert-circle-outline"
-                  }
-                  size={16}
-                  color={
-                    bankAccount
-                      .is_verified
-                      ? "#166534"
-                      : "#92400e"
-                  }
-                />
+                return (
+                  <TouchableOpacity
+                    key={
+                      account.id
+                    }
+                    activeOpacity={
+                      0.8
+                    }
+                    onPress={() =>
+                      setSelectedBankAccount(
+                        account
+                      )
+                    }
+                    style={[
+                      styles.bankCard,
 
-                <Text
-                  style={
-                    bankAccount
-                      .is_verified
-                      ? styles.verifiedText
-                      : styles.unverifiedText
-                  }
-                >
-                  {bankAccount
-                    .is_verified
-                    ? "Verified payout account"
-                    : "Verification required"}
-                </Text>
-              </View>
-            </View>
+                      selected &&
+                        styles.selectedBankCard,
+                    ]}
+                  >
+                    <View
+                      style={
+                        styles.radioContainer
+                      }
+                    >
+                      <MaterialCommunityIcons
+                        name={
+                          selected
+                            ? "radiobox-marked"
+                            : "radiobox-blank"
+                        }
+                        size={
+                          25
+                        }
+                        color={
+                          selected
+                            ? "#2563eb"
+                            : "#94a3b8"
+                        }
+                      />
+                    </View>
+
+                    <View
+                      style={
+                        styles.bankIcon
+                      }
+                    >
+                      <MaterialCommunityIcons
+                        name="bank-outline"
+                        size={
+                          25
+                        }
+                        color="#2563eb"
+                      />
+                    </View>
+
+                    <View
+                      style={
+                        styles.flex
+                      }
+                    >
+                      <Text
+                        style={
+                          styles.bankName
+                        }
+                      >
+                        {
+                          account
+                            .bank_name
+                        }
+                      </Text>
+
+                      <Text
+                        style={
+                          styles.accountName
+                        }
+                      >
+                        {
+                          account
+                            .account_name
+                        }
+                      </Text>
+
+                      <Text
+                        style={
+                          styles.accountNumber
+                        }
+                      >
+                        ••••••
+                        {String(
+                          account
+                            .account_number
+                        ).slice(
+                          -4
+                        )}
+                      </Text>
+
+                      <View
+                        style={
+                          styles.verifiedRow
+                        }
+                      >
+                        <MaterialCommunityIcons
+                          name="check-decagram"
+                          size={
+                            16
+                          }
+                          color="#166534"
+                        />
+
+                        <Text
+                          style={
+                            styles.verifiedText
+                          }
+                        >
+                          Verified payout
+                          account
+                        </Text>
+                      </View>
+                    </View>
+
+                    {selected && (
+                      <View
+                        style={
+                          styles.selectedBadge
+                        }
+                      >
+                        <Text
+                          style={
+                            styles.selectedBadgeText
+                          }
+                        >
+                          Selected
+                        </Text>
+                      </View>
+                    )}
+                  </TouchableOpacity>
+                );
+              }
+            )}
 
             <TouchableOpacity
+              style={
+                styles.addBankCard
+              }
               onPress={() =>
                 router.push(
                   "/(tabs)/wallet/bank-account" as any
                 )
               }
             >
+              <MaterialCommunityIcons
+                name="plus-circle-outline"
+                size={24}
+                color="#2563eb"
+              />
+
               <Text
                 style={
-                  styles.changeText
+                  styles.addBankText
                 }
               >
-                {bankAccount
-                  .is_verified
-                  ? "Change"
-                  : "Verify"}
+                Add another payout
+                account
               </Text>
+
+              <MaterialCommunityIcons
+                name="chevron-right"
+                size={23}
+                color="#64748b"
+              />
             </TouchableOpacity>
-          </View>
+          </>
         ) : (
           <TouchableOpacity
             style={
@@ -749,8 +932,15 @@ export default function WithdrawScreen() {
                 styles.addBankText
               }
             >
-              Add & Verify Payout Bank Account
+              Add & Verify Payout
+              Bank Account
             </Text>
+
+            <MaterialCommunityIcons
+              name="chevron-right"
+              size={23}
+              color="#64748b"
+            />
           </TouchableOpacity>
         )}
 
@@ -771,10 +961,15 @@ export default function WithdrawScreen() {
                 styles.warningText
               }
             >
-              You need a verified payout bank account before you can withdraw wallet funds.
+              You need an active
+              verified payout bank
+              account before you can
+              withdraw wallet funds.
             </Text>
           </View>
         )}
+
+        {/* AMOUNT */}
 
         <Text
           style={
@@ -801,19 +996,21 @@ export default function WithdrawScreen() {
             style={
               styles.amountInput
             }
-            value={
-              amount
-            }
+            value={amount}
             onChangeText={
               handleAmountChange
             }
             keyboardType="decimal-pad"
             placeholder="0.00"
+            editable={
+              !submitting
+            }
           />
 
           <TouchableOpacity
             disabled={
-              available <= 0
+              available <= 0 ||
+              submitting
             }
             onPress={
               useMaximum
@@ -836,9 +1033,12 @@ export default function WithdrawScreen() {
               styles.error
             }
           >
-            Amount exceeds your available balance.
+            Amount exceeds your
+            available balance.
           </Text>
         )}
+
+        {/* NOTICE */}
 
         <View
           style={
@@ -856,9 +1056,16 @@ export default function WithdrawScreen() {
               styles.noticeText
             }
           >
-            After submission, the requested amount is reserved from your available balance while OHLAM processes the payout.
+            After submission, the
+            requested amount is
+            reserved from your
+            available balance while
+            OHLAM processes the
+            payout.
           </Text>
         </View>
+
+        {/* WITHDRAW */}
 
         <TouchableOpacity
           style={[
@@ -913,7 +1120,10 @@ export default function WithdrawScreen() {
             styles.securityText
           }
         >
-          OHLAM will only send approved withdrawals to the verified payout account registered to your account.
+          OHLAM will only send
+          approved withdrawals to
+          the verified payout
+          account you select above.
         </Text>
       </ScrollView>
     </Protected>
@@ -942,6 +1152,7 @@ const styles =
 
     loadingText: {
       marginTop: 10,
+      color: "#64748b",
     },
 
     heading: {
@@ -984,6 +1195,15 @@ const styles =
       fontSize: 13,
     },
 
+    sectionHeader: {
+      flexDirection: "row",
+      justifyContent:
+        "space-between",
+      alignItems: "center",
+      marginTop: 5,
+      marginBottom: 9,
+    },
+
     sectionTitle: {
       fontSize: 16,
       fontWeight: "900",
@@ -992,23 +1212,56 @@ const styles =
       marginTop: 5,
     },
 
+    accountCount: {
+      color: "#64748b",
+      fontSize: 12,
+      fontWeight: "700",
+    },
+
+    selectionHelp: {
+      color: "#64748b",
+      fontSize: 13,
+      lineHeight: 19,
+      marginBottom: 12,
+    },
+
     bankCard: {
       backgroundColor:
         "#ffffff",
-      padding: 16,
+      padding: 14,
       borderRadius: 18,
       flexDirection: "row",
       alignItems: "center",
-      gap: 13,
-      marginBottom: 14,
+      gap: 10,
+      marginBottom: 12,
       borderWidth: 1,
       borderColor:
         "#e2e8f0",
     },
 
-    unverifiedBankCard: {
+    selectedBankCard: {
       borderColor:
-        "#f59e0b",
+        "#2563eb",
+      borderWidth: 2,
+      backgroundColor:
+        "#eff6ff",
+    },
+
+    radioContainer: {
+      justifyContent:
+        "center",
+      alignItems: "center",
+    },
+
+    bankIcon: {
+      width: 42,
+      height: 42,
+      borderRadius: 21,
+      backgroundColor:
+        "#eff6ff",
+      justifyContent:
+        "center",
+      alignItems: "center",
     },
 
     flex: {
@@ -1018,26 +1271,22 @@ const styles =
     bankName: {
       fontWeight: "900",
       color: "#0f172a",
+      fontSize: 15,
     },
 
     accountName: {
       color: "#475569",
       marginTop: 3,
+      fontSize: 13,
     },
 
     accountNumber: {
       color: "#64748b",
       marginTop: 3,
+      fontSize: 13,
     },
 
     verifiedRow: {
-      flexDirection: "row",
-      alignItems: "center",
-      gap: 5,
-      marginTop: 7,
-    },
-
-    unverifiedRow: {
       flexDirection: "row",
       alignItems: "center",
       gap: 5,
@@ -1050,19 +1299,22 @@ const styles =
       fontWeight: "800",
     },
 
-    unverifiedText: {
-      color: "#92400e",
-      fontSize: 12,
-      fontWeight: "800",
+    selectedBadge: {
+      backgroundColor:
+        "#dbeafe",
+      borderRadius: 20,
+      paddingHorizontal: 8,
+      paddingVertical: 4,
     },
 
-    changeText: {
-      color: "#2563eb",
-      fontWeight: "800",
+    selectedBadgeText: {
+      color: "#1d4ed8",
+      fontSize: 10,
+      fontWeight: "900",
     },
 
     addBankCard: {
-      padding: 18,
+      padding: 16,
       backgroundColor:
         "#ffffff",
       borderRadius: 18,
@@ -1070,6 +1322,9 @@ const styles =
       alignItems: "center",
       gap: 10,
       marginBottom: 14,
+      borderWidth: 1,
+      borderColor:
+        "#e2e8f0",
     },
 
     addBankText: {
@@ -1123,6 +1378,7 @@ const styles =
       paddingHorizontal: 10,
       fontSize: 24,
       fontWeight: "800",
+      color: "#0f172a",
     },
 
     maxText: {
