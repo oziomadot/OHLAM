@@ -1491,28 +1491,67 @@ const openAppointment =
             }
           >
             {sortedAppointments.map(
-              (
-                appointment
-              ) => (
-                <AppointmentCard
-                  key={String(
-                    appointment.uuid ||
-                      appointment.id
-                  )}
-                  appointment={
-                    appointment
-                  }
-                  currentUserId={
-                    user?.id
-                  }
-                  onPress={() =>
-                    openAppointment(
-                      appointment
-                    )
-                  }
-                />
-              )
-            )}
+  (appointment) => {
+    const role =
+      determineRole(
+        appointment,
+        user?.id
+      );
+
+    const status =
+      getStatusCode(
+        appointment
+      );
+
+    const requiresListerReview =
+      role === "lister" &&
+      [
+        "pending",
+        "appointment_pending",
+        "reschedule_requested",
+        "appointment_reschedule_requested",
+      ].includes(
+        status
+      );
+
+    return (
+      <AppointmentCard
+        key={String(
+          appointment.uuid ||
+            appointment.id
+        )}
+        appointment={
+          appointment
+        }
+        currentUserId={
+          user?.id
+        }
+        onPress={() => {
+          /*
+           * Pending requests for a
+           * lister go to the request
+           * list.
+           */
+          if (
+            requiresListerReview
+          ) {
+            openListerRequests();
+
+            return;
+          }
+
+          /*
+           * Confirmed/other appointments
+           * open their individual view.
+           */
+          openAppointment(
+            appointment
+          );
+        }}
+      />
+    );
+  }
+)}
           </View>
         )}
 
