@@ -2598,7 +2598,7 @@ async createAvailability(
 
 
 // Wallet payout 
-
+// /wallet/bank-account
 
 async getPayoutBankAccount(): Promise<{
   bank_account?: PayoutBankAccount | null;
@@ -2606,7 +2606,7 @@ async getPayoutBankAccount(): Promise<{
   const response = await this.get<{
     data?: { bank_account?: PayoutBankAccount | null } | null;
     bank_account?: PayoutBankAccount | null;
-  }>("/wallet/bank-account");
+  }>("/banks");
 
   const data = response.data;
 
