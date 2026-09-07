@@ -169,14 +169,9 @@ export default function WithdrawScreen() {
           /*
            * Load wallet.
            */
-          const walletResponse =
-            await API
-              .getWalletStatement();
+          const walletResponse = await API.getWalletStatement();
 
-          const walletBody =
-            normalizeBody(
-              walletResponse
-            );
+          const walletBody = normalizeBody(walletResponse);
 
           setWallet(
             walletBody?.wallet ??
@@ -186,104 +181,40 @@ export default function WithdrawScreen() {
           /*
            * Load payout accounts.
            */
+          // 
+          
+
           try {
-            const bankResponse =
-              await API
-                .getPayoutBankAccount();
+  const bankResponse =
+    await API.getPayoutBankAccount();
 
-            const bankBody =
-              normalizeBody(
-                bankResponse
-              );
+  console.log(
+    "SAVED PAYOUT BANK ACCOUNTS:",
+    bankResponse
+  );
 
-            const rawAccounts =
-              Array.isArray(
-                bankBody
-                  ?.bank_accounts
-              )
-                ? bankBody
-                    .bank_accounts
-                : [];
+  const accounts =
+    Array.isArray(
+      bankResponse.bank_accounts
+    )
+      ? bankResponse.bank_accounts
+      : [];
 
-            /*
-             * The backend should already
-             * return verified/active
-             * accounts only.
-             *
-             * We filter again on the
-             * frontend for safety and UX.
-             */
-            const accounts:
-              PayoutBankAccount[] =
-              rawAccounts.filter(
-                (
-                  account:
-                    PayoutBankAccount
-                ) =>
-                  account
-                    .is_verified ===
-                    true &&
-                  account
-                    .is_active ===
-                    true
-              );
+  setBankAccounts(accounts);
 
-            setBankAccounts(
-              accounts
-            );
+  setSelectedBankAccount(
+    accounts[0] ?? null
+  );
+} catch (bankError: any) {
+  console.error(
+    "Payout account load error:",
+    bankError?.response?.data ??
+      bankError
+  );
 
-            /*
-             * Keep currently selected
-             * account when possible.
-             */
-            setSelectedBankAccount(
-              (
-                current
-              ) => {
-                if (
-                  current
-                ) {
-                  const stillExists =
-                    accounts.find(
-                      (
-                        account
-                      ) =>
-                        account.id ===
-                        current.id
-                    );
-
-                  if (
-                    stillExists
-                  ) {
-                    return stillExists;
-                  }
-                }
-
-                return (
-                  accounts[0] ??
-                  null
-                );
-              }
-            );
-          } catch (
-            bankError: any
-          ) {
-            console.error(
-              "Payout account load error:",
-              bankError
-                ?.response
-                ?.data ??
-                bankError
-            );
-
-            setBankAccounts(
-              []
-            );
-
-            setSelectedBankAccount(
-              null
-            );
-          }
+  setBankAccounts([]);
+  setSelectedBankAccount(null);
+}
         } catch (
           error: any
         ) {

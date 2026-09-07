@@ -638,9 +638,9 @@ export type WalletFundingAccount = {
 export type PayoutBankAccount = {
   id: number;
   bank_name: string;
-  bank_code?: string | null;
-  account_number: string;
+  bank_code: string;
   account_name: string;
+  account_number: string;
   is_verified: boolean;
   is_active: boolean;
 };
@@ -2601,20 +2601,27 @@ async createAvailability(
 // /wallet/bank-account
 
 async getPayoutBankAccount(): Promise<{
-  bank_account?: PayoutBankAccount | null;
+  bank_accounts: PayoutBankAccount[];
 }> {
-  const response = await this.get<{
-    data?: { bank_account?: PayoutBankAccount | null } | null;
-    bank_account?: PayoutBankAccount | null;
-  }>("/banks");
+  const response =
+    await this.get<{
+      data?: {
+        bank_accounts?: PayoutBankAccount[];
+      } | null;
 
-  const data = response.data;
+      bank_accounts?: PayoutBankAccount[];
+    }>(
+      "/wallet/bank-accounts"
+    );
+
+  const data =
+    response.data;
 
   return {
-    bank_account:
-      data?.data?.bank_account ??
-      data?.bank_account ??
-      null,
+    bank_accounts:
+      data?.data?.bank_accounts ??
+      data?.bank_accounts ??
+      [],
   };
 }
 
