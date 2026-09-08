@@ -377,16 +377,21 @@ const verifyUser = async (
       );
     }
 
-    showAlert(
-      "Email Verified",
-      response.message ??
-        "Your email was verified successfully.",
-      () => {
-        router.replace(
-          "/auth/phoneNumberVerification"
-        );
-      }
+   await setItemSafe(
+  "registration_step",
+  "phone_verification"
+);
+
+showAlert(
+  "Email Verified",
+  response.message ??
+    "Your email was verified successfully.",
+  () => {
+    router.push(
+      "/(tabs)/auth/phoneNumberVerification"
     );
+  }
+);
   } catch (error) {
     console.error(
       "[EMAIL VERIFY] Screen error:",

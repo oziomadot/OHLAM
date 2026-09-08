@@ -162,9 +162,25 @@ const RegistrationScreen = () => {
 
       await setItemSafe("user_email", user.email);
 
-      await setItemSafe("registration_step", next_step ?? "email_verification");
+      const normalizedNextStep = String(
+  next_step ?? "email_verification"
+)
+  .trim()
+  .toLowerCase()
+  .replace(/-/g, "_");
 
-      router.replace("/auth/email-verification");
+await setItemSafe(
+  "registration_step",
+  normalizedNextStep
+);
+
+/*
+ * There must not be a normal authenticated token
+ * controlling navigation during pre-auth registration.
+ */
+router.push(
+  "/(tabs)/auth/email-verification"
+);
 
       return;
     }
