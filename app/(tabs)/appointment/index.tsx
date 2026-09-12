@@ -808,28 +808,7 @@ export default function AppointmentIndexScreen() {
                 : [];
 
 
-                console.log(
-  "DASHBOARD APPOINTMENTS:",
-  JSON.stringify(
-    loadedAppointments.map(
-      (appointment) => ({
-        id: appointment.id,
-        appointment_date:
-          appointment.appointment_date,
-        start_time:
-          appointment.start_time,
-        end_time:
-          appointment.end_time,
-        scheduled_at:
-          appointment.scheduled_at,
-        starts_at:
-          appointment.starts_at,
-      })
-    ),
-    null,
-    2
-  )
-);
+              
 
           /*
            * Keep only current/future
@@ -1434,14 +1413,7 @@ const openAppointment = (
             sortedAppointments.length
           }
         />
-        <Text
-  style={{
-    color: "red",
-    fontWeight: "bold",
-  }}
->
-  APPOINTMENT UPDATE 12 SEPTEMBER
-</Text>
+    
 
         {sortedAppointments.length ===
         0 ? (
@@ -1614,9 +1586,9 @@ const openAppointment = (
                         {
                           "  –  "
                         }
-                        {formatTime(
+                        {/* {formatTime(
                           item.end_time
-                        )}
+                        )} */}
                       </Text>
                     </View>
                   )
