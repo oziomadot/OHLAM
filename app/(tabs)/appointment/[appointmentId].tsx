@@ -236,10 +236,12 @@ export default function AppointmentDetailScreen() {
 
       router.push({
         pathname:
-          "/(tabs)/chat/[conversationId]" as never,
+          "/(tabs)/chat" as never,
         params: {
           conversationId:
             String(conversation.id),
+          appointmentId:
+            String(appointment.id),
         },
       });
     } catch (error: any) {
@@ -252,6 +254,25 @@ export default function AppointmentDetailScreen() {
     } finally {
       setOpeningChat(false);
     }
+  };
+
+  const openInspection = () => {
+    if (!appointment?.id) {
+      Alert.alert(
+        "Unable to Open Inspection",
+        "The appointment ID is missing."
+      );
+      return;
+    }
+
+    router.push({
+      pathname:
+        "/(tabs)/inspection" as never,
+      params: {
+        appointmentId:
+          String(appointment.id),
+      },
+    });
   };
 
   if (loading) {
@@ -472,6 +493,21 @@ export default function AppointmentDetailScreen() {
                   </Text>
                 </View>
               </View>
+
+              <TouchableOpacity
+                style={styles.inspectionButton}
+                activeOpacity={0.85}
+                onPress={openInspection}
+              >
+                <MaterialCommunityIcons
+                  name="map-marker-check-outline"
+                  size={21}
+                  color="#ffffff"
+                />
+                <Text style={styles.inspectionButtonText}>
+                  Inspection Completed
+                </Text>
+              </TouchableOpacity>
 
               <TouchableOpacity
                 style={styles.secondaryButton}
@@ -735,5 +771,20 @@ const styles = StyleSheet.create({
     color: "#78350f",
     lineHeight: 20,
     fontWeight: "600",
+  },
+  inspectionButton: {
+    minHeight: 50,
+    marginBottom: 14,
+    paddingHorizontal: 18,
+    borderRadius: 13,
+    backgroundColor: "#047857",
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "center",
+    gap: 8,
+  },
+  inspectionButtonText: {
+    color: "#ffffff",
+    fontWeight: "900",
   },
 });
