@@ -10,9 +10,7 @@ export default {
       "policy": "appVersion"
     },
 
-    "updates": {
-      "fallbackToCacheTimeout": 0
-    },
+   
 
     android: {
       package: "com.oramexglobals.ohlam",
@@ -58,20 +56,27 @@ export default {
       "expo-router",
       
       "expo-video",
-      ["expo-notifications",
-      {
-        "defaultChannel": "ohlam-default"
-      }
+      ["expo-location", {
+        locationWhenInUsePermission:
+          "OHLAM uses your location at the property to verify an inspection report.",
+      }],
+      ["expo-notifications", { defaultChannel: "ohlam-default" }],
     ],
-
-
-    ],
-
-    updates: {
-      url: "https://u.expo.dev/373c6f7b-8b66-40dc-b4ea-0e5c57846ab9"
+    android: {
+      permissions: ["ACCESS_FINE_LOCATION", "ACCESS_COARSE_LOCATION", "POST_NOTIFICATIONS"],
     },
-
-    runtimeVersion: "1.0.0",
+    ios: {
+      infoPlist: {
+        NSLocationWhenInUseUsageDescription:
+          "OHLAM uses your location at the property to verify an inspection report.",
+      },
+    },
+    updates: {
+      url: "https://u.expo.dev/373c6f7b-8b66-40dc-b4ea-0e5c57846ab9",
+      fallbackToCacheTimeout: 0,
+    },
+    runtimeVersion: { policy: "appVersion" },
+    
 
     extra: {
       eas: {

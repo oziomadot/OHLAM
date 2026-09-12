@@ -1065,10 +1065,7 @@ const openAppointment =
     }
 
     const appointmentId =
-      String(
-        appointment.uuid ||
-          appointment.id
-      );
+      String(appointment.id);
 
     console.log(
       "Opening appointment:",
@@ -1084,36 +1081,9 @@ const openAppointment =
       }
     );
 
-    /*
-    |--------------------------------------------------------------------------
-    | Lister appointment
-    |--------------------------------------------------------------------------
-    */
-
-    if (
-      role === "lister"
-    ) {
-      router.push({
-        pathname:
-          "/appointment/lister/view" as never,
-
-        params: {
-          appointmentId,
-        },
-      });
-
-      return;
-    }
-
-    /*
-    |--------------------------------------------------------------------------
-    | Customer appointment
-    |--------------------------------------------------------------------------
-    */
-
     router.push({
       pathname:
-        "/appointment/customer/view" as never,
+        "/appointment/[appointmentId]" as never,
 
       params: {
         appointmentId,

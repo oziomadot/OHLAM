@@ -184,6 +184,78 @@ export type AppointmentPreparationResponse = {
 
 
 
+export type AppointmentDetailResponse = {
+  success: boolean;
+
+  data?: any;
+
+  appointment?: any;
+
+  viewer_role?: "customer" | "lister";
+};
+
+export type AppointmentInspectionFailureReason = {
+  id: number;
+  name: string;
+  code: string;
+};
+
+export type AppointmentInspectionResponse = {
+  success: boolean;
+
+  data?: {
+    reasons: AppointmentInspectionFailureReason[];
+
+    report: any;
+  };
+};
+
+export type AppointmentInspectionSubmitPayload = {
+  outcome_code:
+    | "inspection_completed"
+    | "inspection_not_completed";
+
+  reason_code?: string | null;
+
+  explanation?: string | null;
+
+  reviews?: {
+    subject_type: "user" | "property";
+
+    subject_id: number;
+
+    rating: number;
+
+    comment?: string | null;
+  }[];
+
+  latitude?: number;
+
+  longitude?: number;
+
+  accuracy_metres?: number;
+
+  captured_at?: string;
+};
+
+export type AppointmentInspectionSubmitResponse = {
+  success: boolean;
+
+  message?: string;
+
+  data?: any;
+};
+
+export type AppointmentConversationResponse = {
+  success: boolean;
+
+  data?: any;
+
+  conversation?: any;
+};
+
+
+
 export type PropertySettlementItem = {
   id: number;
   type: string;
@@ -2775,7 +2847,54 @@ async preparePropertyAppointment(
 }
 
 
+async createAppointmentConversation(
+  appointmentId: string | number
+): Promise<AppointmentConversationResponse> {
+  const response =
+    await this.post<AppointmentConversationResponse>(
+      "/appointment-conversations",
+      {
+        appointment_id: appointmentId,
+      }
+    );
 
+  return response.data;
+}
+
+async getAppointment(
+  appointmentId: string | number
+): Promise<AppointmentDetailResponse> {
+  const response =
+    await this.get<AppointmentDetailResponse>(
+      `/appointments/${appointmentId}`
+    );
+
+  return response.data;
+}
+
+async getAppointmentInspection(
+  appointmentId: string | number
+): Promise<AppointmentInspectionResponse> {
+  const response =
+    await this.get<AppointmentInspectionResponse>(
+      `/appointments/${appointmentId}/inspection`
+    );
+
+  return response.data;
+}
+
+async submitAppointmentInspection(
+  appointmentId: string | number,
+  payload: AppointmentInspectionSubmitPayload
+): Promise<AppointmentInspectionSubmitResponse> {
+  const response =
+    await this.post<AppointmentInspectionSubmitResponse>(
+      `/appointments/${appointmentId}/inspection`,
+      payload
+    );
+
+  return response.data;
+}
 
 }
 

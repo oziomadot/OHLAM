@@ -51,8 +51,8 @@ export default function PropertyAppointments() {
   const loadAppointments = async () => {
     try {
       setLoading(true);
-      const res = await API.get("/lister/appointments");
-      const all: Appointment[] = res.data?.data || res.data || [];
+      const res = await API.get<{ data?: Appointment[] } | Appointment[]>("/lister/appointments");
+      const all: Appointment[] = (res.data as any)?.data || res.data || [];
       setAppointments(all.filter((a) => String(a.property_id) === String(id)));
     } catch (err: any) {
       Alert.alert("Error", err?.response?.data?.message || "Failed to load appointments");

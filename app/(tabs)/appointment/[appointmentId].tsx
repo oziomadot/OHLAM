@@ -1,6 +1,7 @@
 import React, { useCallback, useState } from "react";
 import {
   ActivityIndicator,
+  Alert,
   RefreshControl,
   ScrollView,
   StyleSheet,
@@ -21,6 +22,8 @@ import ScreenWrapper from "components/ScreenWrapper";
 
 type AppointmentDetail = {
   id: number | string;
+  customer_id?: number | string;
+  lister_id?: number | string;
   appointment_date?: string | null;
   start_time?: string | null;
   end_time?: string | null;
@@ -131,7 +134,11 @@ function listerName(appointment: AppointmentDetail): string {
   );
 }
 
-export default function CustomerAppointmentDetail() {
+type AppointmentViewerRole =
+  | "customer"
+  | "lister";
+
+export default function AppointmentDetailScreen() {
   const router = useRouter();
   const params = useLocalSearchParams<{
     appointmentId?: string | string[];
@@ -144,6 +151,10 @@ export default function CustomerAppointmentDetail() {
   const [refreshing, setRefreshing] = useState(false);
   const [errorMessage, setErrorMessage] =
     useState<string | null>(null);
+  const [viewerRole, setViewerRole] =
+    useState<AppointmentViewerRole | null>(null);
+  const [openingChat, setOpeningChat] =
+    useState(false);
 
   const loadAppointment = useCallback(
     async (showLoading = true) => {
@@ -162,7 +173,7 @@ export default function CustomerAppointmentDetail() {
         setErrorMessage(null);
 
         const response =
-          await API.getCustomerAppointment(appointmentId);
+          await API.getAppointment(appointmentId);
 
         const loadedAppointment =
           response?.data ?? response?.appointment ?? null;
@@ -172,8 +183,14 @@ export default function CustomerAppointmentDetail() {
         }
 
         setAppointment(loadedAppointment);
+        setViewerRole(
+          response?.viewer_role === "lister"
+            ? "lister"
+            : "customer"
+        );
       } catch (error: any) {
         setAppointment(null);
+        setViewerRole(null);
         setErrorMessage(
           error?.response?.data?.message ||
             error?.message ||
@@ -192,6 +209,50 @@ export default function CustomerAppointmentDetail() {
       void loadAppointment();
     }, [loadAppointment])
   );
+
+  const openAppointmentChat = async () => {
+    if (!appointment?.id || openingChat) {
+      return;
+    }
+
+    try {
+      setOpeningChat(true);
+
+      const response =
+        await API.createAppointmentConversation(
+          appointment.id
+        );
+
+      const conversation =
+        response?.data?.conversation ??
+        response?.data ??
+        response?.conversation;
+
+      if (!conversation?.id) {
+        throw new Error(
+          "The conversation could not be opened."
+        );
+      }
+
+      router.push({
+        pathname:
+          "/(tabs)/chat/[conversationId]" as never,
+        params: {
+          conversationId:
+            String(conversation.id),
+        },
+      });
+    } catch (error: any) {
+      Alert.alert(
+        "Unable to Open Chat",
+        error?.response?.data?.message ||
+          error?.message ||
+          "Unable to open the appointment chat."
+      );
+    } finally {
+      setOpeningChat(false);
+    }
+  };
 
   if (loading) {
     return (
@@ -358,6 +419,59 @@ export default function CustomerAppointmentDetail() {
                   ) : null}
                 </DetailCard>
               )}
+
+              <View style={styles.actionCard}>
+                <Text style={styles.actionTitle}>
+                  Appointment Communication
+                </Text>
+                <Text style={styles.actionDescription}>
+                  Keep messages about this viewing inside OHLAM SecureChat.
+                </Text>
+
+                <TouchableOpacity
+                  style={styles.chatButton}
+                  disabled={openingChat}
+                  onPress={() => void openAppointmentChat()}
+                >
+                  {openingChat ? (
+                    <ActivityIndicator
+                      size="small"
+                      color="#ffffff"
+                    />
+                  ) : (
+                    <MaterialCommunityIcons
+                      name="message-text-outline"
+                      size={20}
+                      color="#ffffff"
+                    />
+                  )}
+                  <Text style={styles.chatButtonText}>
+                    {openingChat
+                      ? "Opening Chat..."
+                      : viewerRole === "lister"
+                        ? "Chat Customer"
+                        : "Chat Lister"}
+                  </Text>
+                </TouchableOpacity>
+              </View>
+
+              <View style={styles.inspectionNotice}>
+                <MaterialCommunityIcons
+                  name="map-marker-check-outline"
+                  size={25}
+                  color="#92400e"
+                />
+                <View style={styles.flexOne}>
+                  <Text style={styles.inspectionNoticeTitle}>
+                    Inspection confirmation
+                  </Text>
+                  <Text style={styles.inspectionNoticeText}>
+                    {viewerRole === "lister"
+                      ? "At the property, remind the customer to record the inspection outcome in OHLAM. Location verification and both parties’ reviews will be collected on the inspection screen."
+                      : "Record the inspection outcome only while you are at the property. OHLAM will request your location and your separate reviews of the property and lister."}
+                  </Text>
+                </View>
+              </View>
 
               <TouchableOpacity
                 style={styles.secondaryButton}
@@ -566,5 +680,60 @@ const styles = StyleSheet.create({
   secondaryButtonText: {
     color: "#334155",
     fontWeight: "800",
+  },
+  actionCard: {
+    padding: 16,
+    marginBottom: 14,
+    borderRadius: 16,
+    backgroundColor: "#ffffff",
+    borderWidth: 1,
+    borderColor: "#bfdbfe",
+  },
+  actionTitle: {
+    color: "#0f172a",
+    fontSize: 17,
+    fontWeight: "900",
+  },
+  actionDescription: {
+    marginTop: 5,
+    color: "#64748b",
+    lineHeight: 20,
+    fontWeight: "600",
+  },
+  chatButton: {
+    minHeight: 48,
+    marginTop: 14,
+    borderRadius: 13,
+    backgroundColor: "#2563eb",
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "center",
+    gap: 8,
+  },
+  chatButtonText: {
+    color: "#ffffff",
+    fontWeight: "900",
+  },
+  inspectionNotice: {
+    flexDirection: "row",
+    alignItems: "flex-start",
+    gap: 11,
+    padding: 16,
+    marginBottom: 14,
+    borderRadius: 16,
+    backgroundColor: "#fffbeb",
+    borderWidth: 1,
+    borderColor: "#fde68a",
+  },
+  inspectionNoticeTitle: {
+    color: "#92400e",
+    fontSize: 15,
+    fontWeight: "900",
+  },
+  inspectionNoticeText: {
+    marginTop: 5,
+    color: "#78350f",
+    lineHeight: 20,
+    fontWeight: "600",
   },
 });
