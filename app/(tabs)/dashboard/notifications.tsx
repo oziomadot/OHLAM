@@ -1,8 +1,4 @@
-import React, {
-  useCallback,
-  useMemo,
-  useState,
-} from "react";
+import React, { useCallback, useMemo, useState } from "react";
 
 import {
   ActivityIndicator,
@@ -15,19 +11,29 @@ import {
   View,
 } from "react-native";
 
-import {
-  MaterialCommunityIcons,
-} from "@expo/vector-icons";
-
-import {
-  useFocusEffect,
-  useRouter,
-} from "expo-router";
-
+import { MaterialCommunityIcons, } from "@expo/vector-icons";
+import { useFocusEffect, useRouter,} from "expo-router";
 import Protected from "components/Protected";
 import ScreenWrapper from "components/ScreenWrapper";
-
 import API from "@/src/services/api";
+import * as Notifications from "expo-notifications";
+
+
+
+
+export async function updateAppIconBadge(unreadCount: number) {
+  try {
+    const count = Math.max(0, Number(unreadCount) || 0);
+    const supported = await Notifications.setBadgeCountAsync(count);
+
+    console.log("Badge updated:", {
+      count,
+      supported,
+    });
+  } catch (error) {
+    console.error("Unable to update app badge:", error);
+  }
+}
 
 type NotificationItem = {
   id: string;
@@ -46,33 +52,12 @@ type NotificationItem = {
 };
 
 export default function NotificationScreen() {
-  const router =
-    useRouter();
 
-  const [
-    notifications,
-    setNotifications,
-  ] = useState<NotificationItem[]>(
-    []
-  );
-
-  const [
-    expandedIds,
-    setExpandedIds,
-  ] = useState<Set<string>>(
-    new Set()
-  );
-
-  const [
-    loading,
-    setLoading,
-  ] = useState(
-    true
-  );
-
-  const [
-    refreshing,
-    setRefreshing,
+  const router = useRouter();
+  const [notifications, setNotifications, ] = useState<NotificationItem[]>([]);
+  const [expandedIds, setExpandedIds,] = useState<Set<string>>(new Set());
+  const [loading, setLoading,] = useState(true);
+  const [refreshing, setRefreshing,
   ] = useState(
     false
   );
@@ -84,12 +69,7 @@ export default function NotificationScreen() {
     0
   );
 
-  const [
-    markingAll,
-    setMarkingAll,
-  ] = useState(
-    false
-  );
+  const [ markingAll, setMarkingAll,] = useState(false);
 
   const loadNotifications =
     useCallback(
@@ -108,18 +88,22 @@ export default function NotificationScreen() {
           const response =
             await API.getNotifications();
 
+          const nextNotifications =
+            response?.notifications || [];
+
+          const nextUnreadCount =
+            Number(response?.unread_count || 0);
+
           setNotifications(
-            response
-              ?.notifications ||
-              []
+            nextNotifications
           );
 
           setUnreadCount(
-            Number(
-              response
-                ?.unread_count ||
-                0
-            )
+            nextUnreadCount
+          );
+
+          await updateAppIconBadge(
+            nextUnreadCount
           );
         } catch (
           error: any
@@ -146,15 +130,7 @@ export default function NotificationScreen() {
     );
 
   useFocusEffect(
-    useCallback(
-      () => {
-        loadNotifications();
-      },
-      [
-        loadNotifications,
-      ]
-    )
-  );
+    useCallback(() => {loadNotifications();}, [loadNotifications,]));
 
   const onRefresh =
     useCallback(
@@ -197,6 +173,12 @@ export default function NotificationScreen() {
         new Date()
           .toISOString();
 
+      const optimisticUnreadCount =
+        Math.max(
+          0,
+          unreadCount - 1
+        );
+
       setNotifications(
         (current) =>
           current.map(
@@ -213,11 +195,11 @@ export default function NotificationScreen() {
       );
 
       setUnreadCount(
-        (current) =>
-          Math.max(
-            0,
-            current - 1
-          )
+        optimisticUnreadCount
+      );
+
+      await updateAppIconBadge(
+        optimisticUnreadCount
       );
 
       try {
@@ -232,9 +214,15 @@ export default function NotificationScreen() {
             ?.unread_count ===
           "number"
         ) {
+          const serverUnreadCount =
+            response.unread_count;
+
           setUnreadCount(
-            response
-              .unread_count
+            serverUnreadCount
+          );
+
+          await updateAppIconBadge(
+            serverUnreadCount
           );
         }
       } catch (
@@ -258,9 +246,11 @@ export default function NotificationScreen() {
             )
         );
 
-        setUnreadCount(
-          (current) =>
-            current + 1
+        /*
+         * Restore the authoritative server count and badge.
+         */
+        await loadNotifications(
+          false
         );
 
         Alert.alert(
@@ -356,6 +346,10 @@ export default function NotificationScreen() {
         setUnreadCount(
           0
         );
+
+        await updateAppIconBadge(
+          0
+        );
       } catch (
         error: any
       ) {
@@ -382,8 +376,7 @@ export default function NotificationScreen() {
           dateValue
         );
 
-      const now =
-        new Date();
+      const now = new Date();
 
       const today =
         new Date(
@@ -399,9 +392,8 @@ export default function NotificationScreen() {
           date.getDate()
         );
 
-      const difference =
-        Math.floor(
-          (
+      const difference = Math.floor(
+                  (
             today.getTime() -
             notificationDate.getTime()
           ) /
