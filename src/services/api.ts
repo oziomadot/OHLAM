@@ -2885,13 +2885,18 @@ async getAppointmentInspection(
 
 async submitAppointmentInspection(
   appointmentId: string | number,
-  payload: AppointmentInspectionSubmitPayload
-): Promise<AppointmentInspectionSubmitResponse> {
+  payload: FormData
+) {
   const response =
-    await this.post<AppointmentInspectionSubmitResponse>(
-      `/appointments/${appointmentId}/inspection`,
-      payload
-    );
+    await this.post(
+    `/appointments/${appointmentId}/inspection`,
+    payload,
+    {
+      headers: {
+        Accept: "application/json",
+      },
+    }
+  );
 
   return response.data;
 }
