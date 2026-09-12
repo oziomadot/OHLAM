@@ -400,11 +400,11 @@ function formatAppointmentDate(
         minute: "2-digit",
       });
 
-  const endTime = appointment.end_time
-    ? ` – ${formatTime(appointment.end_time)}`
-    : "";
+  // const endTime = appointment.end_time
+  //   ? ` – ${formatTime(appointment.end_time)}`
+  //   : "";
 
-  return `${dateText} · ${startTime}${endTime}`;
+  return `${dateText} · ${startTime}`;
 }
 
 /*
