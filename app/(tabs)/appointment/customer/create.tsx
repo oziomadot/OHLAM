@@ -575,6 +575,13 @@ export default function CustomerCreateAppointment() {
       false
     );
 
+  const [
+    removingInterestId,
+    setRemovingInterestId,
+  ] = useState<string | null>(
+    null
+  );
+
   /*
   |--------------------------------------------------------------------------
   | Selected available day
@@ -913,6 +920,67 @@ export default function CustomerCreateAppointment() {
 
   /*
   |--------------------------------------------------------------------------
+  | Remove property interest
+  |--------------------------------------------------------------------------
+  */
+
+  const removePropertyInterest =
+    (
+      property: PropertyItem
+    ) => {
+      const propertyId =
+        String(property.id);
+
+      Alert.alert(
+        "Remove interested property?",
+        "This removes the property from this list. It will not cancel or delete an existing appointment.",
+        [
+          {
+            text: "Keep Property",
+            style: "cancel",
+          },
+          {
+            text: "Remove",
+            style: "destructive",
+            onPress: async () => {
+              try {
+                setRemovingInterestId(
+                  propertyId
+                );
+
+                await API
+                  .removePropertyInterest(
+                    property.id
+                  );
+
+                setBookableProperties(
+                  (current) =>
+                    current.filter(
+                      (item) =>
+                        String(item.id) !==
+                        propertyId
+                    )
+                );
+              } catch (error: any) {
+                Alert.alert(
+                  "Unable to remove property",
+                  error?.response?.data?.message ||
+                    error?.message ||
+                    "Please try again."
+                );
+              } finally {
+                setRemovingInterestId(
+                  null
+                );
+              }
+            },
+          },
+        ]
+      );
+    };
+
+  /*
+  |--------------------------------------------------------------------------
   | Required escrow
   |--------------------------------------------------------------------------
   */
@@ -1164,10 +1232,18 @@ const bookAppointment = async () => {
     */
 
     const response =
-      await API.post<{ message?: string }>(
+      await API.post<{
+        message?: string;
+        data?: {
+          id?: number | string;
+        };
+      }>(
         "/appointments",
         payload
       );
+
+    const createdAppointmentId =
+      response?.data?.data?.id;
 
     console.log(
       "Appointment response:",
@@ -1184,6 +1260,21 @@ const bookAppointment = async () => {
             "View Appointments",
 
           onPress: () => {
+            if (createdAppointmentId) {
+              router.replace({
+                pathname:
+                  "/appointment/[appointmentId]" as never,
+                params: {
+                  appointmentId:
+                    String(
+                      createdAppointmentId
+                    ),
+                },
+              });
+
+              return;
+            }
+
             router.replace(
               "/appointment" as never
             );
@@ -1757,6 +1848,16 @@ const bookAppointment = async () => {
                             property
                           )
                       }
+                      removing={
+                        removingInterestId ===
+                        String(property.id)
+                      }
+                      onRemove={
+                        () =>
+                          removePropertyInterest(
+                            property
+                          )
+                      }
                     />
                   )
                 )
@@ -1929,10 +2030,31 @@ const bookAppointment = async () => {
                         styles.primaryButton
                       }
                       onPress={
-                        () =>
-                          router.replace(
-                            "/appointment" as never
-                          )
+                        () => {
+                          const appointmentId =
+                            preparation
+                              .existing_appointment
+                              ?.id;
+
+                          if (!appointmentId) {
+                            router.replace(
+                              "/appointment" as never
+                            );
+
+                            return;
+                          }
+
+                          router.push({
+                            pathname:
+                              "/appointment/[appointmentId]" as never,
+                            params: {
+                              appointmentId:
+                                String(
+                                  appointmentId
+                                ),
+                            },
+                          });
+                        }
                       }
                     >
                       <Text
@@ -2956,11 +3078,18 @@ function MoneyRow({
 function PropertyChoiceCard({
   property,
   onChoose,
+  onRemove,
+  removing,
 }: {
   property: PropertyItem;
 
   onChoose:
     () => void;
+
+  onRemove:
+    () => void;
+
+  removing: boolean;
 }) {
   const imageUrl =
     getImageUrl(
@@ -3059,6 +3188,41 @@ function PropertyChoiceCard({
             size={20}
             color="#ffffff"
           />
+        </TouchableOpacity>
+
+        <TouchableOpacity
+          style={
+            styles.removeInterestButton
+          }
+          onPress={
+            onRemove
+          }
+          disabled={
+            removing
+          }
+        >
+          {removing ? (
+            <ActivityIndicator
+              size="small"
+              color="#b91c1c"
+            />
+          ) : (
+            <MaterialCommunityIcons
+              name="heart-remove-outline"
+              size={19}
+              color="#b91c1c"
+            />
+          )}
+
+          <Text
+            style={
+              styles.removeInterestButtonText
+            }
+          >
+            {removing
+              ? "Removing..."
+              : "Remove from Interests"}
+          </Text>
         </TouchableOpacity>
       </View>
     </View>
@@ -3391,6 +3555,27 @@ const styles =
       color: "#ffffff",
       fontWeight:
         "900",
+      fontSize: 14,
+    },
+
+    removeInterestButton: {
+      minHeight: 44,
+      marginTop: 8,
+      borderRadius: 13,
+      borderWidth: 1,
+      borderColor: "#fecaca",
+      backgroundColor: "#fff7f7",
+      flexDirection: "row",
+      alignItems: "center",
+      justifyContent: "center",
+      gap: 7,
+      paddingHorizontal: 14,
+      paddingVertical: 10,
+    },
+
+    removeInterestButtonText: {
+      color: "#b91c1c",
+      fontWeight: "800",
       fontSize: 14,
     },
 

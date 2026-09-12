@@ -2444,6 +2444,14 @@ async storePropertyInterest(
   );
 }
 
+async removePropertyInterest(
+  propertyId: string | number
+) {
+  return API.delete(
+    `/properties/${propertyId}/interest`
+  );
+}
+
 
 
 
@@ -2484,6 +2492,16 @@ async completeAppointment(
   return API.post(
     `/appointments/${appointmentId}/complete`
   );
+}
+
+async getCustomerAppointment(
+  appointmentId: string | number
+) {
+  const response = await API.get(
+    `/customer/appointments/${appointmentId}`
+  );
+
+  return response.data;
 }
 
 
