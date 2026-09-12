@@ -322,90 +322,147 @@ function getStatusLabel(
 |--------------------------------------------------------------------------
 */
 
-function getAppointmentDate(
+
+
+function parseAppointmentDate(
   appointment: Appointment
 ): Date | null {
-  /*
-   * appointment_date is a calendar date and start_time is a local
-   * wall-clock time. Parsing a Laravel date cast directly can turn
-   * midnight UTC into 02:00 in Europe, so build the Date locally.
-   */
-  if (appointment.appointment_date) {
-    const datePart = appointment.appointment_date.slice(0, 10);
-    const [year, month, day] = datePart.split("-").map(Number);
-    const [hour = 0, minute = 0, second = 0] =
-      (appointment.start_time || "00:00:00")
-        .split(":")
-        .map(Number);
-
-    const localDate = new Date(
-      year,
-      month - 1,
-      day,
-      hour,
-      minute,
-      second
-    );
-
-    if (!Number.isNaN(localDate.getTime())) {
-      return localDate;
-    }
-  }
-
-  const rawDate =
-    appointment.starts_at ||
-    appointment.scheduled_at;
-
-  if (!rawDate) {
-    return null;
-  }
-
-  const parsed =
-    new Date(rawDate);
-
   if (
-    Number.isNaN(
-      parsed.getTime()
-    )
+    !appointment.appointment_date
   ) {
     return null;
   }
 
-  return parsed;
+  const datePart =
+    appointment.appointment_date
+      .slice(0, 10);
+
+  const [
+    year,
+    month,
+    day,
+  ] = datePart
+    .split("-")
+    .map(Number);
+
+  if (
+    !year ||
+    !month ||
+    !day
+  ) {
+    return null;
+  }
+
+  const timePart =
+    appointment.start_time ||
+    "00:00:00";
+
+  const [
+    hour = 0,
+    minute = 0,
+    second = 0,
+  ] = timePart
+    .slice(0, 8)
+    .split(":")
+    .map(Number);
+
+  const date = new Date(
+    year,
+    month - 1,
+    day,
+    hour,
+    minute,
+    second
+  );
+
+  return Number.isNaN(
+    date.getTime()
+  )
+    ? null
+    : date;
 }
+
+
+function formatAppointmentTime(
+  value?: string | null
+): string {
+  if (!value) {
+    return "Time not provided";
+  }
+
+  const [
+    hourText,
+    minuteText,
+  ] = value
+    .slice(0, 5)
+    .split(":");
+
+  const hour =
+    Number(hourText);
+
+  const minute =
+    Number(minuteText);
+
+  if (
+    Number.isNaN(hour) ||
+    Number.isNaN(minute)
+  ) {
+    return value;
+  }
+
+  const suffix =
+    hour >= 12
+      ? "PM"
+      : "AM";
+
+  const twelveHour =
+    hour % 12 || 12;
+
+  return `${twelveHour}:${String(
+    minute
+  ).padStart(2, "0")} ${suffix}`;
+}
+
 
 function formatAppointmentDate(
   appointment: Appointment
 ): string {
   const date =
-    getAppointmentDate(
+    parseAppointmentDate(
       appointment
     );
 
   if (!date) {
-    return "Date to be confirmed";
+    return "Appointment date not provided";
   }
 
-  const dateText = date.toLocaleDateString("en-NG", {
-    weekday: "long",
-    day: "numeric",
-    month: "short",
-    year: "numeric",
-  });
+  const dateText =
+    date.toLocaleDateString(
+      "en-NG",
+      {
+        weekday: "long",
+        day: "numeric",
+        month: "short",
+        year: "numeric",
+      }
+    );
 
-  const startTime = appointment.start_time
-    ? formatTime(appointment.start_time)
-    : date.toLocaleTimeString("en-NG", {
-        hour: "numeric",
-        minute: "2-digit",
-      });
+  const startTime =
+    formatAppointmentTime(
+      appointment.start_time
+    );
 
-  // const endTime = appointment.end_time
-  //   ? ` – ${formatTime(appointment.end_time)}`
-  //   : "";
+  const endTime =
+    appointment.end_time
+      ? ` – ${formatAppointmentTime(
+          appointment.end_time
+        )}`
+      : "";
 
-  return `${dateText} · ${startTime}`;
+  return `${dateText} · ${startTime}${endTime}`;
 }
+
+
 
 /*
 |--------------------------------------------------------------------------
@@ -527,7 +584,6 @@ function getAvailabilityDay(
 | Upcoming appointment check
 |--------------------------------------------------------------------------
 */
-
 function isUpcomingAppointment(
   appointment: Appointment
 ): boolean {
@@ -538,19 +594,14 @@ function isUpcomingAppointment(
 
   const closedStatuses = [
     "cancelled",
-
     "appointment_cancelled",
-
     "completed",
-
     "appointment_completed",
-
     "declined",
-
     "appointment_declined",
-
+    "rejected",
+    "appointment_rejected",
     "expired",
-
     "appointment_expired",
   ];
 
@@ -562,26 +613,20 @@ function isUpcomingAppointment(
     return false;
   }
 
-  const date =
-    getAppointmentDate(
+  const appointmentDate =
+    parseAppointmentDate(
       appointment
     );
 
-  /*
-   * Appointment without a date should
-   * remain visible until backend resolves it.
-   */
-
-  if (!date) {
+  if (!appointmentDate) {
     return true;
   }
 
   return (
-    date.getTime() >=
-    new Date().getTime()
+    appointmentDate.getTime() >=
+    Date.now()
   );
 }
-
 /*
 |--------------------------------------------------------------------------
 | API error message helper
@@ -919,37 +964,44 @@ export default function AppointmentIndexScreen() {
   */
 
   const sortedAppointments =
-    useMemo(() => {
-      return [ ...appointments,].sort(
-        (a, b) => {
-          const aDate = getAppointmentDate(a);
-
-          const bDate = getAppointmentDate(b);
-
-          if (
-            !aDate &&
-            !bDate
-          ) {
-            return 0;
-          }
-
-          if (!aDate) {
-            return 1;
-          }
-
-          if (!bDate) {
-            return -1;
-          }
-
-          return (
-            aDate.getTime() -
-            bDate.getTime()
+  useMemo(() => {
+    return [...appointments].sort(
+      (
+        firstAppointment,
+        secondAppointment
+      ) => {
+        const firstDate =
+          parseAppointmentDate(
+            firstAppointment
           );
+
+        const secondDate =
+          parseAppointmentDate(
+            secondAppointment
+          );
+
+        if (
+          !firstDate &&
+          !secondDate
+        ) {
+          return 0;
         }
-      );
-    }, [
-      appointments,
-    ]);
+
+        if (!firstDate) {
+          return 1;
+        }
+
+        if (!secondDate) {
+          return -1;
+        }
+
+        return (
+          firstDate.getTime() -
+          secondDate.getTime()
+        );
+      }
+    );
+  }, [appointments]);
 
   /*
   |--------------------------------------------------------------------------
@@ -1025,52 +1077,34 @@ export default function AppointmentIndexScreen() {
   | Open appointment
   |--------------------------------------------------------------------------
   */
-const openAppointment =
-  (
-    appointment: Appointment
-  ) => {
-    const role =
-      determineRole(
-        appointment,
-        user?.id
-      );
+const openAppointment = (
+  appointment: Appointment
+) => {
+  const appointmentId =
+    appointment?.id;
 
-    if (!role) {
-      Alert.alert(
-        "Appointment unavailable",
-        "You are not a participant in this appointment."
-      );
-
-      return;
-    }
-
-    const appointmentId =
-      String(appointment.id);
-
-    console.log(
-      "Opening appointment:",
-      {
-        appointmentId,
-        role,
-        customer_id:
-          appointment.customer_id,
-        lister_id:
-          appointment.lister_id,
-        current_user_id:
-          user?.id,
-      }
+  if (
+    appointmentId === null ||
+    appointmentId === undefined
+  ) {
+    Alert.alert(
+      "Unable to open appointment",
+      "The appointment ID is missing."
     );
 
-    router.push({
-      pathname:
-        "/appointment/[appointmentId]" as never,
+    return;
+  }
 
-      params: {
-        appointmentId,
-      },
-    });
-  };
+  router.push({
+    pathname:
+      "/(tabs)/appointment/[appointmentId]" as never,
 
+    params: {
+      appointmentId:
+        String(appointmentId),
+    },
+  });
+};
   /*
   |--------------------------------------------------------------------------
   | Availability
@@ -1440,26 +1474,25 @@ const openAppointment =
               styles.appointmentList
             }
           >
-            {sortedAppointments.map(
-  (appointment) => {
-    return (
-      <AppointmentCard
-        key={String(
-          appointment.uuid ||
-            appointment.id
-        )}
-        appointment={
+ {sortedAppointments.map(
+  (appointment) => (
+    <AppointmentCard
+      key={String(
+        appointment.id
+      )}
+      appointment={
+        appointment
+      }
+      currentUserId={
+        user?.id
+      }
+      onPress={() =>
+        openAppointment(
           appointment
-        }
-        currentUserId={
-          user?.id
-        }
-        onPress={() =>
-          openAppointment(appointment)
-        }
-      />
-    );
-  }
+        )
+      }
+    />
+  )
 )}
           </View>
         )}
@@ -2011,7 +2044,7 @@ function AppointmentCard({
         </View>
       </View>
 
-      <TouchableOpacity
+      {/* <TouchableOpacity
         style={[
           styles.appointmentAction,
 
@@ -2047,7 +2080,30 @@ function AppointmentCard({
               : "#147D64"
           }
         />
-      </TouchableOpacity>
+      </TouchableOpacity> */}
+
+
+      <TouchableOpacity
+  style={
+    styles.appointmentAction
+  }
+  activeOpacity={0.8}
+  onPress={onPress}
+>
+  <Text
+    style={
+      styles.appointmentActionText
+    }
+  >
+    View Appointment
+  </Text>
+
+  <Ionicons
+    name="chevron-forward"
+    size={18}
+    color="#147D64"
+  />
+</TouchableOpacity>
     </View>
   );
 }
