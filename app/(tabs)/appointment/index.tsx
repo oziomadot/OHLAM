@@ -79,6 +79,10 @@ type Appointment = {
 
   appointment_date?: string | null;
 
+  start_time?: string | null;
+
+  end_time?: string | null;
+
   status?: AppointmentStatus | null;
 
   status_code?: string | null;
@@ -321,10 +325,36 @@ function getStatusLabel(
 function getAppointmentDate(
   appointment: Appointment
 ): Date | null {
+  /*
+   * appointment_date is a calendar date and start_time is a local
+   * wall-clock time. Parsing a Laravel date cast directly can turn
+   * midnight UTC into 02:00 in Europe, so build the Date locally.
+   */
+  if (appointment.appointment_date) {
+    const datePart = appointment.appointment_date.slice(0, 10);
+    const [year, month, day] = datePart.split("-").map(Number);
+    const [hour = 0, minute = 0, second = 0] =
+      (appointment.start_time || "00:00:00")
+        .split(":")
+        .map(Number);
+
+    const localDate = new Date(
+      year,
+      month - 1,
+      day,
+      hour,
+      minute,
+      second
+    );
+
+    if (!Number.isNaN(localDate.getTime())) {
+      return localDate;
+    }
+  }
+
   const rawDate =
-    appointment.scheduled_at ||
     appointment.starts_at ||
-    appointment.appointment_date;
+    appointment.scheduled_at;
 
   if (!rawDate) {
     return null;
@@ -356,75 +386,25 @@ function formatAppointmentDate(
     return "Date to be confirmed";
   }
 
-  const now = new Date();
+  const dateText = date.toLocaleDateString("en-NG", {
+    weekday: "long",
+    day: "numeric",
+    month: "short",
+    year: "numeric",
+  });
 
-  const todayStart =
-    new Date(
-      now.getFullYear(),
-      now.getMonth(),
-      now.getDate()
-    );
-
-  const appointmentStart =
-    new Date(
-      date.getFullYear(),
-      date.getMonth(),
-      date.getDate()
-    );
-
-  const differenceInDays =
-    Math.round(
-      (
-        appointmentStart.getTime() -
-        todayStart.getTime()
-      ) /
-        (
-          1000 *
-          60 *
-          60 *
-          24
-        )
-    );
-
-  const time =
-    date.toLocaleTimeString(
-      [],
-      {
+  const startTime = appointment.start_time
+    ? formatTime(appointment.start_time)
+    : date.toLocaleTimeString("en-NG", {
         hour: "numeric",
         minute: "2-digit",
-      }
-    );
+      });
 
-  if (
-    differenceInDays === 0
-  ) {
-    return `Today · ${time}`;
-  }
+  const endTime = appointment.end_time
+    ? ` – ${formatTime(appointment.end_time)}`
+    : "";
 
-  if (
-    differenceInDays === 1
-  ) {
-    return `Tomorrow · ${time}`;
-  }
-
-  const day =
-    date.toLocaleDateString(
-      [],
-      {
-        weekday: "long",
-      }
-    );
-
-  const dateText =
-    date.toLocaleDateString(
-      [],
-      {
-        day: "numeric",
-        month: "short",
-      }
-    );
-
-  return `${day}, ${dateText} · ${time}`;
+  return `${dateText} · ${startTime}${endTime}`;
 }
 
 /*
@@ -1462,28 +1442,6 @@ const openAppointment =
           >
             {sortedAppointments.map(
   (appointment) => {
-    const role =
-      determineRole(
-        appointment,
-        user?.id
-      );
-
-    const status =
-      getStatusCode(
-        appointment
-      );
-
-    const requiresListerReview =
-      role === "lister" &&
-      [
-        "pending",
-        "appointment_pending",
-        "reschedule_requested",
-        "appointment_reschedule_requested",
-      ].includes(
-        status
-      );
-
     return (
       <AppointmentCard
         key={String(
@@ -1496,28 +1454,9 @@ const openAppointment =
         currentUserId={
           user?.id
         }
-        onPress={() => {
-          /*
-           * Pending requests for a
-           * lister go to the request
-           * list.
-           */
-          if (
-            requiresListerReview
-          ) {
-            openListerRequests();
-
-            return;
-          }
-
-          /*
-           * Confirmed/other appointments
-           * open their individual view.
-           */
-          openAppointment(
-            appointment
-          );
-        }}
+        onPress={() =>
+          openAppointment(appointment)
+        }
       />
     );
   }
