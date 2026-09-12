@@ -68,7 +68,18 @@ type Appointment = {
 
   starts_at?: string | null;
 
-  status?: string | null;
+  /*
+   * Laravel may serialize the eager-loaded status relationship
+   * under `status`, while older responses may return a string.
+   */
+  status?:
+    | string
+    | {
+        id?: number | string;
+        code?: string | null;
+        name?: string | null;
+      }
+    | null;
 
   status_code?: string | null;
 
@@ -155,10 +166,24 @@ type Appointment = {
 function getStatusCode(
   appointment: Appointment
 ): string {
+  const relationshipStatus =
+    appointment.status &&
+    typeof appointment.status ===
+      "object"
+      ? appointment.status
+      : null;
+
+  const legacyStatus =
+    typeof appointment.status ===
+    "string"
+      ? appointment.status
+      : null;
+
   return String(
     appointment.status_data?.code ??
       appointment.status_code ??
-      appointment.status ??
+      relationshipStatus?.code ??
+      legacyStatus ??
       ""
   )
     .trim()
@@ -174,6 +199,15 @@ function getStatusLabel(
     return appointment
       .status_data
       .name;
+  }
+
+  if (
+    appointment.status &&
+    typeof appointment.status ===
+      "object" &&
+    appointment.status.name
+  ) {
+    return appointment.status.name;
   }
 
   const code =
