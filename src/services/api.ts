@@ -124,6 +124,12 @@ export async function verifyNewDeviceFace(formData: FormData) {
 }
 
 
+type ApiDataResponse<T> = {
+  success?: boolean;
+  message?: string;
+  data: T;
+};
+
 export type AppointmentPreparationSlot = {
   date: string;
   start_time: string;
@@ -255,10 +261,17 @@ export type AppointmentConversationResponse = {
 };
 
 
+export type SettlementBeneficiaryStatus = {
+  exists: boolean;
+  verified: boolean;
+  account_name?: string | null;
+  bank_name?: string | null;
+  masked_account_number?: string | null;
+};
 
 export type PropertySettlementItem = {
-  id: number;
-  type: string;
+  id: number | string;
+  type?: string | null;
   label: string;
   amount: string | number;
   beneficiary_id?: number | null;
@@ -266,25 +279,49 @@ export type PropertySettlementItem = {
 
 export type PropertySettlement = {
   id: number;
-  uuid: string;
-  property_id: number;
-  customer_id: number;
-  appointment_id?: number | null;
+  uuid?: string | null;
+
+  property_id?: number | string;
+  customer_id?: number | string;
+  lister_id?: number | string;
+  appointment_id?: number | string | null;
+
   total_amount: string | number;
-  currency: string;
+  currency?: string;
 
   status?: {
-    id: number;
-    code: string;
-    name?: string;
-  };
+    id?: number;
+    code?: string | null;
+    name?: string | null;
+  } | null;
 
-  property?: any;
+  property?: {
+    id?: number | string;
+    uuid?: string | null;
+    title?: string | null;
+    address?: string | null;
+  } | null;
 
   items?: PropertySettlementItem[];
 
+  beneficiary_readiness?: {
+    ready: boolean;
+
+    property_beneficiary:
+      SettlementBeneficiaryStatus;
+
+    lister:
+      SettlementBeneficiaryStatus;
+
+    missing: string[];
+
+    request_already_sent: boolean;
+  };
+
   payment_ready_at?: string | null;
   paid_at?: string | null;
+  created_at?: string | null;
+  updated_at?: string | null;
 };
 
 export type InitializePropertyPaymentResponse = {
@@ -295,6 +332,8 @@ export type InitializePropertyPaymentResponse = {
   amount: string | number;
   currency: string;
 };
+
+
 
 
 type RequestOptions = {
@@ -2781,58 +2820,71 @@ async resolvePayoutBankAccount(
   );
 }
 
-
 async createPropertySettlement(
-  propertyId: number,
-  appointmentId: number
+  propertyId: number | string,
+  appointmentId: number | string
 ): Promise<PropertySettlement> {
   const response =
-    await this.post<PropertySettlement>(
+    await this.post<
+      ApiDataResponse<PropertySettlement>
+    >(
       `/properties/${propertyId}/settlements`,
       {
         appointment_id: appointmentId,
       }
     );
 
-  return response.data;
+  return response.data.data;
 }
 
+
 async getPropertySettlement(
-  settlementId: number
+  settlementId: number | string
 ): Promise<PropertySettlement> {
   const response =
-    await this.get<PropertySettlement>(
+    await this.get<
+      ApiDataResponse<PropertySettlement>
+    >(
       `/property-settlements/${settlementId}`
     );
 
-  return response.data;
+  return response.data.data;
 }
 
 async initializePropertyPayment(
-  settlementId: number
-): Promise<{
-  authorization_url?: string;
-  reference?: string;
-  access_code?: string;
-  payment_id?: number;
-  amount?: string | number;
-  currency?: string;
-}> {
+  settlementId: number | string
+): Promise<InitializePropertyPaymentResponse> {
   const response =
-    await this.post<{
-      authorization_url?: string;
-      reference?: string;
-      access_code?: string;
-      payment_id?: number;
-      amount?: string | number;
-      currency?: string;
-    }>(
+    await this.post<
+      ApiDataResponse<
+        InitializePropertyPaymentResponse
+      >
+    >(
       `/property-settlements/${settlementId}/pay`,
       {}
     );
 
-  return response.data;
+  return response.data.data;
 }
+
+async requestPropertyPaymentAccounts(
+  settlementId: number | string
+): Promise<{
+  request_already_sent: boolean;
+}> {
+  const response =
+    await this.post<
+      ApiDataResponse<{
+        request_already_sent: boolean;
+      }>
+    >(
+      `/property-settlements/${settlementId}/request-account-details`,
+      {}
+    );
+
+  return response.data.data;
+}
+
 
 
 async preparePropertyAppointment(
@@ -2900,6 +2952,8 @@ async submitAppointmentInspection(
 
   return response.data;
 }
+
+
 
 }
 

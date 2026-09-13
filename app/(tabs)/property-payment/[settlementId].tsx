@@ -37,6 +37,71 @@ const money = (
     }
   )}`;
 
+
+  type BeneficiaryStatus = {
+  exists: boolean;
+  verified: boolean;
+  account_name?: string | null;
+  bank_name?: string | null;
+  masked_account_number?: string | null;
+};
+
+function BeneficiaryRow({
+  label,
+  beneficiary,
+}: {
+  label: string;
+  beneficiary?: BeneficiaryStatus;
+}) {
+  const ready =
+    beneficiary?.exists === true &&
+    beneficiary?.verified === true;
+
+  return (
+    <View style={styles.beneficiaryRow}>
+      <View style={styles.flexOne}>
+        <Text style={styles.beneficiaryLabel}>
+          {label}
+        </Text>
+
+        {ready ? (
+          <>
+            <Text style={styles.accountName}>
+              {beneficiary.account_name ??
+                "Verified account"}
+            </Text>
+
+            <Text style={styles.muted}>
+              {[
+                beneficiary.bank_name,
+                beneficiary.masked_account_number,
+              ]
+                .filter(Boolean)
+                .join(" • ")}
+            </Text>
+          </>
+        ) : (
+          <Text style={styles.missingText}>
+            {beneficiary?.exists
+              ? "Account requires verification"
+              : "Account details not provided"}
+          </Text>
+        )}
+      </View>
+
+      <Text
+        style={
+          ready
+            ? styles.readyBadge
+            : styles.missingBadge
+        }
+      >
+        {ready ? "Verified" : "Required"}
+      </Text>
+    </View>
+  );
+}
+
 export default function PropertyPaymentScreen() {
   const router = useRouter();
 
@@ -54,6 +119,11 @@ export default function PropertyPaymentScreen() {
   );
 
   const [
+    requestingAccounts,
+    setRequestingAccounts,
+  ] = useState(false);
+
+  const [
     loading,
     setLoading,
   ] = useState(true);
@@ -63,40 +133,71 @@ export default function PropertyPaymentScreen() {
     setPaying,
   ] = useState(false);
 
-  const loadSettlement =
-    useCallback(async () => {
-      if (!settlementId) {
-        return;
-      }
 
-      try {
-        const data =
-          await API.getPropertySettlement(
-            Number(settlementId)
-          );
 
-        setSettlement(data);
-      } catch (error: any) {
-        Alert.alert(
-          "Error",
-          error?.response?.data?.message ??
-            "Unable to load payment."
+const loadSettlement = useCallback(
+  async () => {
+    if (!settlementId) {
+      setSettlement(null);
+      setLoading(false);
+
+      Alert.alert(
+        "Invalid Payment",
+        "The settlement ID is missing."
+      );
+
+      return;
+    }
+
+    try {
+      setLoading(true);
+
+      const data =
+        await API.getPropertySettlement(
+          Number(settlementId)
         );
-      } finally {
-        setLoading(false);
-      }
-    }, [settlementId]);
 
-  useFocusEffect(
-    useCallback(() => {
-      loadSettlement();
-    }, [loadSettlement])
-  );
+      setSettlement(data);
+    } catch (error: any) {
+      setSettlement(null);
+
+      Alert.alert(
+        "Error",
+        error?.response?.data?.message ??
+          error?.message ??
+          "Unable to load payment."
+      );
+    } finally {
+      setLoading(false);
+    }
+  },
+  [settlementId]
+);
+
+
+
+useFocusEffect(
+  useCallback(() => {
+    void loadSettlement();
+  }, [loadSettlement])
+);
 
   const handlePay = async () => {
     if (!settlement) {
       return;
     }
+
+    if (
+  settlement.beneficiary_readiness?.ready !==
+  true
+) {
+  Alert.alert(
+    "Accounts Not Ready",
+    "The property beneficiary and lister accounts must both be verified before payment."
+  );
+
+  return;
+}
 
     try {
       setPaying(true);
@@ -167,9 +268,7 @@ export default function PropertyPaymentScreen() {
   const statusCode =
     settlement.status?.code;
 
-  const paymentReady =
-    statusCode ===
-    "settlement_payment_ready";
+ 
 
   const paymentPending =
     statusCode ===
@@ -178,6 +277,58 @@ export default function PropertyPaymentScreen() {
   const paid =
     statusCode ===
     "settlement_paid";
+
+    const handleRequestAccountDetails =
+  async () => {
+    if (
+      !settlement ||
+      requestingAccounts
+    ) {
+      return;
+    }
+
+    try {
+      setRequestingAccounts(true);
+
+      await API.requestPropertyPaymentAccounts(
+        settlement.id
+      );
+
+      Alert.alert(
+        "Request Sent",
+        "The property lister has been notified to provide and verify the required account details."
+      );
+
+      await loadSettlement();
+    } catch (error: any) {
+      Alert.alert(
+        "Unable to Send Request",
+        error?.response?.data?.message ??
+          error?.message ??
+          "The account-details request could not be sent."
+      );
+    } finally {
+      setRequestingAccounts(false);
+    }
+  };
+
+
+  const readiness =
+  settlement.beneficiary_readiness;
+
+  const beneficiariesReady =
+  readiness?.ready === true;
+
+
+
+  const paymentReady =
+    statusCode ===
+      "settlement_payment_ready" &&
+    beneficiariesReady;
+
+
+
+
 
   return (
     <ScrollView
@@ -242,39 +393,88 @@ export default function PropertyPaymentScreen() {
         </View>
       </View>
 
-      {statusCode ===
-        "settlement_pending_beneficiary" && (
-        <View style={styles.notice}>
-          <Text style={styles.noticeTitle}>
-            Payment Not Yet Available
-          </Text>
 
-          <Text style={styles.noticeText}>
-            The property's payment
-            beneficiary is currently being
-            prepared and reviewed.
-          </Text>
 
-          <Text style={styles.warningText}>
-            Do not transfer money directly
-            to an agent or to a bank account
-            sent outside OHLAM.
-          </Text>
+      <View style={styles.card}>
+  <Text style={styles.sectionTitle}>
+    Payment Recipients
+  </Text>
 
-          <Pressable
-            style={styles.secondaryButton}
-            onPress={loadSettlement}
-          >
-            <Text
-              style={
-                styles.secondaryButtonText
-              }
-            >
-              Check Again
-            </Text>
-          </Pressable>
-        </View>
+  <Text style={styles.recipientNotice}>
+    OHLAM verifies the recipient accounts before
+    allowing payment. Complete account numbers are
+    hidden for security.
+  </Text>
+
+  <BeneficiaryRow
+    label="Property beneficiary"
+    beneficiary={
+      readiness?.property_beneficiary
+    }
+  />
+
+  <View style={styles.divider} />
+
+  <BeneficiaryRow
+    label="Property lister"
+    beneficiary={readiness?.lister}
+  />
+</View>
+
+      {!paid &&
+ !paymentPending &&
+      !beneficiariesReady && (
+  <View style={styles.notice}>
+    <Text style={styles.noticeTitle}>
+      Account Details Required
+    </Text>
+
+    <Text style={styles.noticeText}>
+      Payment cannot start until the property
+      beneficiary account and the lister account
+      have been provided and verified.
+    </Text>
+
+    <Text style={styles.warningText}>
+      Do not transfer money directly to an agent
+      or to an account sent outside OHLAM.
+    </Text>
+
+    <Pressable
+      style={[
+        styles.requestButton,
+        requestingAccounts &&
+          styles.disabledButton,
+      ]}
+      disabled={
+        requestingAccounts ||
+        readiness?.request_already_sent === true
+      }
+      onPress={() =>
+        void handleRequestAccountDetails()
+      }
+    >
+      {requestingAccounts ? (
+        <ActivityIndicator color="#ffffff" />
+      ) : (
+        <Text style={styles.requestButtonText}>
+          {readiness?.request_already_sent
+            ? "Request Already Sent"
+            : "Request Account Details"}
+        </Text>
       )}
+    </Pressable>
+
+    <Pressable
+      style={styles.secondaryButton}
+      onPress={() => void loadSettlement()}
+    >
+      <Text style={styles.secondaryButtonText}>
+        Check Again
+      </Text>
+    </Pressable>
+  </View>
+)}
 
       {paymentReady && (
         <>
@@ -292,10 +492,13 @@ export default function PropertyPaymentScreen() {
           </View>
 
           <Pressable
-            style={styles.payButton}
-            disabled={paying}
-            onPress={handlePay}
-          >
+  style={[
+    styles.payButton,
+    paying && styles.disabledButton,
+  ]}
+  disabled={paying}
+  onPress={() => void handlePay()}
+>
             {paying ? (
               <ActivityIndicator />
             ) : (
@@ -308,6 +511,8 @@ export default function PropertyPaymentScreen() {
           </Pressable>
         </>
       )}
+
+
 
       {paymentPending && (
         <View style={styles.notice}>
@@ -323,7 +528,7 @@ export default function PropertyPaymentScreen() {
 
           <Pressable
             style={styles.secondaryButton}
-            onPress={loadSettlement}
+            onPress={() => void loadSettlement()}
           >
             <Text
               style={
@@ -541,4 +746,79 @@ const styles = StyleSheet.create({
   backButtonText: {
     fontWeight: "600",
   },
+
+  flexOne: {
+  flex: 1,
+},
+
+recipientNotice: {
+  color: "#64748b",
+  lineHeight: 20,
+  marginBottom: 16,
+},
+
+beneficiaryRow: {
+  flexDirection: "row",
+  alignItems: "center",
+  gap: 12,
+  paddingVertical: 8,
+},
+
+beneficiaryLabel: {
+  color: "#64748b",
+  fontSize: 12,
+  fontWeight: "700",
+  textTransform: "uppercase",
+},
+
+accountName: {
+  marginTop: 4,
+  color: "#0f172a",
+  fontWeight: "700",
+},
+
+missingText: {
+  marginTop: 4,
+  color: "#b45309",
+  fontWeight: "600",
+},
+
+readyBadge: {
+  color: "#047857",
+  backgroundColor: "#d1fae5",
+  paddingHorizontal: 9,
+  paddingVertical: 5,
+  borderRadius: 20,
+  fontSize: 12,
+  fontWeight: "700",
+},
+
+missingBadge: {
+  color: "#b45309",
+  backgroundColor: "#fef3c7",
+  paddingHorizontal: 9,
+  paddingVertical: 5,
+  borderRadius: 20,
+  fontSize: 12,
+  fontWeight: "700",
+},
+
+requestButton: {
+  minHeight: 50,
+  marginTop: 18,
+  borderRadius: 10,
+  alignItems: "center",
+  justifyContent: "center",
+  backgroundColor: "#2563eb",
+  paddingHorizontal: 18,
+},
+
+requestButtonText: {
+  color: "#ffffff",
+  fontWeight: "700",
+},
+
+disabledButton: {
+  opacity: 0.55,
+},
 });

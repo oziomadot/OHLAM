@@ -30,6 +30,10 @@ type AppointmentDetail = {
   customer_note?: string | null;
   lister_note?: string | null;
   meeting_place?: string | null;
+
+  can_proceed_to_payment?: boolean;
+  payment_status?: string | null;
+  inspection_completed?: boolean;
   status?: {
     code?: string | null;
     name?: string | null;
@@ -256,6 +260,80 @@ export default function AppointmentDetailScreen() {
     }
   };
 
+  const openPropertyDetails = () => {
+  const propertyId =
+    appointment?.property?.id ??
+    appointment?.property?.uuid;
+
+  if (!propertyId) {
+    Alert.alert(
+      "Unable to Open Property",
+      "The property ID is missing from this appointment."
+    );
+
+    return;
+  }
+
+  router.push({
+    pathname:
+      "/(tabs)/properties/[id]" as never,
+
+    params: {
+      id: String(propertyId),
+    },
+  });
+};
+
+const proceedWithPayment = () => {
+  if (!appointment?.id) {
+    Alert.alert(
+      "Unable to Continue",
+      "The appointment ID is missing."
+    );
+
+    return;
+  }
+
+  if (viewerRole !== "customer") {
+    Alert.alert(
+      "Customer Payment",
+      "Only the customer can make payment for this property."
+    );
+
+    return;
+  }
+
+  if (!appointment.can_proceed_to_payment) {
+    Alert.alert(
+      "Payment Not Available",
+      "Payment will become available after the inspection has been successfully completed and verified."
+    );
+
+    return;
+  }
+
+  router.push({
+    /*
+     * This is the proposed payment screen.
+     * Create this route during payment implementation.
+     */
+    pathname:
+      "/(tabs)/property-payment/[settlementId]" as never,
+
+    params: {
+      appointmentId:
+        String(appointment.id),
+
+      propertyId:
+        String(
+          appointment.property?.id ??
+          appointment.property?.uuid ??
+          ""
+        ),
+    },
+  });
+};
+
   const openInspection = () => {
     if (!appointment?.id) {
       Alert.alert(
@@ -441,6 +519,28 @@ export default function AppointmentDetailScreen() {
                 </DetailCard>
               )}
 
+              <TouchableOpacity
+  style={styles.propertyButton}
+  activeOpacity={0.85}
+  onPress={openPropertyDetails}
+>
+  <MaterialCommunityIcons
+    name="home-search-outline"
+    size={21}
+    color="#2563eb"
+  />
+
+  <Text style={styles.propertyButtonText}>
+    View Property Details
+  </Text>
+
+  <MaterialCommunityIcons
+    name="chevron-right"
+    size={22}
+    color="#2563eb"
+  />
+</TouchableOpacity>
+
               <View style={styles.actionCard}>
                 <Text style={styles.actionTitle}>
                   Appointment Communication
@@ -483,9 +583,9 @@ export default function AppointmentDetailScreen() {
                   color="#92400e"
                 />
                 <View style={styles.flexOne}>
-                  <Text style={styles.inspectionNoticeTitle}>
-                    Inspection confirmation
-                  </Text>
+                  <Text style={styles.inspectionButtonText}>
+  Submit Inspection Report
+</Text>
                   <Text style={styles.inspectionNoticeText}>
                     {viewerRole === "lister"
                       ? "At the property, remind the customer to record the inspection outcome in OHLAM. Location verification and both parties’ reviews will be collected on the inspection screen."
@@ -505,9 +605,50 @@ export default function AppointmentDetailScreen() {
                   color="#ffffff"
                 />
                 <Text style={styles.inspectionButtonText}>
-                  Inspection Completed
+                  Submit Inspection Report
                 </Text>
               </TouchableOpacity>
+
+              {viewerRole === "customer" &&
+appointment.can_proceed_to_payment === true ? (
+  <View style={styles.paymentCard}>
+    <View style={styles.paymentHeader}>
+      <MaterialCommunityIcons
+        name="shield-check-outline"
+        size={28}
+        color="#047857"
+      />
+
+      <View style={styles.flexOne}>
+        <Text style={styles.paymentTitle}>
+          Inspection completed
+        </Text>
+
+        <Text style={styles.paymentDescription}>
+          Your inspection has been verified. You can
+          now review the payment breakdown before
+          making payment through Paystack.
+        </Text>
+      </View>
+    </View>
+
+    <TouchableOpacity
+      style={styles.paymentButton}
+      activeOpacity={0.85}
+      onPress={proceedWithPayment}
+    >
+      <MaterialCommunityIcons
+        name="credit-card-check-outline"
+        size={22}
+        color="#ffffff"
+      />
+
+      <Text style={styles.paymentButtonText}>
+        Proceed With Payment
+      </Text>
+    </TouchableOpacity>
+  </View>
+) : null}
 
               <TouchableOpacity
                 style={styles.secondaryButton}
@@ -787,4 +928,70 @@ const styles = StyleSheet.create({
     color: "#ffffff",
     fontWeight: "900",
   },
+  propertyButton: {
+  minHeight: 50,
+  marginTop: -4,
+  marginBottom: 14,
+  paddingHorizontal: 16,
+  borderRadius: 13,
+  backgroundColor: "#eff6ff",
+  borderWidth: 1,
+  borderColor: "#bfdbfe",
+  flexDirection: "row",
+  alignItems: "center",
+  justifyContent: "center",
+  gap: 8,
+},
+
+propertyButtonText: {
+  flex: 1,
+  color: "#2563eb",
+  fontWeight: "900",
+  textAlign: "center",
+},
+
+paymentCard: {
+  padding: 16,
+  marginBottom: 14,
+  borderRadius: 16,
+  backgroundColor: "#ecfdf5",
+  borderWidth: 1,
+  borderColor: "#a7f3d0",
+},
+
+paymentHeader: {
+  flexDirection: "row",
+  alignItems: "flex-start",
+  gap: 11,
+},
+
+paymentTitle: {
+  color: "#065f46",
+  fontSize: 17,
+  fontWeight: "900",
+},
+
+paymentDescription: {
+  marginTop: 5,
+  color: "#047857",
+  lineHeight: 20,
+  fontWeight: "600",
+},
+
+paymentButton: {
+  minHeight: 50,
+  marginTop: 15,
+  paddingHorizontal: 18,
+  borderRadius: 13,
+  backgroundColor: "#047857",
+  flexDirection: "row",
+  alignItems: "center",
+  justifyContent: "center",
+  gap: 8,
+},
+
+paymentButtonText: {
+  color: "#ffffff",
+  fontWeight: "900",
+},
 });
