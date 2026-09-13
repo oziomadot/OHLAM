@@ -27,10 +27,16 @@ export default {
 
       permissions: [
         "CAMERA",
-        "READ_MEDIA_IMAGES",
         "ACCESS_FINE_LOCATION",
         "ACCESS_COARSE_LOCATION",
         "POST_NOTIFICATIONS",
+      ],
+
+      blockedPermissions: [
+        "android.permission.READ_MEDIA_IMAGES",
+        "android.permission.READ_MEDIA_VIDEO",
+        "android.permission.READ_EXTERNAL_STORAGE",
+        "android.permission.WRITE_EXTERNAL_STORAGE",
       ],
     },
 
@@ -47,7 +53,7 @@ export default {
           "OHLAM uses the camera for profile, property and identity verification.",
 
         NSPhotoLibraryUsageDescription:
-          "OHLAM uses your photo library to upload property and verification images.",
+          "OHLAM allows you to select property and verification images from your photo library.",
 
         NSLocationWhenInUseUsageDescription:
           "OHLAM uses your location at the property to verify an inspection report.",
@@ -89,6 +95,19 @@ export default {
         {
           defaultChannel:
             "ohlam-default",
+        },
+      ],
+
+      [
+        "expo-image-picker",
+        {
+          photosPermission:
+            "OHLAM allows you to select photos and videos for property listings, profile information and identity verification.",
+
+          cameraPermission:
+            "OHLAM uses the camera when you choose to capture property, profile or verification media.",
+
+          microphonePermission: false,
         },
       ],
 
