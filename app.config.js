@@ -3,7 +3,7 @@ export default {
     name: "OHLAM",
     slug: "OHLAM",
     scheme: "ohlam",
-    version: "1.0.10",
+    version: "1.0.11",
 
     runtimeVersion: {
       policy: "appVersion",
@@ -23,7 +23,7 @@ export default {
       googleServicesFile:
         "./google-services.json",
 
-      versionCode: 2,
+      versionCode: 3,
 
       permissions: [
         "CAMERA",
