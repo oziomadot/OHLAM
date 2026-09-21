@@ -3,7 +3,9 @@ export default {
     name: "OHLAM",
     slug: "OHLAM",
     scheme: "ohlam",
-    version: "1.0.11",
+    version: "1.0.12",
+
+    icon: "./assets/ohlam_adaptive_logo_1.png",
 
     runtimeVersion: {
       policy: "appVersion",
@@ -20,10 +22,16 @@ export default {
       package:
         "com.oramexglobals.ohlam",
 
+      adaptiveIcon: {
+        foregroundImage:
+          "./assets/ohlam_adaptive_logo_1.png",
+        backgroundColor: "#FFFFFF",
+      },
+
       googleServicesFile:
         "./google-services.json",
 
-      versionCode: 3,
+      versionCode: 4,
 
       permissions: [
         "CAMERA",
