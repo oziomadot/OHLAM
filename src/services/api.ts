@@ -37,12 +37,21 @@ export const API: AxiosInstance =
 
 API.interceptors.request.use(
   async (config) => {
-    const token = await getItemSafe(TOKEN_KEY);
-    config.headers.set( "Accept", "application/json");
+    config.headers.set("Accept", "application/json");
 
-    if (token) {
-      config.headers.set("Authorization", `Bearer ${token}`);
+    // Preserve the token explicitly supplied by
+    // email, phone, KYC, or device verification.
+    if (!config.headers.has("Authorization")) {
+      const token = await getItemSafe(TOKEN_KEY);
+
+      if (token?.trim()) {
+        config.headers.set(
+          "Authorization",
+          `Bearer ${token}`
+        );
+      }
     }
+
     return config;
   },
   (error) => Promise.reject(error)
@@ -1069,50 +1078,19 @@ class ApiService {
 
 
   async register(userData: unknown) {
-
       const response = await API.post("/register", userData);
-
-
-
       const preAuthToken = response.data?.pre_auth_token;
-
-
-
       if (!preAuthToken) {
-
         throw new Error("No verification token was returned by the server.");
-
       }
-
-
-
       await removeItemSafe("auth_token");
-
-
-
-      await removeItemSafe("pre_auth_token");
-
-
-
       await setItemSafe("pre_auth_token", String(preAuthToken));
-
-
-
       const storedToken = await getItemSafe("pre_auth_token");
-
-
-
       if (storedToken !== String(preAuthToken)) {
-
         throw new Error("The verification token could not be stored correctly.");
-
       }
-
-
-
       return response.data;
-
-}
+    }
 
 
 
@@ -1326,18 +1304,9 @@ class ApiService {
 
 
 
-    verificationError.status =
+    verificationError.status = status;
 
-      status;
-
-
-
-    verificationError.data =
-
-      responseData;
-
-
-
+    verificationError.data = responseData;
     throw verificationError;
 
   }
@@ -1766,80 +1735,26 @@ async updatePhoneNumber(  payload: UpdatePhoneNumberPayload): Promise<UpdatePhon
 
 async verifyIdCard(formData: FormData) {
 
-  const preAuthToken =
-
-    await getItemSafe("pre_auth_token");
-
-
-
+  const preAuthToken = await getItemSafe("pre_auth_token");
   if (!preAuthToken) {
-
-    throw new Error(
-
+        throw new Error(
       "Your verification session is missing. Please log in again."
-
     );
 
   }
-
-
-
-  console.log(
-
-    "[ID KYC] Upload URL:",
-
-    `${BASE_URL}/verify-id-card`
-
-  );
-
-
-
-  console.log(
-
-    "[ID KYC] Token exists:",
-
-    Boolean(preAuthToken)
-
-  );
-
-
-
-  const controller =
-
-    new AbortController();
-
-
-
-  const timeoutId =
-
-    setTimeout(() => {
-
+  console.log("[ID KYC] Upload URL:",  `${BASE_URL}/verify-id-card`);
+  console.log("[ID KYC] Token exists:", Boolean(preAuthToken));
+  const controller = new AbortController();
+  const timeoutId = setTimeout(() => {
       controller.abort();
-
     }, 120_000);
 
-
-
   try {
-
-    const response = await API.post(
-
-      "/verify-id-card",
-
-      formData,
-
-      {
-
-        headers: {
-
+    const response = await API.post( "/verify-id-card", formData,
+      { headers: {
           Accept: "application/json",
-
-          Authorization:
-
-            `Bearer ${preAuthToken}`,
-
+          Authorization: `Bearer ${preAuthToken}`,
         },
-
 
 
         /*
@@ -1851,163 +1766,61 @@ async verifyIdCard(formData: FormData) {
          */
 
         signal: controller.signal,
-
         timeout: 120_000,
-
       }
-
     );
 
-
-
-    console.log(
-
-      "[ID KYC] HTTP status:",
-
-      response.status
-
-    );
-
-
-
-    console.log(
-
-      "[ID KYC] Verification response:",
-
-      JSON.stringify(
-
+  console.log("[ID KYC] HTTP status:", response.status);
+  console.log("[ID KYC] Verification response:", 
+    JSON.stringify(
         response.data,
-
         null,
+        2));
 
-        2
-
-      )
-
-    );
-
-
-
-    return response.data;
+   return response.data;
 
   } catch (error: any) {
 
-    const status =
+    const status = error?.response?.status ?? error?.status;
+    const responseData = error?.response?.data ?? error?.data;
 
-      error?.response?.status ??
-
-      error?.status;
-
-
-
-    const responseData =
-
-      error?.response?.data ??
-
-      error?.data;
-
-
-
-    if (
-
-      error?.name === "AbortError" ||
-
-      error?.name === "CanceledError" ||
-
-      error?.code === "ERR_CANCELED" ||
-
-      error?.code === "ECONNABORTED"
-
+    if (error?.name === "AbortError" || error?.name === "CanceledError" ||
+      error?.code === "ERR_CANCELED" || error?.code === "ECONNABORTED"
     ) {
-
-      const timeoutError =
-
-        new Error(
-
+      const timeoutError = new Error(
           "The ID-card verification took too long. Please try again."
-
         ) as Error & {
-
           status?: number;
-
           data?: unknown;
-
         };
-
-
-
       timeoutError.status = 408;
-
-
-
       throw timeoutError;
-
     }
 
-
-
-    let message =
-
-      responseData?.message ??
-
-      error?.message ??
-
-      "ID verification failed.";
-
-
-
+    let message = responseData?.message ?? error?.message ?? "ID verification failed.";
     if (status === 504) {
-
-      message =
-
-        "The identity verification server took too long to respond. Your document may already have been uploaded. Please wait briefly before trying again.";
-
+      message = "The identity verification server took too long to respond. Your document may already have been uploaded. Please wait briefly before trying again.";
     } else if (status === 503) {
 
-      message =
-
-        responseData?.message ??
+      message = responseData?.message ??
 
         "The identity verification service is temporarily unavailable.";
 
     } else if (status === 413) {
 
-      message =
-
-        "The ID image is too large. Please use a smaller or lower-resolution image.";
+      message = "The ID image is too large. Please use a smaller or lower-resolution image.";
 
     } else if (status === 422) {
-
-      message =
-
-        responseData?.message ??
-
-        "The submitted ID information is invalid.";
-
+      message = responseData?.message ?? "The submitted ID information is invalid.";
     }
 
-
-
-    console.error(
-
-      "[ID KYC] Upload failed:",
-
-      {
-
+  console.error( "[ID KYC] Upload failed:",   {
         name: error?.name,
-
-        originalMessage:
-
-          error?.message,
-
+        originalMessage: error?.message,
         message,
-
         status,
-
         data: responseData,
-
         code: error?.code,
-
       }
 
     );
@@ -2035,9 +1848,7 @@ async verifyIdCard(formData: FormData) {
     throw uploadError;
 
   } finally {
-
     clearTimeout(timeoutId);
-
   }
 
 }

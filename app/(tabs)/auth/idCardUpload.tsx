@@ -567,9 +567,7 @@ const IdCardUpload = () => {
         } as any
       );
 
-      if (
-        requiresBack &&
-        backImage
+      if ( requiresBack && backImage
       ) {
         formData.append(
           "back_image",
@@ -595,39 +593,39 @@ const IdCardUpload = () => {
         response
       );
 
-      const token =
-        response?.token ??
-        response?.access_token;
+      const token = response?.token ?? response?.access_token;
 
-      if (
-        response?.success === true &&
-        token
-      ) {
+      if (response?.success === true && token) {
+
         await API.setToken(token);
 
-        await setItemSafe(
-          "auth_token",
-          token
-        );
+        // Match the key read by RegistrationFlow.
+        await setItemSafe("authToken", token);
+
+        // Preserve compatibility with existing code.
+        await setItemSafe("auth_token", token);
 
         if (response.user) {
           await setItemSafe(
             "user",
-            JSON.stringify(
-              response.user
-            )
+            JSON.stringify(response.user)
           );
         }
 
-        await setItemSafe(
-          "registrationCompleted",
-          "true"
-        );
+await setItemSafe("registrationCompleted", "true");
+await setItemSafe("registration_step", "completed");
 
-        await removeItemSafe(
-          "pre_auth_token"
-        );
+// Confirm the full token was saved before removing
+// the temporary verification token.
+const savedToken = await getItemSafe("auth_token");
 
+if (savedToken !== token) {
+  throw new Error(
+    "Your identity was verified, but the login session could not be saved. Please log in again."
+  );
+}
+
+await removeItemSafe("pre_auth_token");
         Alert.alert(
           "Verification successful",
           response.message ??

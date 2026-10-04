@@ -14,7 +14,7 @@ export default function RegistrationFlow() {
           storedStep,
           userId,
         ] = await Promise.all([
-          getItemSafe("authToken"),
+          getItemSafe("auth_token"),
           getItemSafe("pre_auth_token"),
           getItemSafe("registration_step"),
           getItemSafe("user_id"),
@@ -49,56 +49,79 @@ export default function RegistrationFlow() {
          * This protects users returning from Gmail,
          * SMS, camera, etc.
          */
-        if (step && step !== "completed") {
-          switch (step) {
-            case "email_verification":
-              router.replace(
-                "/(tabs)/auth/email-verification"
-              );
-              return;
 
-            case "phone_verification":
-              router.replace(
-                "/(tabs)/auth/phoneNumberVerification"
-              );
-              return;
+if (
+  step &&
+  step !== "completed" &&
+  (!preAuthToken?.trim() || !userId?.trim())
+) {
+  // Resume the existing account through login.
+  // A stored step alone is not a usable session.
+  router.replace("/(tabs)/auth/LoginScreen");
+  return;
+}
 
-            case "identity_number":
-              router.replace(
-                "/(tabs)/auth/identityNumber"
-              );
-              return;
 
-            case "id_card_upload":
-              router.replace(
-                "/(tabs)/auth/idCardUpload"
-              );
-              return;
 
-            case "face_record":
-              router.replace(
-                "/(tabs)/auth/faceRecord"
-              );
-              return;
+  //       if (step && step !== "completed"
+  //           &&
+  //         (!preAuthToken?.trim() || !userId?.trim())
+  //       ) {
+  //         // switch (step) {
+  //         //   case "email_verification":
+  //         //     router.replace(
+  //         //       "/(tabs)/auth/email-verification"
+  //         //     );
+  //         //     return;
 
-            default:
-              console.warn(
-                "[REGISTRATION FLOW] Unknown registration step:",
-                step
-              );
+  //         //   case "phone_verification":
+  //         //     router.replace(
+  //         //       "/(tabs)/auth/phoneNumberVerification"
+  //         //     );
+  //         //     return;
 
-              /*
-               * If a pre-auth registration session
-               * exists, do NOT dump the user on Home.
-               */
-              if (preAuthToken && userId) {
-                router.replace(
-                  "/(tabs)/auth/email-verification"
-                );
-                return;
-              }
-          }
-        }
+  //         //   case "identity_number":
+  //         //     router.replace(
+  //         //       "/(tabs)/auth/identityNumber"
+  //         //     );
+  //         //     return;
+
+  //         //   case "id_card_upload":
+  //         //     router.replace(
+  //         //       "/(tabs)/auth/idCardUpload"
+  //         //     );
+  //         //     return;
+
+  //         //   case "face_record":
+  //         //     router.replace(
+  //         //       "/(tabs)/auth/faceRecord"
+  //         //     );
+  //         //     return;
+
+  //         //   default:
+  //         //     console.warn(
+  //         //       "[REGISTRATION FLOW] Unknown registration step:",
+  //         //       step
+  //         //     );
+
+  //         //     /*
+  //         //      * If a pre-auth registration session
+  //         //      * exists, do NOT dump the user on Home.
+  //         //      */
+  //             // if (preAuthToken && userId) {
+  //         //       router.replace(
+  //         //         "/(tabs)/auth/email-verification"
+  //         //       );
+  //         //       return;
+  //         //     }
+  //         // }
+
+
+  //          // Resume the existing account through login.
+  // // A stored step alone is not a usable session.
+  // router.replace("/(tabs)/auth/LoginScreen");
+  // return;
+  //       }
 
         /*
          * Only a completed registration should

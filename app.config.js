@@ -3,7 +3,7 @@ export default {
     name: "OHLAM",
     slug: "OHLAM",
     scheme: "ohlam",
-    version: "1.0.12",
+    version: "1.0.13",
 
     icon: "./assets/ohlam_adaptive_logo_1.png",
 

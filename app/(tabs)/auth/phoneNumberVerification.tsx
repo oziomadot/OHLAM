@@ -120,14 +120,19 @@ const PhoneNumberVerification = () => {
   const [alertMessage, setAlertMessage] = useState("");
   const [alertOnCloseCallback, setAlertOnCloseCallback] = useState<(() => void) | null>(null);
   
-  const { control, handleSubmit, formState: { errors } } = useForm();
+  const { control, handleSubmit, formState: { errors } } = useForm<PhoneVerificationForm>();
 
-  const showAlert = (title: string, message: string, callback?: () => void) => {
-    setAlertTitle(title);
-    setAlertMessage(message);
-    setAlertOnCloseCallback(callback || null);
-    setAlertVisible(true);
-  };
+ const showAlert = (
+  title: string,
+  message: string,
+  callback?: () => void
+) => {
+  setAlertTitle(title);
+  setAlertMessage(message);
+  setAlertOnCloseCallback(() => callback ?? null);
+  setAlertVisible(true);
+};
+
 
   // Load user info on mount
   React.useEffect(() => {

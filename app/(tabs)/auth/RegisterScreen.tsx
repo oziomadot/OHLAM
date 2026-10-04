@@ -126,10 +126,7 @@ const RegistrationScreen = () => {
       return;
     }
 
-
-
-
-    setLoading(true);
+   setLoading(true);
     try {
       const payload = { ...data, agree_terms: true };
       if (payload.dob instanceof Date) {
@@ -151,9 +148,25 @@ const RegistrationScreen = () => {
  * but storing it here as a defensive check
  * is acceptable.
  */
-    if (pre_auth_token) {
-        await setItemSafe("pre_auth_token", pre_auth_token);
-      }
+   if (
+  typeof pre_auth_token !== "string" ||
+  !pre_auth_token.trim()
+) {
+  throw new Error(
+    "Your account was created, but no verification session was returned. Please log in to continue."
+  );
+}
+
+await setItemSafe("pre_auth_token", pre_auth_token);
+
+const savedPreAuthToken =
+  await getItemSafe("pre_auth_token");
+
+if (savedPreAuthToken !== pre_auth_token) {
+  throw new Error(
+    "Your account was created, but the verification session could not be saved. Please log in to continue."
+  );
+}
 
     if (verification_required && pre_auth_token) {
       await setItemSafe("user_id", String(user.id));
@@ -178,7 +191,7 @@ await setItemSafe(
  * There must not be a normal authenticated token
  * controlling navigation during pre-auth registration.
  */
-router.push(
+router.replace(
   "/(tabs)/auth/email-verification"
 );
 
