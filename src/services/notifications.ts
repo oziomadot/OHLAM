@@ -5,6 +5,19 @@ import Constants from "expo-constants";
 
 import API from "@/src/services/api";
 
+
+// Controls notifications received while the app is open.
+if (Platform.OS !== "web") {
+  Notifications.setNotificationHandler({
+    handleNotification: async () => ({
+      shouldShowBanner: true,
+      shouldShowList: true,
+      shouldPlaySound: true,
+      shouldSetBadge: true,
+    }),
+  });
+}
+
 export async function setupNotificationChannels() {
   if (Platform.OS !== "android") {
     return;
