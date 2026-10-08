@@ -3,6 +3,7 @@ import { useRouter } from "expo-router";
 import { Linking, Platform } from 'react-native'; 
 import * as LinkingExpo from 'expo-linking'; 
 import API from "@/src/services/api"; 
+import { unregisterPushToken } from "@/src/services/pushNotifications";
 import { getItem, setItem, deleteItem } from "../app/utils/storage";
 
 type AuthContextType = {
@@ -103,6 +104,7 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
 
   const logout = async () => {
     try {
+      await unregisterPushToken();
       await API.logout();
     } catch (error) {
       console.warn("Logout error:", error);

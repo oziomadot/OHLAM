@@ -1,11 +1,11 @@
-import { Stack } from "expo-router";
+import { Stack, useRouter } from "expo-router";
 import { AuthProvider } from "@/context/AuthContext";
 import {
   AppState,
   ActivityIndicator,
   View,
 } from "react-native";
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import * as Notifications from "expo-notifications";
 
 import { OramexBanner } from "../components/OramexBanner";
@@ -70,6 +70,8 @@ async function syncAppIconBadge(): Promise<void> {
 
 export default function RootLayout() {
   const [isReady, setIsReady] = useState(false);
+  const router = useRouter();
+  const handledNotificationId = useRef<string | null>(null);
 
   /*
    * Allow the root layout to mount before navigation begins.
@@ -83,6 +85,32 @@ export default function RootLayout() {
       clearTimeout(timer);
     };
   }, []);
+
+  /* Route notification taps from foreground, background and cold launch. */
+  useEffect(() => {
+    if (!isReady) return;
+
+    const openNotifications = (response: Notifications.NotificationResponse) => {
+      const id = response.notification.request.identifier;
+      if (handledNotificationId.current === id) return;
+      handledNotificationId.current = id;
+      const data = response.notification.request.content.data;
+      const conversationId = String(data?.conversation_id ?? "");
+      if (data?.type === "chat_message" && /^\d+$/.test(conversationId)) {
+        router.push(`/(tabs)/chat/${conversationId}`);
+      } else {
+        router.push("/(tabs)/dashboard/notifications");
+      }
+      void Notifications.clearLastNotificationResponseAsync();
+    };
+    const responseSubscription =
+      Notifications.addNotificationResponseReceivedListener(openNotifications);
+    void Notifications.getLastNotificationResponseAsync().then((response) => {
+      if (response) openNotifications(response);
+    });
+
+    return () => responseSubscription.remove();
+  }, [isReady, router]);
 
   /*
    * Capture the Google Play installation referral.

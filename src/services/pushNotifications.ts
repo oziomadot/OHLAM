@@ -7,22 +7,7 @@ import * as Notifications from "expo-notifications";
 import Constants from "expo-constants";
 
 import API from "@/src/services/api";
-
-Notifications.setNotificationHandler({
-  handleNotification: async () => ({
-    shouldShowBanner:
-      true,
-
-    shouldShowList:
-      true,
-
-    shouldPlaySound:
-      true,
-
-    shouldSetBadge:
-      true,
-  }),
-});
+import { setupNotificationChannels } from "@/src/services/notifications";
 
 export async function registerForPushNotifications() {
   if (!Device.isDevice) {
@@ -33,48 +18,7 @@ export async function registerForPushNotifications() {
     return null;
   }
 
-  if (
-    Platform.OS ===
-    "android"
-  ) {
-    await Notifications
-      .setNotificationChannelAsync(
-        "ohlam-default",
-        {
-          name:
-            "OHLAM Notifications",
-
-          description:
-            "Appointments, property and account updates",
-
-          importance:
-            Notifications
-              .AndroidImportance
-              .MAX,
-
-          sound:
-            "default",
-
-          enableVibrate:
-            true,
-
-          vibrationPattern: [
-            0,
-            300,
-            200,
-            300,
-          ],
-
-          showBadge:
-            true,
-
-          lockscreenVisibility:
-            Notifications
-              .AndroidNotificationVisibility
-              .PUBLIC,
-        }
-      );
-  }
+  await setupNotificationChannels();
 
   const existingPermission =
     await Notifications
@@ -136,7 +80,36 @@ export async function registerForPushNotifications() {
       Platform.OS,
   });
 
+  // Keep the chat push-token store in sync as well; chat has its own
+  // existing dispatcher and endpoint.
+  await API.post("/push-tokens", {
+    token,
+    platform: Platform.OS,
+    device_name: Device.deviceName ?? null,
+    device_model: Device.modelName ?? null,
+  });
+
   return token;
+}
+
+/** Disable this installation's token before API.logout clears authentication. */
+export async function unregisterPushToken(): Promise<void> {
+  try {
+    const projectId =
+      Constants.expoConfig?.extra?.eas?.projectId ??
+      Constants.easConfig?.projectId;
+    if (!Device.isDevice || !projectId) return;
+
+    const token = (await Notifications.getExpoPushTokenAsync({ projectId })).data;
+    if (!token) return;
+
+    await Promise.allSettled([
+      API.delete("/push-tokens", { data: { token } }),
+      API.delete("/notifications/push-token", { data: { token } }),
+    ]);
+  } catch {
+    // Local logout must still complete if token lookup or API cleanup fails.
+  }
 }
 
 export async function setOhlamBadge(

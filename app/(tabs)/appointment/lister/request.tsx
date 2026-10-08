@@ -1,11 +1,5 @@
-import React, {
-  useCallback,
-  useState,
-} from "react";
-
-import {
-  ActivityIndicator,
-  Alert,
+import React, { useCallback, useState, } from "react";
+import { ActivityIndicator, Alert,
   FlatList,
   Modal,
   RefreshControl,
@@ -1346,12 +1340,8 @@ export default function ListerAppointmentRequests() {
         {/* APPOINTMENT LIST */}
 
         <FlatList
-          data={
-            appointments
-          }
-          keyExtractor={(
-            item
-          ) =>
+          data={appointments}
+          keyExtractor={(item) =>
             String(
               item.uuid ??
                 item.id

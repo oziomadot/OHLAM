@@ -72,7 +72,6 @@ API.interceptors.response.use(
 
       method: error.config?.method?.toUpperCase(),
       status: error.response?.status ?? 0,
-      responseData: error.response?.data ?? null,
       message: error.message,
       code: error.code,
       hasResponse: Boolean(error.response),

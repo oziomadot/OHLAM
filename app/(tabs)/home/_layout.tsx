@@ -123,9 +123,16 @@ void initializeNotifications();
             }
           );
 
+      const tokenSubscription = Notifications.addPushTokenListener(() => {
+        if (active) {
+          void registerForPushNotifications().catch(() => null);
+        }
+      });
+
       return () => {
         active = false;
         receivedSubscription.remove();
+        tokenSubscription.remove();
       };
     },
     []
