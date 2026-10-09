@@ -1,9 +1,9 @@
 import React, {
   useCallback,
   useMemo,
+  useRef,
   useState,
 } from "react";
-
 import {
   ActivityIndicator,
   Alert,
@@ -18,89 +18,68 @@ import {
   TouchableOpacity,
   View,
 } from "react-native";
-
 import {
   MaterialCommunityIcons,
 } from "@expo/vector-icons";
-
 import {
   useFocusEffect,
   useLocalSearchParams,
   useRouter,
 } from "expo-router";
-
 import API, {
   BASE_URL,
   AppointmentPreparationResponse,
 } from "@/src/services/api";
-
 import Protected from "components/Protected";
-
 /*
 |--------------------------------------------------------------------------
 | Types
 |--------------------------------------------------------------------------
 */
-
 type PropertyItem = {
   id: number | string;
-
   uuid?: string | null;
-
   amount?: number | string | null;
-
   address?: string | null;
-
   meeting_place?: string | null;
-
   property_type_id?:
     | number
     | string
     | null;
-
   property_type?: {
     id?: number | string;
     name?: string | null;
   } | null;
-
   area?: {
     id?: number | string;
     name?: string | null;
   } | null;
-
   state?: {
     id?: number | string;
     name?: string | null;
   } | null;
-
   rental_detail?: {
     building_type?: {
       name?: string | null;
     } | null;
-
     flat_type?: {
       name?: string | null;
     } | null;
-
     building?: {
       name?: string | null;
     } | null;
   } | null;
-
   house_sale?: {
     building_type?: {
       name?: string | null;
     } | null;
-
     building?: {
       name?: string | null;
     } | null;
   } | null;
-
   land_sale?: {
     measurement?: string | null;
   } | null;
-
   media?: {
     wholeBuilding?: string | null;
     sittingRoom?: string | null;
@@ -108,61 +87,41 @@ type PropertyItem = {
     room?: string | null;
   } | null;
 };
-
 type AppointmentEligibility = {
   allowed: boolean;
-
   required_escrow?: number;
-
   current_balance?: number;
-
   amount_needed?: number;
-
   property_amount?: number;
-
   message?: string;
 };
-
 type AvailableSlot = {
   date: string;
-
   start_time: string;
-
   end_time: string;
-
   availability_id?:
     | number
     | string;
-
   lister_id?:
     | number
     | string;
 };
-
 type AvailableDay = {
   date: string;
-
   label: string;
-
   slots: AvailableSlot[];
 };
-
 type BookablePropertiesResponse = {
   success?: boolean;
-
   properties?: PropertyItem[];
-
   data?: PropertyItem[];
-
   message?: string;
 };
-
 /*
 |--------------------------------------------------------------------------
 | Helpers
 |--------------------------------------------------------------------------
 */
-
 function normalizeParam(
   value:
     | string
@@ -179,13 +138,11 @@ function normalizeParam(
       null
     );
   }
-
   return (
     value ||
     null
   );
 }
-
 function money(
   value:
     | string
@@ -200,7 +157,6 @@ function money(
   ) {
     return "₦0";
   }
-
   const amount =
     Number(
       String(
@@ -210,7 +166,6 @@ function money(
         ""
       )
     );
-
   if (
     Number.isNaN(
       amount
@@ -218,12 +173,10 @@ function money(
   ) {
     return "₦0";
   }
-
   return `₦${amount.toLocaleString(
     "en-NG"
   )}`;
 }
-
 function calculateOnePercent(
   amount:
     | string
@@ -241,7 +194,6 @@ function calculateOnePercent(
         ""
       )
     );
-
   if (
     Number.isNaN(
       numeric
@@ -250,13 +202,11 @@ function calculateOnePercent(
   ) {
     return 0;
   }
-
   return Math.round(
     numeric *
       0.01
   );
 }
-
 function getPropertyLocation(
   property: PropertyItem
 ): string {
@@ -266,7 +216,6 @@ function getPropertyLocation(
   ].filter(
     Boolean
   );
-
   if (
     parts.length >
     0
@@ -275,10 +224,8 @@ function getPropertyLocation(
       ", "
     );
   }
-
   return "Location available in property details";
 }
-
 function getPropertyTitle(
   property: PropertyItem
 ): string {
@@ -303,7 +250,6 @@ function getPropertyTitle(
       "Rental Property"
     );
   }
-
   if (
     Number(
       property.property_type_id
@@ -321,7 +267,6 @@ function getPropertyTitle(
       "House for Sale"
     );
   }
-
   if (
     Number(
       property.property_type_id
@@ -333,7 +278,6 @@ function getPropertyTitle(
       ? `${property.land_sale.measurement} Land`
       : "Land for Sale";
   }
-
   return (
     property
       .property_type
@@ -341,14 +285,12 @@ function getPropertyTitle(
     "Property"
   );
 }
-
 function formatSlotTime(
   value: string
 ): string {
   if (!value) {
     return "";
   }
-
   const [
     hourString,
     minuteString,
@@ -356,17 +298,14 @@ function formatSlotTime(
     value.split(
       ":"
     );
-
   const hour =
     Number(
       hourString
     );
-
   const minute =
     Number(
       minuteString
     );
-
   if (
     Number.isNaN(
       hour
@@ -377,29 +316,24 @@ function formatSlotTime(
   ) {
     return value;
   }
-
   const date =
     new Date();
-
   date.setHours(
     hour,
     minute,
     0,
     0
   );
-
   return date.toLocaleTimeString(
     [],
     {
       hour:
         "numeric",
-
       minute:
         "2-digit",
     }
   );
 }
-
 function getImageUrl(
   property: PropertyItem
 ): string | null {
@@ -412,11 +346,9 @@ function getImageUrl(
       ?.kitchen ||
     property.media
       ?.room;
-
   if (!raw) {
     return null;
   }
-
   if (
     raw.startsWith(
       "http"
@@ -424,47 +356,40 @@ function getImageUrl(
   ) {
     return raw;
   }
-
   const baseOrigin =
     BASE_URL.replace(
       /\/api\/?$/,
       ""
     );
-
   return `${baseOrigin}/storage/${raw.replace(
     /^\/+/,
     ""
   )}`;
 }
-
 /*
 |--------------------------------------------------------------------------
 | Main Screen
 |--------------------------------------------------------------------------
 */
-
 export default function CustomerCreateAppointment() {
+  const bookingLock = useRef(false);
   const router =
     useRouter();
-
   const params =
     useLocalSearchParams<{
       property_id?:
         | string
         | string[];
     }>();
-
   const initialPropertyId =
     normalizeParam(
       params.property_id
     );
-
   /*
   |--------------------------------------------------------------------------
   | State
   |--------------------------------------------------------------------------
   */
-
   const [
     preparation,
     setPreparation,
@@ -472,7 +397,6 @@ export default function CustomerCreateAppointment() {
     useState<AppointmentPreparationResponse | null>(
       null
     );
-
   const [
     bookableProperties,
     setBookableProperties,
@@ -480,7 +404,6 @@ export default function CustomerCreateAppointment() {
     useState<
       PropertyItem[]
     >([]);
-
   const [
     selectedProperty,
     setSelectedProperty,
@@ -488,7 +411,6 @@ export default function CustomerCreateAppointment() {
     useState<PropertyItem | null>(
       null
     );
-
   const [
     eligibility,
     setEligibility,
@@ -496,7 +418,6 @@ export default function CustomerCreateAppointment() {
     useState<AppointmentEligibility | null>(
       null
     );
-
   const [
     availableDays,
     setAvailableDays,
@@ -504,7 +425,6 @@ export default function CustomerCreateAppointment() {
     useState<
       AvailableDay[]
     >([]);
-
   const [
     selectedDate,
     setSelectedDate,
@@ -512,7 +432,6 @@ export default function CustomerCreateAppointment() {
     useState<string | null>(
       null
     );
-
   const [
     selectedSlot,
     setSelectedSlot,
@@ -520,7 +439,6 @@ export default function CustomerCreateAppointment() {
     useState<AvailableSlot | null>(
       null
     );
-
   const [
     dateDropdownOpen,
     setDateDropdownOpen,
@@ -528,7 +446,6 @@ export default function CustomerCreateAppointment() {
     useState(
       false
     );
-
   const [
     timeDropdownOpen,
     setTimeDropdownOpen,
@@ -536,13 +453,11 @@ export default function CustomerCreateAppointment() {
     useState(
       false
     );
-
   const [
     customerNote,
     setCustomerNote,
   ] =
     useState("");
-
   const [
     loading,
     setLoading,
@@ -550,7 +465,6 @@ export default function CustomerCreateAppointment() {
     useState(
       true
     );
-
   const [
     preparing,
     setPreparing,
@@ -558,7 +472,6 @@ export default function CustomerCreateAppointment() {
     useState(
       false
     );
-
   const [
     booking,
     setBooking,
@@ -566,7 +479,6 @@ export default function CustomerCreateAppointment() {
     useState(
       false
     );
-
   const [
     refreshing,
     setRefreshing,
@@ -574,20 +486,17 @@ export default function CustomerCreateAppointment() {
     useState(
       false
     );
-
   const [
     removingInterestId,
     setRemovingInterestId,
   ] = useState<string | null>(
     null
   );
-
   /*
   |--------------------------------------------------------------------------
   | Selected available day
   |--------------------------------------------------------------------------
   */
-
   const selectedAvailableDay =
     useMemo(
       () => {
@@ -596,7 +505,6 @@ export default function CustomerCreateAppointment() {
         ) {
           return null;
         }
-
         return (
           availableDays.find(
             (
@@ -613,31 +521,26 @@ export default function CustomerCreateAppointment() {
         selectedDate,
       ]
     );
-
   /*
   |--------------------------------------------------------------------------
   | Bookable properties
   |--------------------------------------------------------------------------
   */
-
   const loadBookableProperties =
     useCallback(
       async () => {
         const response =
           await API
             .getAppointmentBookableProperties();
-
         const responseData:
           BookablePropertiesResponse =
           response.data;
-
         const properties =
           responseData
             ?.properties ||
           responseData
             ?.data ||
           [];
-
         setBookableProperties(
           Array.isArray(
             properties
@@ -648,13 +551,11 @@ export default function CustomerCreateAppointment() {
       },
       []
     );
-
   /*
   |--------------------------------------------------------------------------
   | Prepare appointment
   |--------------------------------------------------------------------------
   */
-
   const prepareAppointment =
     useCallback(
       async (
@@ -664,72 +565,55 @@ export default function CustomerCreateAppointment() {
           setPreparing(
             true
           );
-
           setPreparation(
             null
           );
-
           setEligibility(
             null
           );
-
           setAvailableDays(
             []
           );
-
           setSelectedDate(
             null
           );
-
           setSelectedSlot(
             null
           );
-
           setDateDropdownOpen(
             false
           );
-
           setTimeDropdownOpen(
             false
           );
-
           const data =
             await API
               .preparePropertyAppointment(
                 property.id
               );
-
           setPreparation(
             data
           );
-
           const escrowSatisfied =
             data.code ===
               "READY_TO_BOOK" ||
             data.code ===
               "LISTER_NO_AVAILABILITY";
-
           setEligibility({
             allowed:
               escrowSatisfied,
-
             required_escrow:
               data.required_escrow,
-
             current_balance:
               data.current_balance,
-
             amount_needed:
               data.amount_needed,
-
             message:
               data.message,
           });
-
           const days =
             data.availability ||
             [];
-
           setAvailableDays(
             days.map(
               (
@@ -737,10 +621,8 @@ export default function CustomerCreateAppointment() {
               ) => ({
                 date:
                   day.date,
-
                 label:
                   day.formatted_date,
-
                 slots:
                   Array.isArray(
                     day.slots
@@ -753,34 +635,22 @@ export default function CustomerCreateAppointment() {
         } catch (
           error: any
         ) {
-          console.error(
-            "Appointment preparation error:",
-            error
-              ?.response
-              ?.data ||
-              error
-          );
-
+          
           setPreparation(
             null
           );
-
           setEligibility(
             null
           );
-
           setAvailableDays(
             []
           );
-
           setSelectedDate(
             null
           );
-
           setSelectedSlot(
             null
           );
-
           Alert.alert(
             "Unable to prepare appointment",
             error
@@ -797,13 +667,11 @@ export default function CustomerCreateAppointment() {
       },
       []
     );
-
   /*
   |--------------------------------------------------------------------------
   | Initial load
   |--------------------------------------------------------------------------
   */
-
   const initialize =
     useCallback(
       async () => {
@@ -811,7 +679,6 @@ export default function CustomerCreateAppointment() {
           setLoading(
             true
           );
-
           if (
             initialPropertyId
           ) {
@@ -820,12 +687,10 @@ export default function CustomerCreateAppointment() {
                 .getProperty(
                   initialPropertyId
                 );
-
             const property =
               response.data
                 ?.property ||
               response.data;
-
             if (
               !property?.id
             ) {
@@ -833,30 +698,19 @@ export default function CustomerCreateAppointment() {
                 "Property could not be loaded."
               );
             }
-
             setSelectedProperty(
               property
             );
-
             await prepareAppointment(
               property
             );
-
             return;
           }
-
           await loadBookableProperties();
         } catch (
           error: any
         ) {
-          console.error(
-            "Appointment initialization error:",
-            error
-              ?.response
-              ?.data ||
-              error
-          );
-
+          
           Alert.alert(
             "Unable to continue",
             error
@@ -871,7 +725,6 @@ export default function CustomerCreateAppointment() {
           setLoading(
             false
           );
-
           setRefreshing(
             false
           );
@@ -883,7 +736,6 @@ export default function CustomerCreateAppointment() {
         prepareAppointment,
       ]
     );
-
   useFocusEffect(
     useCallback(
       () => {
@@ -894,13 +746,11 @@ export default function CustomerCreateAppointment() {
       ]
     )
   );
-
   /*
   |--------------------------------------------------------------------------
   | Choose property
   |--------------------------------------------------------------------------
   */
-
   const chooseProperty =
     async (
       property: PropertyItem
@@ -908,29 +758,24 @@ export default function CustomerCreateAppointment() {
       setSelectedProperty(
         property
       );
-
       setCustomerNote(
         ""
       );
-
       await prepareAppointment(
         property
       );
     };
-
   /*
   |--------------------------------------------------------------------------
   | Remove property interest
   |--------------------------------------------------------------------------
   */
-
   const removePropertyInterest =
     (
       property: PropertyItem
     ) => {
       const propertyId =
         String(property.id);
-
       Alert.alert(
         "Remove interested property?",
         "This removes the property from this list. It will not cancel or delete an existing appointment.",
@@ -947,12 +792,10 @@ export default function CustomerCreateAppointment() {
                 setRemovingInterestId(
                   propertyId
                 );
-
                 await API
                   .removePropertyInterest(
                     property.id
                   );
-
                 setBookableProperties(
                   (current) =>
                     current.filter(
@@ -978,13 +821,11 @@ export default function CustomerCreateAppointment() {
         ]
       );
     };
-
   /*
   |--------------------------------------------------------------------------
   | Required escrow
   |--------------------------------------------------------------------------
   */
-
   const requiredEscrow =
     useMemo(
       () => {
@@ -998,7 +839,6 @@ export default function CustomerCreateAppointment() {
               .required_escrow
           );
         }
-
         return calculateOnePercent(
           selectedProperty
             ?.amount
@@ -1009,13 +849,11 @@ export default function CustomerCreateAppointment() {
         selectedProperty,
       ]
     );
-
   /*
   |--------------------------------------------------------------------------
   | Fund escrow
   |--------------------------------------------------------------------------
   */
-
   const goToEscrow =
     () => {
       if (
@@ -1023,36 +861,30 @@ export default function CustomerCreateAppointment() {
       ) {
         return;
       }
-
       router.push({
         pathname:
           "/dashboard/escrow" as never,
-
         params: {
           propertyId:
             String(
               selectedProperty.id
             ),
-
           requiredEscrow:
             String(
               requiredEscrow
             ),
-
           currentBalance:
             String(
               eligibility
                 ?.current_balance ??
                 0
             ),
-
           amountNeeded:
             String(
               eligibility
                 ?.amount_needed ??
                 requiredEscrow
             ),
-
           message:
             eligibility
               ?.message ||
@@ -1060,34 +892,30 @@ export default function CustomerCreateAppointment() {
         },
       });
     };
-
   /*
   |--------------------------------------------------------------------------
   | Book appointment
   |--------------------------------------------------------------------------
   */
 const bookAppointment = async () => {
+  if (booking) return;
   /*
   |--------------------------------------------------------------------------
   | Validate property
   |--------------------------------------------------------------------------
   */
-
   if (!selectedProperty?.id) {
     Alert.alert(
       "Property missing",
       "The selected property could not be identified. Please reopen the property and try again."
     );
-
     return;
   }
-
   /*
   |--------------------------------------------------------------------------
   | Validate preparation
   |--------------------------------------------------------------------------
   */
-
   if (
     preparation?.code !==
     "READY_TO_BOOK"
@@ -1097,31 +925,25 @@ const bookAppointment = async () => {
       preparation?.message ||
         "This appointment cannot currently be booked."
     );
-
     return;
   }
-
   /*
   |--------------------------------------------------------------------------
   | Validate selected date
   |--------------------------------------------------------------------------
   */
-
   if (!selectedDate) {
     Alert.alert(
       "Choose viewing date",
       "Please choose an available viewing date."
     );
-
     return;
   }
-
   /*
   |--------------------------------------------------------------------------
   | Validate selected slot
   |--------------------------------------------------------------------------
   */
-
   if (
     !selectedSlot?.date ||
     !selectedSlot?.start_time ||
@@ -1131,16 +953,13 @@ const bookAppointment = async () => {
       "Choose viewing time",
       "Please choose one of the available viewing times."
     );
-
     return;
   }
-
   /*
   |--------------------------------------------------------------------------
   | Prevent inconsistent date/slot
   |--------------------------------------------------------------------------
   */
-
   if (
     selectedSlot.date !==
     selectedDate
@@ -1149,75 +968,41 @@ const bookAppointment = async () => {
       "Viewing time changed",
       "The selected time does not belong to the selected date. Please select the viewing time again."
     );
-
     setSelectedSlot(
       null
     );
-
     return;
   }
-
   /*
   |--------------------------------------------------------------------------
   | Build payload
   |--------------------------------------------------------------------------
   */
-
   const payload = {
     property_id:
       selectedProperty.id,
-
     appointment_date:
       selectedSlot.date,
-
     start_time:
       selectedSlot.start_time,
-
     end_time:
       selectedSlot.end_time,
-
     customer_note:
       customerNote.trim() ||
       null,
   };
-
-  console.log(
-    "========== APPOINTMENT REQUEST =========="
-  );
-
-  console.log(
-    "Appointment payload:",
-    JSON.stringify(
-      payload,
-      null,
-      2
-    )
-  );
-
-  console.log(
-    "Property:",
-    selectedProperty.id
-  );
-
-  console.log(
-    "Selected date:",
-    selectedDate
-  );
-
-  console.log(
-    "Selected slot:",
-    selectedSlot
-  );
-
-  console.log(
-    "========================================="
-  );
-
+  
+  
+  
+  
+  
+  
+  if (bookingLock.current) return;
+  bookingLock.current = true;
   try {
     setBooking(
       true
     );
-
     /*
     |--------------------------------------------------------------------------
     | Send directly to Laravel
@@ -1230,7 +1015,6 @@ const bookAppointment = async () => {
     | POST /appointments
     |
     */
-
     const response =
       await API.post<{
         message?: string;
@@ -1241,15 +1025,9 @@ const bookAppointment = async () => {
         "/appointments",
         payload
       );
-
     const createdAppointmentId =
       response?.data?.data?.id;
-
-    console.log(
-      "Appointment response:",
-      response?.data
-    );
-
+    
     Alert.alert(
       "Appointment requested",
       response?.data?.message ||
@@ -1258,7 +1036,6 @@ const bookAppointment = async () => {
         {
           text:
             "View Appointments",
-
           onPress: () => {
             if (createdAppointmentId) {
               router.replace({
@@ -1271,10 +1048,8 @@ const bookAppointment = async () => {
                     ),
                 },
               });
-
               return;
             }
-
             router.replace(
               "/appointment" as never
             );
@@ -1290,55 +1065,24 @@ const bookAppointment = async () => {
     | Capture complete API error
     |--------------------------------------------------------------------------
     */
-
     const status =
       error?.response?.status;
-
     const data =
       error?.response?.data;
-
     const code =
       data?.code;
-
-    console.error(
-      "========== APPOINTMENT ERROR =========="
-    );
-
-    console.error(
-      "Status:",
-      status
-    );
-
-    console.error(
-      "Code:",
-      code
-    );
-
-    console.error(
-      "Response:",
-      data
-    );
-
-    console.error(
-      "Error message:",
-      error?.message
-    );
-
-    console.error(
-      "Payload:",
-      payload
-    );
-
-    console.error(
-      "======================================="
-    );
-
+    
+    
+    
+    
+    
+    
+    
     /*
     |--------------------------------------------------------------------------
     | Authentication
     |--------------------------------------------------------------------------
     */
-
     if (
       status === 401
     ) {
@@ -1348,7 +1092,6 @@ const bookAppointment = async () => {
         [
           {
             text: "Sign In",
-
             onPress: () =>
               router.replace(
                 "/login" as never
@@ -1356,22 +1099,18 @@ const bookAppointment = async () => {
           },
         ]
       );
-
       return;
     }
-
     /*
     |--------------------------------------------------------------------------
     | Validation
     |--------------------------------------------------------------------------
     */
-
     if (
       status === 422
     ) {
       const validationErrors =
         data?.errors;
-
       if (
         validationErrors &&
         typeof validationErrors ===
@@ -1393,32 +1132,26 @@ const bookAppointment = async () => {
             .join(
               "\n"
             );
-
         Alert.alert(
           "Appointment validation failed",
           messages ||
             data?.message ||
             "Please check the appointment details."
         );
-
         return;
       }
-
       Alert.alert(
         "Could not book appointment",
         data?.message ||
           "The appointment details were rejected."
       );
-
       return;
     }
-
     /*
     |--------------------------------------------------------------------------
     | Escrow
     |--------------------------------------------------------------------------
     */
-
     if (
       code ===
       "INSUFFICIENT_ESCROW"
@@ -1426,39 +1159,30 @@ const bookAppointment = async () => {
       setEligibility({
         allowed:
           false,
-
         required_escrow:
           data?.required_escrow,
-
         current_balance:
           data?.current_balance,
-
         amount_needed:
           data?.amount_needed,
-
         message:
           data?.message,
       });
-
       setSelectedSlot(
         null
       );
-
       Alert.alert(
         "Escrow balance changed",
         data?.message ||
           "Your escrow balance is no longer sufficient."
       );
-
       return;
     }
-
     /*
     |--------------------------------------------------------------------------
     | Existing appointment
     |--------------------------------------------------------------------------
     */
-
     if (
       code ===
         "ACTIVE_APPOINTMENT_EXISTS" ||
@@ -1473,7 +1197,6 @@ const bookAppointment = async () => {
           {
             text:
               "View Appointments",
-
             onPress: () =>
               router.replace(
                 "/appointment" as never
@@ -1481,16 +1204,13 @@ const bookAppointment = async () => {
           },
         ]
       );
-
       return;
     }
-
     /*
     |--------------------------------------------------------------------------
     | Property unavailable
     |--------------------------------------------------------------------------
     */
-
     if (
       code ===
       "PROPERTY_NOT_AVAILABLE"
@@ -1500,20 +1220,16 @@ const bookAppointment = async () => {
         data?.message ||
           "This property is no longer available for viewing."
       );
-
       await prepareAppointment(
         selectedProperty
       );
-
       return;
     }
-
     /*
     |--------------------------------------------------------------------------
     | Slot collision
     |--------------------------------------------------------------------------
     */
-
     if (
       status === 409
     ) {
@@ -1522,24 +1238,19 @@ const bookAppointment = async () => {
         data?.message ||
           "This viewing time is no longer available. Please choose another time."
       );
-
       setSelectedSlot(
         null
       );
-
       await prepareAppointment(
         selectedProperty
       );
-
       return;
     }
-
     /*
     |--------------------------------------------------------------------------
     | Network error
     |--------------------------------------------------------------------------
     */
-
     if (
       !error?.response
     ) {
@@ -1548,16 +1259,13 @@ const bookAppointment = async () => {
         error?.message ||
           "OHLAM could not connect to the server. Please check your connection and try again."
       );
-
       return;
     }
-
     /*
     |--------------------------------------------------------------------------
     | Unexpected backend error
     |--------------------------------------------------------------------------
     */
-
     Alert.alert(
       "Could not book appointment",
       data?.message ||
@@ -1565,24 +1273,22 @@ const bookAppointment = async () => {
         `The server returned status ${status ?? "unknown"}.`
     );
   } finally {
+    bookingLock.current = false;
     setBooking(
       false
     );
   }
 };
-
   /*
   |--------------------------------------------------------------------------
   | Refresh
   |--------------------------------------------------------------------------
   */
-
   const refresh =
     async () => {
       setRefreshing(
         true
       );
-
       try {
         if (
           selectedProperty
@@ -1599,58 +1305,46 @@ const bookAppointment = async () => {
         );
       }
     };
-
   /*
   |--------------------------------------------------------------------------
   | Change property
   |--------------------------------------------------------------------------
   */
-
   const clearSelectedProperty =
     () => {
       setSelectedProperty(
         null
       );
-
       setPreparation(
         null
       );
-
       setEligibility(
         null
       );
-
       setAvailableDays(
         []
       );
-
       setSelectedDate(
         null
       );
-
       setSelectedSlot(
         null
       );
-
       setDateDropdownOpen(
         false
       );
-
       setTimeDropdownOpen(
         false
       );
-
       setCustomerNote(
         ""
       );
     };
-
   /*
   |--------------------------------------------------------------------------
   | Loading
   |--------------------------------------------------------------------------
   */
-
   if (
     loading
   ) {
@@ -1665,7 +1359,6 @@ const bookAppointment = async () => {
             size="large"
             color="#2563eb"
           />
-
           <Text
             style={
               styles.loadingText
@@ -1677,13 +1370,11 @@ const bookAppointment = async () => {
       </Protected>
     );
   }
-
   /*
   |--------------------------------------------------------------------------
   | Screen
   |--------------------------------------------------------------------------
   */
-
   return (
     <Protected>
       <KeyboardAvoidingView
@@ -1736,7 +1427,6 @@ const bookAppointment = async () => {
                 color="#0f172a"
               />
             </TouchableOpacity>
-
             <View
               style={{
                 flex: 1,
@@ -1749,7 +1439,6 @@ const bookAppointment = async () => {
               >
                 Create Appointment
               </Text>
-
               <Text
                 style={
                   styles.headingSubtitle
@@ -1759,7 +1448,6 @@ const bookAppointment = async () => {
               </Text>
             </View>
           </View>
-
           {!selectedProperty && (
             <>
               <Text
@@ -1769,7 +1457,6 @@ const bookAppointment = async () => {
               >
                 Choose Property
               </Text>
-
               <Text
                 style={
                   styles.sectionSubtitle
@@ -1777,7 +1464,6 @@ const bookAppointment = async () => {
               >
                 Choose from properties you have shown interest in.
               </Text>
-
               {bookableProperties
                 .length ===
               0 ? (
@@ -1791,7 +1477,6 @@ const bookAppointment = async () => {
                     size={42}
                     color="#64748b"
                   />
-
                   <Text
                     style={
                       styles.emptyTitle
@@ -1799,7 +1484,6 @@ const bookAppointment = async () => {
                   >
                     No properties ready for viewing
                   </Text>
-
                   <Text
                     style={
                       styles.emptyText
@@ -1807,7 +1491,6 @@ const bookAppointment = async () => {
                   >
                     Open an available property and tap I AM INTERESTED to begin the viewing process.
                   </Text>
-
                   <TouchableOpacity
                     style={
                       styles.browseButton
@@ -1864,7 +1547,6 @@ const bookAppointment = async () => {
               )}
             </>
           )}
-
           {selectedProperty && (
             <>
               <Text
@@ -1874,7 +1556,6 @@ const bookAppointment = async () => {
               >
                 Property
               </Text>
-
               <SelectedPropertyCard
                 property={
                   selectedProperty
@@ -1886,7 +1567,6 @@ const bookAppointment = async () => {
                   clearSelectedProperty
                 }
               />
-
               {preparing && (
                 <View
                   style={
@@ -1896,7 +1576,6 @@ const bookAppointment = async () => {
                   <ActivityIndicator
                     color="#2563eb"
                   />
-
                   <View
                     style={{
                       flex: 1,
@@ -1909,7 +1588,6 @@ const bookAppointment = async () => {
                     >
                       Checking appointment
                     </Text>
-
                     <Text
                       style={
                         styles.preparingText
@@ -1920,7 +1598,6 @@ const bookAppointment = async () => {
                   </View>
                 </View>
               )}
-
               {!preparing &&
                 preparation
                   ?.code ===
@@ -1955,7 +1632,6 @@ const bookAppointment = async () => {
                     </TouchableOpacity>
                   </StatusCard>
                 )}
-
               {!preparing &&
                 preparation
                   ?.code ===
@@ -1970,7 +1646,6 @@ const bookAppointment = async () => {
                     type="warning"
                   />
                 )}
-
               {!preparing &&
                 preparation
                   ?.code ===
@@ -1998,7 +1673,6 @@ const bookAppointment = async () => {
                         >
                           Appointment
                         </Text>
-
                         <Text
                           style={
                             styles.existingAppointmentValue
@@ -2024,7 +1698,6 @@ const bookAppointment = async () => {
                         </Text>
                       </View>
                     )}
-
                     <TouchableOpacity
                       style={
                         styles.primaryButton
@@ -2035,15 +1708,12 @@ const bookAppointment = async () => {
                             preparation
                               .existing_appointment
                               ?.id;
-
                           if (!appointmentId) {
                             router.replace(
                               "/appointment" as never
                             );
-
                             return;
                           }
-
                           router.push({
                             pathname:
                               "/appointment/[appointmentId]" as never,
@@ -2067,7 +1737,6 @@ const bookAppointment = async () => {
                     </TouchableOpacity>
                   </StatusCard>
                 )}
-
               {!preparing &&
                 (
                   preparation
@@ -2092,7 +1761,6 @@ const bookAppointment = async () => {
                     >
                       Appointment Escrow
                     </Text>
-
                     <View
                       style={
                         preparation
@@ -2124,7 +1792,6 @@ const bookAppointment = async () => {
                               : "#92400e"
                           }
                         />
-
                         <View
                           style={{
                             flex: 1,
@@ -2141,7 +1808,6 @@ const bookAppointment = async () => {
                               ? "Escrow requirement met"
                               : "Escrow deposit required"}
                           </Text>
-
                           <Text
                             style={
                               styles.escrowDescription
@@ -2151,7 +1817,6 @@ const bookAppointment = async () => {
                           </Text>
                         </View>
                       </View>
-
                       <MoneyRow
                         label="Property amount"
                         value={
@@ -2160,7 +1825,6 @@ const bookAppointment = async () => {
                           )
                         }
                       />
-
                       <MoneyRow
                         label="Required escrow"
                         value={
@@ -2169,7 +1833,6 @@ const bookAppointment = async () => {
                           )
                         }
                       />
-
                       <MoneyRow
                         label="Current escrow balance"
                         value={
@@ -2180,7 +1843,6 @@ const bookAppointment = async () => {
                           )
                         }
                       />
-
                       {preparation
                         ?.code ===
                         "INSUFFICIENT_ESCROW" && (
@@ -2196,7 +1858,6 @@ const bookAppointment = async () => {
                             }
                             danger
                           />
-
                           <TouchableOpacity
                             style={
                               styles.fundEscrowButton
@@ -2210,7 +1871,6 @@ const bookAppointment = async () => {
                               size={20}
                               color="#ffffff"
                             />
-
                             <Text
                               style={
                                 styles.fundEscrowText
@@ -2224,7 +1884,6 @@ const bookAppointment = async () => {
                     </View>
                   </>
                 )}
-
               {!preparing &&
                 preparation
                   ?.code ===
@@ -2245,7 +1904,6 @@ const bookAppointment = async () => {
                     >
                       You do not need to contact the lister outside OHLAM. Check again later after they update their viewing availability.
                     </Text>
-
                     <TouchableOpacity
                       style={
                         styles.primaryButton
@@ -2265,7 +1923,6 @@ const bookAppointment = async () => {
                         size={19}
                         color="#ffffff"
                       />
-
                       <Text
                         style={
                           styles.primaryButtonText
@@ -2276,7 +1933,6 @@ const bookAppointment = async () => {
                     </TouchableOpacity>
                   </StatusCard>
                 )}
-
               {!preparing &&
                 preparation
                   ?.code ===
@@ -2293,7 +1949,6 @@ const bookAppointment = async () => {
                     >
                       Choose Viewing Time
                     </Text>
-
                     <Text
                       style={
                         styles.sectionSubtitle
@@ -2301,7 +1956,6 @@ const bookAppointment = async () => {
                     >
                       First select an available date, then choose a viewing time.
                     </Text>
-
                     {availableDays.length ===
                     0 ? (
                       <View
@@ -2314,7 +1968,6 @@ const bookAppointment = async () => {
                           size={34}
                           color="#64748b"
                         />
-
                         <Text
                           style={
                             styles.emptyTitle
@@ -2322,7 +1975,6 @@ const bookAppointment = async () => {
                         >
                           No available times
                         </Text>
-
                         <Text
                           style={
                             styles.emptyText
@@ -2330,7 +1982,6 @@ const bookAppointment = async () => {
                         >
                           No available viewing times were returned.
                         </Text>
-
                         <TouchableOpacity
                           style={
                             styles.primaryButton
@@ -2364,14 +2015,12 @@ const bookAppointment = async () => {
                         >
                           Available Date
                         </Text>
-
                         <TouchableOpacity
                           activeOpacity={
                             0.8
                           }
                           style={[
                             styles.selectInput,
-
                             dateDropdownOpen &&
                               styles.selectInputActive,
                           ]}
@@ -2383,7 +2032,6 @@ const bookAppointment = async () => {
                                 ) =>
                                   !current
                               );
-
                               setTimeDropdownOpen(
                                 false
                               );
@@ -2400,7 +2048,6 @@ const bookAppointment = async () => {
                               size={21}
                               color="#2563eb"
                             />
-
                             <Text
                               style={
                                 selectedDate
@@ -2416,7 +2063,6 @@ const bookAppointment = async () => {
                                 "Select available date"}
                             </Text>
                           </View>
-
                           <MaterialCommunityIcons
                             name={
                               dateDropdownOpen
@@ -2427,7 +2073,6 @@ const bookAppointment = async () => {
                             color="#64748b"
                           />
                         </TouchableOpacity>
-
                         {dateDropdownOpen && (
                           <View
                             style={
@@ -2441,7 +2086,6 @@ const bookAppointment = async () => {
                                 const selected =
                                   selectedDate ===
                                   day.date;
-
                                 return (
                                   <TouchableOpacity
                                     key={
@@ -2449,7 +2093,6 @@ const bookAppointment = async () => {
                                     }
                                     style={[
                                       styles.dropdownOption,
-
                                       selected &&
                                         styles.dropdownOptionSelected,
                                     ]}
@@ -2458,15 +2101,12 @@ const bookAppointment = async () => {
                                         setSelectedDate(
                                           day.date
                                         );
-
                                         setSelectedSlot(
                                           null
                                         );
-
                                         setDateDropdownOpen(
                                           false
                                         );
-
                                         setTimeDropdownOpen(
                                           false
                                         );
@@ -2481,7 +2121,6 @@ const bookAppointment = async () => {
                                       <Text
                                         style={[
                                           styles.dropdownOptionTitle,
-
                                           selected &&
                                             styles.dropdownOptionTitleSelected,
                                         ]}
@@ -2490,7 +2129,6 @@ const bookAppointment = async () => {
                                           day.label
                                         }
                                       </Text>
-
                                       <Text
                                         style={
                                           styles.dropdownOptionSubtitle
@@ -2509,7 +2147,6 @@ const bookAppointment = async () => {
                                           : "times available"}
                                       </Text>
                                     </View>
-
                                     {selected && (
                                       <MaterialCommunityIcons
                                         name="check-circle"
@@ -2523,7 +2160,6 @@ const bookAppointment = async () => {
                             )}
                           </View>
                         )}
-
                         <Text
                           style={[
                             styles.selectorLabel,
@@ -2535,7 +2171,6 @@ const bookAppointment = async () => {
                         >
                           Available Time
                         </Text>
-
                         <TouchableOpacity
                           activeOpacity={
                             0.8
@@ -2545,10 +2180,8 @@ const bookAppointment = async () => {
                           }
                           style={[
                             styles.selectInput,
-
                             !selectedAvailableDay &&
                               styles.selectInputDisabled,
-
                             timeDropdownOpen &&
                               styles.selectInputActive,
                           ]}
@@ -2559,14 +2192,12 @@ const bookAppointment = async () => {
                               ) {
                                 return;
                               }
-
                               setTimeDropdownOpen(
                                 (
                                   current
                                 ) =>
                                   !current
                               );
-
                               setDateDropdownOpen(
                                 false
                               );
@@ -2587,7 +2218,6 @@ const bookAppointment = async () => {
                                   : "#94a3b8"
                               }
                             />
-
                             <Text
                               style={
                                 selectedSlot
@@ -2609,7 +2239,6 @@ const bookAppointment = async () => {
                                 : "Select a date first"}
                             </Text>
                           </View>
-
                           <MaterialCommunityIcons
                             name={
                               timeDropdownOpen
@@ -2624,7 +2253,6 @@ const bookAppointment = async () => {
                             }
                           />
                         </TouchableOpacity>
-
                         {timeDropdownOpen &&
                           selectedAvailableDay && (
                             <View
@@ -2648,13 +2276,11 @@ const bookAppointment = async () => {
                                       selectedSlot
                                         ?.end_time ===
                                         slot.end_time;
-
                                     return (
                                       <TouchableOpacity
                                         key={`${slot.date}-${slot.start_time}-${slot.end_time}-${index}`}
                                         style={[
                                           styles.dropdownOption,
-
                                           selected &&
                                             styles.dropdownOptionSelected,
                                         ]}
@@ -2663,7 +2289,6 @@ const bookAppointment = async () => {
                                             setSelectedSlot(
                                               slot
                                             );
-
                                             setTimeDropdownOpen(
                                               false
                                             );
@@ -2684,11 +2309,9 @@ const bookAppointment = async () => {
                                                 : "#64748b"
                                             }
                                           />
-
                                           <Text
                                             style={[
                                               styles.dropdownOptionTitle,
-
                                               selected &&
                                                 styles.dropdownOptionTitleSelected,
                                             ]}
@@ -2702,7 +2325,6 @@ const bookAppointment = async () => {
                                             )}
                                           </Text>
                                         </View>
-
                                         {selected && (
                                           <MaterialCommunityIcons
                                             name="check-circle"
@@ -2718,7 +2340,6 @@ const bookAppointment = async () => {
                           )}
                       </View>
                     )}
-
                     <Text
                       style={[
                         styles.label,
@@ -2737,7 +2358,10 @@ const bookAppointment = async () => {
                         optional
                       </Text>
                     </Text>
-
+                    <Text style={{ color: '#475569', lineHeight: 20, marginBottom: 10 }}>
+                      After booking, open the appointment to choose personal inspection or authorise a representative.
+                      A relative can inspect as a guest without creating a full OHLAM account when delegation is enabled.
+                    </Text>
                     <TextInput
                       value={
                         customerNote
@@ -2756,7 +2380,6 @@ const bookAppointment = async () => {
                         500
                       }
                     />
-
                     {selectedSlot && (
                       <View
                         style={
@@ -2768,7 +2391,6 @@ const bookAppointment = async () => {
                           size={24}
                           color="#047857"
                         />
-
                         <View
                           style={{
                             flex: 1,
@@ -2781,7 +2403,6 @@ const bookAppointment = async () => {
                           >
                             Viewing selected
                           </Text>
-
                           <Text
                             style={
                               styles.summaryText
@@ -2803,49 +2424,7 @@ const bookAppointment = async () => {
                         </View>
                       </View>
                     )}
-
-                    {/* <TouchableOpacity
-                      style={[
-                        styles.bookButton,
-
-                        (
-                          !selectedSlot ||
-                          booking
-                        ) &&
-                          styles.disabledButton,
-                      ]}
-                      disabled={
-                        !selectedSlot ||
-                        booking
-                      }
-                      onPress={
-                        bookAppointment
-                      }
-                    >
-                      {booking ? (
-                        <ActivityIndicator
-                          color="#ffffff"
-                        />
-                      ) : (
-                        <>
-                          <MaterialCommunityIcons
-                            name="calendar-check"
-                            size={21}
-                            color="#ffffff"
-                          />
-
-                          <Text
-                            style={
-                              styles.bookButtonText
-                            }
-                          >
-                            Request Appointment
-                          </Text>
-                        </>
-                      )}
-                    </TouchableOpacity> */}
-
-
+                    
 <TouchableOpacity
   style={[
     styles.bookButton,
@@ -2855,40 +2434,6 @@ const bookAppointment = async () => {
   disabled={booking}
   activeOpacity={0.7}
   onPress={() => {
-    console.log(
-      "🔥 REQUEST APPOINTMENT BUTTON PRESSED"
-    );
-
-    console.log(
-      "selectedProperty:",
-      selectedProperty
-    );
-
-    console.log(
-      "preparation:",
-      preparation
-    );
-
-    console.log(
-      "selectedDate:",
-      selectedDate
-    );
-
-    console.log(
-      "selectedSlot:",
-      selectedSlot
-    );
-
-    console.log(
-      "booking:",
-      booking
-    );
-
-    Alert.alert(
-      "Debug",
-      "Request Appointment button was pressed."
-    );
-
     bookAppointment();
   }}
 >
@@ -2903,7 +2448,6 @@ const bookAppointment = async () => {
         size={21}
         color="#ffffff"
       />
-
       <Text
         style={
           styles.bookButtonText
@@ -2924,7 +2468,6 @@ const bookAppointment = async () => {
                         size={22}
                         color="#1e40af"
                       />
-
                       <Text
                         style={
                           styles.safetyText
@@ -2937,7 +2480,6 @@ const bookAppointment = async () => {
                 )}
             </>
           )}
-
           <View
             style={{
               height: 50,
@@ -2948,13 +2490,11 @@ const bookAppointment = async () => {
     </Protected>
   );
 }
-
 /*
 |--------------------------------------------------------------------------
 | Status Card
 |--------------------------------------------------------------------------
 */
-
 function StatusCard({
   icon,
   title,
@@ -2963,27 +2503,21 @@ function StatusCard({
   children,
 }: {
   icon: any;
-
   title: string;
-
   message: string;
-
   type:
     | "warning"
     | "info";
-
   children?:
     React.ReactNode;
 }) {
   const warning =
     type ===
     "warning";
-
   return (
     <View
       style={[
         styles.statusCard,
-
         warning
           ? styles.statusWarningCard
           : styles.statusInfoCard,
@@ -3000,7 +2534,6 @@ function StatusCard({
             : "#2563eb"
         }
       />
-
       <Text
         style={
           styles.statusTitle
@@ -3008,7 +2541,6 @@ function StatusCard({
       >
         {title}
       </Text>
-
       <Text
         style={
           styles.statusMessage
@@ -3016,27 +2548,22 @@ function StatusCard({
       >
         {message}
       </Text>
-
       {children}
     </View>
   );
 }
-
 /*
 |--------------------------------------------------------------------------
 | Money Row
 |--------------------------------------------------------------------------
 */
-
 function MoneyRow({
   label,
   value,
   danger = false,
 }: {
   label: string;
-
   value: string;
-
   danger?: boolean;
 }) {
   return (
@@ -3052,11 +2579,9 @@ function MoneyRow({
       >
         {label}
       </Text>
-
       <Text
         style={[
           styles.moneyValue,
-
           danger && {
             color:
               "#dc2626",
@@ -3068,13 +2593,11 @@ function MoneyRow({
     </View>
   );
 }
-
 /*
 |--------------------------------------------------------------------------
 | Property Choice Card
 |--------------------------------------------------------------------------
 */
-
 function PropertyChoiceCard({
   property,
   onChoose,
@@ -3082,20 +2605,16 @@ function PropertyChoiceCard({
   removing,
 }: {
   property: PropertyItem;
-
   onChoose:
     () => void;
-
   onRemove:
     () => void;
-
   removing: boolean;
 }) {
   const imageUrl =
     getImageUrl(
       property
     );
-
   return (
     <View
       style={
@@ -3131,7 +2650,6 @@ function PropertyChoiceCard({
           </View>
         )}
       </View>
-
       <View
         style={
           styles.propertyBody
@@ -3146,7 +2664,6 @@ function PropertyChoiceCard({
             property
           )}
         </Text>
-
         <Text
           style={
             styles.propertyLocation
@@ -3156,7 +2673,6 @@ function PropertyChoiceCard({
             property
           )}
         </Text>
-
         <Text
           style={
             styles.propertyAmount
@@ -3166,7 +2682,6 @@ function PropertyChoiceCard({
             property.amount
           )}
         </Text>
-
         <TouchableOpacity
           style={
             styles.chooseButton
@@ -3182,14 +2697,12 @@ function PropertyChoiceCard({
           >
             Check Viewing Availability
           </Text>
-
           <MaterialCommunityIcons
             name="chevron-right"
             size={20}
             color="#ffffff"
           />
         </TouchableOpacity>
-
         <TouchableOpacity
           style={
             styles.removeInterestButton
@@ -3213,7 +2726,6 @@ function PropertyChoiceCard({
               color="#b91c1c"
             />
           )}
-
           <Text
             style={
               styles.removeInterestButtonText
@@ -3228,22 +2740,18 @@ function PropertyChoiceCard({
     </View>
   );
 }
-
 /*
 |--------------------------------------------------------------------------
 | Selected Property Card
 |--------------------------------------------------------------------------
 */
-
 function SelectedPropertyCard({
   property,
   canChange,
   onChange,
 }: {
   property: PropertyItem;
-
   canChange: boolean;
-
   onChange:
     () => void;
 }) {
@@ -3251,7 +2759,6 @@ function SelectedPropertyCard({
     getImageUrl(
       property
     );
-
   return (
     <View
       style={
@@ -3281,7 +2788,6 @@ function SelectedPropertyCard({
           />
         </View>
       )}
-
       <View
         style={{
           flex: 1,
@@ -3296,7 +2802,6 @@ function SelectedPropertyCard({
             property
           )}
         </Text>
-
         <Text
           style={
             styles.selectedPropertyLocation
@@ -3306,7 +2811,6 @@ function SelectedPropertyCard({
             property
           )}
         </Text>
-
         <Text
           style={
             styles.selectedPropertyAmount
@@ -3316,7 +2820,6 @@ function SelectedPropertyCard({
             property.amount
           )}
         </Text>
-
         {canChange && (
           <TouchableOpacity
             onPress={
@@ -3336,13 +2839,11 @@ function SelectedPropertyCard({
     </View>
   );
 }
-
 /*
 |--------------------------------------------------------------------------
 | Styles
 |--------------------------------------------------------------------------
 */
-
 const styles =
   StyleSheet.create({
     page: {
@@ -3350,12 +2851,10 @@ const styles =
       backgroundColor:
         "#f8fafc",
     },
-
     container: {
       padding: 18,
       flexGrow: 1,
     },
-
     center: {
       flex: 1,
       alignItems:
@@ -3366,14 +2865,12 @@ const styles =
       backgroundColor:
         "#f8fafc",
     },
-
     loadingText: {
       marginTop: 12,
       color: "#64748b",
       fontWeight:
         "700",
     },
-
     header: {
       flexDirection:
         "row",
@@ -3382,7 +2879,6 @@ const styles =
       gap: 12,
       marginBottom: 24,
     },
-
     backButton: {
       width: 42,
       height: 42,
@@ -3397,14 +2893,12 @@ const styles =
       borderColor:
         "#e2e8f0",
     },
-
     heading: {
       fontSize: 26,
       fontWeight:
         "900",
       color: "#0f172a",
     },
-
     headingSubtitle: {
       color: "#64748b",
       marginTop: 5,
@@ -3412,7 +2906,6 @@ const styles =
       fontWeight:
         "600",
     },
-
     sectionTitle: {
       color: "#0f172a",
       fontSize: 19,
@@ -3420,7 +2913,6 @@ const styles =
         "900",
       marginBottom: 5,
     },
-
     sectionSubtitle: {
       color: "#64748b",
       lineHeight: 19,
@@ -3428,7 +2920,6 @@ const styles =
       fontWeight:
         "600",
     },
-
     emptyCard: {
       marginTop: 14,
       backgroundColor:
@@ -3441,7 +2932,6 @@ const styles =
       borderColor:
         "#e2e8f0",
     },
-
     emptyTitle: {
       marginTop: 12,
       color: "#0f172a",
@@ -3451,7 +2941,6 @@ const styles =
       textAlign:
         "center",
     },
-
     emptyText: {
       color: "#64748b",
       marginTop: 7,
@@ -3461,7 +2950,6 @@ const styles =
       fontWeight:
         "600",
     },
-
     browseButton: {
       marginTop: 16,
       backgroundColor:
@@ -3470,13 +2958,11 @@ const styles =
       paddingVertical: 12,
       borderRadius: 12,
     },
-
     browseButtonText: {
       color: "#ffffff",
       fontWeight:
         "900",
     },
-
     propertyCard: {
       backgroundColor:
         "#ffffff",
@@ -3489,18 +2975,15 @@ const styles =
       borderColor:
         "#e2e8f0",
     },
-
     propertyImageContainer: {
       height: 155,
       backgroundColor:
         "#e2e8f0",
     },
-
     propertyImage: {
       width: "100%",
       height: "100%",
     },
-
     noImage: {
       flex: 1,
       alignItems:
@@ -3508,25 +2991,21 @@ const styles =
       justifyContent:
         "center",
     },
-
     propertyBody: {
       padding: 15,
     },
-
     propertyTitle: {
       color: "#0f172a",
       fontSize: 18,
       fontWeight:
         "900",
     },
-
     propertyLocation: {
       color: "#64748b",
       marginTop: 5,
       fontWeight:
         "600",
     },
-
     propertyAmount: {
       color: "#0f172a",
       marginTop: 9,
@@ -3534,7 +3013,6 @@ const styles =
       fontWeight:
         "900",
     },
-
     chooseButton: {
       backgroundColor:
         "#2563eb",
@@ -3550,14 +3028,12 @@ const styles =
         "center",
       gap: 5,
     },
-
     chooseButtonText: {
       color: "#ffffff",
       fontWeight:
         "900",
       fontSize: 14,
     },
-
     removeInterestButton: {
       minHeight: 44,
       marginTop: 8,
@@ -3572,13 +3048,11 @@ const styles =
       paddingHorizontal: 14,
       paddingVertical: 10,
     },
-
     removeInterestButtonText: {
       color: "#b91c1c",
       fontWeight: "800",
       fontSize: 14,
     },
-
     selectedPropertyCard: {
       backgroundColor:
         "#ffffff",
@@ -3591,7 +3065,6 @@ const styles =
       borderColor:
         "#e2e8f0",
     },
-
     selectedPropertyImage: {
       width: 92,
       height: 92,
@@ -3599,7 +3072,6 @@ const styles =
       backgroundColor:
         "#e2e8f0",
     },
-
     selectedPropertyNoImage: {
       width: 92,
       height: 92,
@@ -3611,14 +3083,12 @@ const styles =
       justifyContent:
         "center",
     },
-
     selectedPropertyTitle: {
       color: "#0f172a",
       fontSize: 16,
       fontWeight:
         "900",
     },
-
     selectedPropertyLocation: {
       color: "#64748b",
       marginTop: 4,
@@ -3626,7 +3096,6 @@ const styles =
       fontWeight:
         "600",
     },
-
     selectedPropertyAmount: {
       color: "#0f172a",
       marginTop: 7,
@@ -3634,7 +3103,6 @@ const styles =
       fontWeight:
         "900",
     },
-
     changeProperty: {
       marginTop: 7,
       color: "#2563eb",
@@ -3642,7 +3110,6 @@ const styles =
       fontWeight:
         "900",
     },
-
     preparingCard: {
       marginTop: 20,
       backgroundColor:
@@ -3658,13 +3125,11 @@ const styles =
         "center",
       gap: 12,
     },
-
     preparingTitle: {
       color: "#1e3a8a",
       fontWeight:
         "900",
     },
-
     preparingText: {
       color: "#475569",
       fontSize: 12,
@@ -3673,7 +3138,6 @@ const styles =
       lineHeight: 18,
       marginTop: 3,
     },
-
     statusCard: {
       marginTop: 20,
       borderRadius: 18,
@@ -3682,21 +3146,18 @@ const styles =
         "center",
       borderWidth: 1,
     },
-
     statusWarningCard: {
       backgroundColor:
         "#fffbeb",
       borderColor:
         "#fde68a",
     },
-
     statusInfoCard: {
       backgroundColor:
         "#eff6ff",
       borderColor:
         "#bfdbfe",
     },
-
     statusTitle: {
       marginTop: 10,
       color: "#0f172a",
@@ -3706,7 +3167,6 @@ const styles =
       textAlign:
         "center",
     },
-
     statusMessage: {
       marginTop: 7,
       color: "#475569",
@@ -3716,7 +3176,6 @@ const styles =
       fontWeight:
         "600",
     },
-
     existingAppointmentBox: {
       width: "100%",
       marginTop: 14,
@@ -3725,21 +3184,18 @@ const styles =
       borderRadius: 12,
       padding: 12,
     },
-
     existingAppointmentLabel: {
       color: "#64748b",
       fontSize: 11,
       fontWeight:
         "800",
     },
-
     existingAppointmentValue: {
       color: "#0f172a",
       marginTop: 4,
       fontWeight:
         "900",
     },
-
     notificationInfo: {
       marginTop: 12,
       color: "#475569",
@@ -3750,7 +3206,6 @@ const styles =
       fontWeight:
         "600",
     },
-
     primaryButton: {
       marginTop: 16,
       backgroundColor:
@@ -3766,13 +3221,11 @@ const styles =
         "center",
       gap: 6,
     },
-
     primaryButtonText: {
       color: "#ffffff",
       fontWeight:
         "900",
     },
-
     escrowSuccessCard: {
       backgroundColor:
         "#ecfdf5",
@@ -3782,7 +3235,6 @@ const styles =
       borderRadius: 18,
       padding: 16,
     },
-
     escrowWarningCard: {
       backgroundColor:
         "#fffbeb",
@@ -3792,7 +3244,6 @@ const styles =
       borderRadius: 18,
       padding: 16,
     },
-
     escrowHeader: {
       flexDirection:
         "row",
@@ -3801,14 +3252,12 @@ const styles =
       gap: 10,
       marginBottom: 14,
     },
-
     escrowTitle: {
       color: "#0f172a",
       fontSize: 15,
       fontWeight:
         "900",
     },
-
     escrowDescription: {
       color: "#475569",
       lineHeight: 18,
@@ -3817,7 +3266,6 @@ const styles =
       fontWeight:
         "600",
     },
-
     moneyRow: {
       flexDirection:
         "row",
@@ -3829,7 +3277,6 @@ const styles =
         "rgba(100,116,139,0.15)",
       gap: 12,
     },
-
     moneyLabel: {
       color: "#64748b",
       fontSize: 12,
@@ -3837,14 +3284,12 @@ const styles =
         "700",
       flex: 1,
     },
-
     moneyValue: {
       color: "#0f172a",
       fontSize: 13,
       fontWeight:
         "900",
     },
-
     fundEscrowButton: {
       marginTop: 14,
       backgroundColor:
@@ -3859,13 +3304,11 @@ const styles =
         "center",
       gap: 7,
     },
-
     fundEscrowText: {
       color: "#ffffff",
       fontWeight:
         "900",
     },
-
     noAvailabilityCard: {
       marginTop: 16,
       backgroundColor:
@@ -3878,7 +3321,6 @@ const styles =
       borderColor:
         "#e2e8f0",
     },
-
     bookingSelectorCard: {
       marginTop: 16,
       backgroundColor:
@@ -3889,7 +3331,6 @@ const styles =
       borderColor:
         "#e2e8f0",
     },
-
     selectorLabel: {
       color: "#334155",
       fontSize: 13,
@@ -3897,7 +3338,6 @@ const styles =
         "800",
       marginBottom: 7,
     },
-
     selectInput: {
       minHeight: 54,
       borderWidth: 1,
@@ -3915,18 +3355,15 @@ const styles =
         "space-between",
       gap: 10,
     },
-
     selectInputActive: {
       borderColor:
         "#2563eb",
     },
-
     selectInputDisabled: {
       backgroundColor:
         "#f8fafc",
       opacity: 0.7,
     },
-
     selectInputLeft: {
       flex: 1,
       minWidth: 0,
@@ -3936,7 +3373,6 @@ const styles =
         "center",
       gap: 10,
     },
-
     selectValue: {
       flex: 1,
       color: "#0f172a",
@@ -3944,7 +3380,6 @@ const styles =
       fontWeight:
         "800",
     },
-
     selectPlaceholder: {
       flex: 1,
       color: "#94a3b8",
@@ -3952,7 +3387,6 @@ const styles =
       fontWeight:
         "600",
     },
-
     dropdownBox: {
       marginTop: 7,
       backgroundColor:
@@ -3964,7 +3398,6 @@ const styles =
       overflow:
         "hidden",
     },
-
     dropdownOption: {
       minHeight: 52,
       paddingHorizontal: 14,
@@ -3980,23 +3413,19 @@ const styles =
       borderBottomColor:
         "#f1f5f9",
     },
-
     dropdownOptionSelected: {
       backgroundColor:
         "#eff6ff",
     },
-
     dropdownOptionTitle: {
       color: "#0f172a",
       fontSize: 14,
       fontWeight:
         "800",
     },
-
     dropdownOptionTitleSelected: {
       color: "#1d4ed8",
     },
-
     dropdownOptionSubtitle: {
       color: "#64748b",
       fontSize: 11,
@@ -4004,7 +3433,6 @@ const styles =
         "600",
       marginTop: 3,
     },
-
     timeOptionRow: {
       flexDirection:
         "row",
@@ -4012,7 +3440,6 @@ const styles =
         "center",
       gap: 9,
     },
-
     label: {
       marginTop: 16,
       marginBottom: 7,
@@ -4021,13 +3448,11 @@ const styles =
         "800",
       fontSize: 13,
     },
-
     optional: {
       color: "#94a3b8",
       fontWeight:
         "600",
     },
-
     input: {
       backgroundColor:
         "#ffffff",
@@ -4040,13 +3465,11 @@ const styles =
       color: "#0f172a",
       fontSize: 14,
     },
-
     noteInput: {
       minHeight: 100,
       textAlignVertical:
         "top",
     },
-
     summaryCard: {
       marginTop: 18,
       backgroundColor:
@@ -4062,13 +3485,11 @@ const styles =
       borderColor:
         "#a7f3d0",
     },
-
     summaryTitle: {
       color: "#065f46",
       fontWeight:
         "900",
     },
-
     summaryText: {
       marginTop: 3,
       color: "#047857",
@@ -4076,7 +3497,6 @@ const styles =
       fontWeight:
         "700",
     },
-
     bookButton: {
       marginTop: 20,
       backgroundColor:
@@ -4091,18 +3511,15 @@ const styles =
         "center",
       gap: 7,
     },
-
     disabledButton: {
       opacity: 0.5,
     },
-
     bookButtonText: {
       color: "#ffffff",
       fontWeight:
         "900",
       fontSize: 15,
     },
-
     safetyCard: {
       marginTop: 16,
       backgroundColor:
@@ -4118,7 +3535,6 @@ const styles =
       borderColor:
         "#bfdbfe",
     },
-
     safetyText: {
       flex: 1,
       color: "#1e3a8a",

@@ -1,19 +1,15 @@
 import API from "@/src/services/api";
-
 import {
   MaterialCommunityIcons,
 } from "@expo/vector-icons";
-
 import {
   useFocusEffect,
   useRouter,
 } from "expo-router";
-
 import React, {
   useCallback,
   useState,
 } from "react";
-
 import {
   ActivityIndicator,
   Alert,
@@ -24,143 +20,109 @@ import {
   TouchableOpacity,
   View,
 } from "react-native";
-
 /*
 |--------------------------------------------------------------------------
 | Types
 |--------------------------------------------------------------------------
 */
-
 type AppointmentStatus = {
   id?: number | string;
   code?: string | null;
   name?: string | null;
 };
-
 type Property = {
   id?: number | string;
-
   title?: string | null;
   name?: string | null;
-
   amount?: string | number | null;
-
   property_type?: {
     id?: number | string;
     name?: string | null;
   } | null;
-
   area?: {
     id?: number | string;
     name?: string | null;
   } | null;
-
   state?: {
     id?: number | string;
     name?: string | null;
   } | null;
-
   rental_detail?: {
     building_type?: {
       name?: string | null;
     } | null;
-
     flat_type?: {
       name?: string | null;
     } | null;
-
     building?: {
       name?: string | null;
     } | null;
   } | null;
-
   house_sale?: {
     building_type?: {
       name?: string | null;
     } | null;
-
     building?: {
       name?: string | null;
     } | null;
   } | null;
-
   land_sale?: {
     measurement?: string | null;
   } | null;
 };
-
 type Appointment = {
   id: number | string;
-
   uuid?: string | null;
-
   property_id:
     | number
     | string;
-
   customer_id:
     | number
     | string;
-
   lister_id:
     | number
     | string;
-
   status_id?:
     | number
     | string;
-
   status?:
     | AppointmentStatus
     | string
     | null;
-
   status_code?:
     | string
     | null;
-
   appointment_date?:
     | string
     | null;
-
   start_time?:
     | string
     | null;
-
   end_time?:
     | string
     | null;
-
   customer_note?:
     | string
     | null;
-
   property?:
     | Property
     | null;
-
   lister?: {
     id?: number | string;
     name?: string | null;
   } | null;
 };
-
 type CustomerAppointmentsResponse = {
   success?: boolean;
-
   message?: string;
-
   data?: Appointment[];
-
   appointments?: Appointment[];
 };
-
 /*
 |--------------------------------------------------------------------------
 | Helpers
 |--------------------------------------------------------------------------
 */
-
 function getStatusCode(
   appointment: Appointment
 ): string {
@@ -172,7 +134,6 @@ function getStatusCode(
       .trim()
       .toLowerCase();
   }
-
   if (
     appointment.status &&
     typeof appointment.status ===
@@ -185,7 +146,6 @@ function getStatusCode(
       .trim()
       .toLowerCase();
   }
-
   return (
     appointment.status_code ||
     ""
@@ -193,7 +153,6 @@ function getStatusCode(
     .trim()
     .toLowerCase();
 }
-
 function getStatusLabel(
   appointment: Appointment
 ): string {
@@ -204,49 +163,39 @@ function getStatusLabel(
   ) {
     return appointment.status.name;
   }
-
   const code =
     getStatusCode(
       appointment
     );
-
   switch (code) {
     case "appointment_pending":
     case "pending":
       return "Pending";
-
     case "appointment_confirmed":
     case "confirmed":
     case "appointment_accepted":
     case "accepted":
       return "Confirmed";
-
     case "appointment_rejected":
     case "rejected":
     case "appointment_declined":
     case "declined":
       return "Rejected";
-
     case "appointment_cancelled":
     case "cancelled":
       return "Cancelled";
-
     case "appointment_completed":
     case "completed":
       return "Completed";
-
     case "appointment_expired":
     case "expired":
       return "Expired";
-
     case "appointment_rescheduled":
     case "rescheduled":
       return "Rescheduled";
-
     case "appointment_reschedule_requested":
     case "reschedule_requested":
       return "Reschedule Requested";
-
     default:
       return (
         code
@@ -267,7 +216,6 @@ function getStatusLabel(
       );
   }
 }
-
 function getStatusColor(
   appointment: Appointment
 ): string {
@@ -275,7 +223,6 @@ function getStatusColor(
     getStatusCode(
       appointment
     );
-
   if (
     [
       "appointment_confirmed",
@@ -288,7 +235,6 @@ function getStatusColor(
   ) {
     return "#16a34a";
   }
-
   if (
     [
       "appointment_pending",
@@ -299,7 +245,6 @@ function getStatusColor(
   ) {
     return "#ca8a04";
   }
-
   if (
     [
       "appointment_rejected",
@@ -310,32 +255,26 @@ function getStatusColor(
   ) {
     return "#dc2626";
   }
-
   return "#64748b";
 }
-
 function getPropertyTitle(
   appointment: Appointment
 ): string {
   const property =
     appointment.property;
-
   if (!property) {
     return `Property #${appointment.property_id}`;
   }
-
   if (
     property.title
   ) {
     return property.title;
   }
-
   if (
     property.name
   ) {
     return property.name;
   }
-
   if (
     Number(
       property.property_type?.id
@@ -351,7 +290,6 @@ function getPropertyTitle(
       "Rental Property"
     );
   }
-
   if (
     Number(
       property.property_type?.id
@@ -365,7 +303,6 @@ function getPropertyTitle(
       "House for Sale"
     );
   }
-
   if (
     Number(
       property.property_type?.id
@@ -376,30 +313,25 @@ function getPropertyTitle(
       ? `${property.land_sale.measurement} Land`
       : "Land for Sale";
   }
-
   return (
     property.property_type
       ?.name ||
     `Property #${appointment.property_id}`
   );
 }
-
 function getLocation(
   appointment: Appointment
 ): string | null {
   const parts = [
     appointment.property
       ?.area?.name,
-
     appointment.property
       ?.state?.name,
   ].filter(Boolean);
-
   return parts.length
     ? parts.join(", ")
     : null;
 }
-
 function formatTime(
   value?:
     | string
@@ -408,40 +340,32 @@ function formatTime(
   if (!value) {
     return "--";
   }
-
   const parts =
     value.split(":");
-
   if (
     parts.length <
     2
   ) {
     return value;
   }
-
   const hour =
     Number(parts[0]);
-
   const minute =
     Number(parts[1]);
-
   if (
     Number.isNaN(hour) ||
     Number.isNaN(minute)
   ) {
     return value;
   }
-
   const date =
     new Date();
-
   date.setHours(
     hour,
     minute,
     0,
     0
   );
-
   return date.toLocaleTimeString(
     [],
     {
@@ -450,17 +374,14 @@ function formatTime(
     }
   );
 }
-
 /*
 |--------------------------------------------------------------------------
 | Screen
 |--------------------------------------------------------------------------
 */
-
 export default function CustomerAppointmentsScreen() {
   const router =
     useRouter();
-
   const [
     appointments,
     setAppointments,
@@ -468,25 +389,21 @@ export default function CustomerAppointmentsScreen() {
     useState<Appointment[]>(
       []
     );
-
   const [
     loading,
     setLoading,
   ] =
     useState(true);
-
   const [
     refreshing,
     setRefreshing,
   ] =
     useState(false);
-
   /*
   |--------------------------------------------------------------------------
   | Load appointments where user is CUSTOMER
   |--------------------------------------------------------------------------
   */
-
   const loadAppointments =
     useCallback(
       async (
@@ -500,32 +417,15 @@ export default function CustomerAppointmentsScreen() {
               true
             );
           }
-
-          console.log(
-            "======================================"
-          );
-
-          console.log(
-            "Loading CUSTOMER appointments..."
-          );
-
+          
+          
           const response =
             await API.get<CustomerAppointmentsResponse>(
               "/customer/interested-appointments"
             );
-
-          console.log(
-            "Customer appointment API response:",
-            JSON.stringify(
-              response.data,
-              null,
-              2
-            )
-          );
-
+          
           const responseData =
             response.data;
-
           const loadedAppointments =
             Array.isArray(
               responseData?.data
@@ -537,43 +437,20 @@ export default function CustomerAppointmentsScreen() {
                   )
                 ? responseData.appointments
                 : [];
-
-          console.log(
-            "Appointment count:",
-            loadedAppointments.length
-          );
-
+          
           setAppointments(
             loadedAppointments
           );
         } catch (
           error: any
         ) {
-          console.error(
-            "CUSTOMER APPOINTMENT LIST ERROR"
-          );
-
-          console.error(
-            "HTTP status:",
-            error?.response
-              ?.status
-          );
-
-          console.error(
-            "Response:",
-            error?.response
-              ?.data
-          );
-
-          console.error(
-            "Message:",
-            error?.message
-          );
-
+          
+          
+          
+          
           setAppointments(
             []
           );
-
           if (
             error?.response
               ?.status === 401
@@ -585,7 +462,6 @@ export default function CustomerAppointmentsScreen() {
                 {
                   text:
                     "Sign In",
-
                   onPress: () =>
                     router.replace(
                       "/login" as never
@@ -593,10 +469,8 @@ export default function CustomerAppointmentsScreen() {
                 },
               ]
             );
-
             return;
           }
-
           Alert.alert(
             "Could not load appointments",
             error?.response
@@ -608,7 +482,6 @@ export default function CustomerAppointmentsScreen() {
           setLoading(
             false
           );
-
           setRefreshing(
             false
           );
@@ -618,13 +491,11 @@ export default function CustomerAppointmentsScreen() {
         router,
       ]
     );
-
   /*
   |--------------------------------------------------------------------------
   | Refresh every time screen receives focus
   |--------------------------------------------------------------------------
   */
-
   useFocusEffect(
     useCallback(
       () => {
@@ -637,13 +508,11 @@ export default function CustomerAppointmentsScreen() {
       ]
     )
   );
-
   /*
   |--------------------------------------------------------------------------
   | Open ONE appointment
   |--------------------------------------------------------------------------
   */
-
   const openAppointment =
     (
       appointment: Appointment
@@ -653,28 +522,20 @@ export default function CustomerAppointmentsScreen() {
           appointment.uuid ||
             appointment.id
         );
-
-      console.log(
-        "Opening customer appointment:",
-        appointmentId
-      );
-
+      
       router.push({
         pathname:
           "/appointment/customer/view" as never,
-
         params: {
           appointmentId,
         },
       });
     };
-
   /*
   |--------------------------------------------------------------------------
   | Loading
   |--------------------------------------------------------------------------
   */
-
   if (
     loading
   ) {
@@ -688,7 +549,6 @@ export default function CustomerAppointmentsScreen() {
           size="large"
           color="#147D64"
         />
-
         <Text
           style={
             styles.loadingText
@@ -699,7 +559,6 @@ export default function CustomerAppointmentsScreen() {
       </View>
     );
   }
-
   return (
     <View
       style={
@@ -711,7 +570,6 @@ export default function CustomerAppointmentsScreen() {
       | Header
       |--------------------------------------------------------------------------
       */}
-
       <View
         style={
           styles.header
@@ -732,7 +590,6 @@ export default function CustomerAppointmentsScreen() {
             color="#0f172a"
           />
         </TouchableOpacity>
-
         <View
           style={{
             flex: 1,
@@ -745,7 +602,6 @@ export default function CustomerAppointmentsScreen() {
           >
             Appointments I Booked
           </Text>
-
           <Text
             style={
               styles.subtitle
@@ -755,7 +611,6 @@ export default function CustomerAppointmentsScreen() {
           </Text>
         </View>
       </View>
-
       <FlatList
         data={
           appointments
@@ -783,7 +638,6 @@ export default function CustomerAppointmentsScreen() {
                 setRefreshing(
                   true
                 );
-
                 loadAppointments(
                   false
                 );
@@ -798,12 +652,10 @@ export default function CustomerAppointmentsScreen() {
             getStatusCode(
               item
             );
-
           const location =
             getLocation(
               item
             );
-
           const pending =
             [
               "appointment_pending",
@@ -811,7 +663,6 @@ export default function CustomerAppointmentsScreen() {
             ].includes(
               code
             );
-
           return (
             <TouchableOpacity
               style={
@@ -846,7 +697,6 @@ export default function CustomerAppointmentsScreen() {
                       item
                     )}
                   </Text>
-
                   {location && (
                     <View
                       style={
@@ -858,7 +708,6 @@ export default function CustomerAppointmentsScreen() {
                         size={17}
                         color="#64748b"
                       />
-
                       <Text
                         style={
                           styles.location
@@ -871,11 +720,9 @@ export default function CustomerAppointmentsScreen() {
                     </View>
                   )}
                 </View>
-
                 <View
                   style={[
                     styles.statusBadge,
-
                     {
                       borderColor:
                         getStatusColor(
@@ -887,7 +734,6 @@ export default function CustomerAppointmentsScreen() {
                   <Text
                     style={[
                       styles.statusText,
-
                       {
                         color:
                           getStatusColor(
@@ -902,13 +748,11 @@ export default function CustomerAppointmentsScreen() {
                   </Text>
                 </View>
               </View>
-
               <View
                 style={
                   styles.divider
                 }
               />
-
               <View
                 style={
                   styles.detailRow
@@ -919,7 +763,6 @@ export default function CustomerAppointmentsScreen() {
                   size={19}
                   color="#147D64"
                 />
-
                 <Text
                   style={
                     styles.detailText
@@ -929,7 +772,6 @@ export default function CustomerAppointmentsScreen() {
                     "Date unavailable"}
                 </Text>
               </View>
-
               <View
                 style={
                   styles.detailRow
@@ -940,7 +782,6 @@ export default function CustomerAppointmentsScreen() {
                   size={19}
                   color="#147D64"
                 />
-
                 <Text
                   style={
                     styles.detailText
@@ -955,7 +796,6 @@ export default function CustomerAppointmentsScreen() {
                   )}
                 </Text>
               </View>
-
               {pending && (
                 <View
                   style={
@@ -967,7 +807,6 @@ export default function CustomerAppointmentsScreen() {
                     size={19}
                     color="#92400e"
                   />
-
                   <Text
                     style={
                       styles.pendingText
@@ -977,7 +816,6 @@ export default function CustomerAppointmentsScreen() {
                   </Text>
                 </View>
               )}
-
               <View
                 style={
                   styles.viewRow
@@ -990,7 +828,6 @@ export default function CustomerAppointmentsScreen() {
                 >
                   View Appointment
                 </Text>
-
                 <MaterialCommunityIcons
                   name="chevron-right"
                   size={21}
@@ -1011,7 +848,6 @@ export default function CustomerAppointmentsScreen() {
               size={52}
               color="#94a3b8"
             />
-
             <Text
               style={
                 styles.emptyTitle
@@ -1019,7 +855,6 @@ export default function CustomerAppointmentsScreen() {
             >
               No appointments yet
             </Text>
-
             <Text
               style={
                 styles.emptyText
@@ -1027,7 +862,6 @@ export default function CustomerAppointmentsScreen() {
             >
               Viewing appointments you request as a customer will appear here.
             </Text>
-
             <TouchableOpacity
               style={
                 styles.createButton
@@ -1044,7 +878,6 @@ export default function CustomerAppointmentsScreen() {
                 size={19}
                 color="#ffffff"
               />
-
               <Text
                 style={
                   styles.createButtonText
@@ -1059,7 +892,6 @@ export default function CustomerAppointmentsScreen() {
     </View>
   );
 }
-
 const styles =
   StyleSheet.create({
     container: {
@@ -1068,7 +900,6 @@ const styles =
         "#f8fafc",
       paddingHorizontal: 16,
     },
-
     loadingContainer: {
       flex: 1,
       alignItems:
@@ -1078,14 +909,12 @@ const styles =
       backgroundColor:
         "#f8fafc",
     },
-
     loadingText: {
       marginTop: 12,
       color: "#64748b",
       fontWeight:
         "600",
     },
-
     header: {
       paddingTop: 18,
       paddingBottom: 18,
@@ -1095,7 +924,6 @@ const styles =
         "center",
       gap: 12,
     },
-
     backButton: {
       width: 42,
       height: 42,
@@ -1110,29 +938,24 @@ const styles =
       justifyContent:
         "center",
     },
-
     title: {
       color: "#0f172a",
       fontSize: 21,
       fontWeight:
         "900",
     },
-
     subtitle: {
       color: "#64748b",
       marginTop: 3,
       fontSize: 12,
       lineHeight: 17,
     },
-
     list: {
       paddingBottom: 40,
     },
-
     emptyList: {
       flexGrow: 1,
     },
-
     card: {
       backgroundColor:
         "#ffffff",
@@ -1143,7 +966,6 @@ const styles =
       borderColor:
         "#e2e8f0",
     },
-
     cardTop: {
       flexDirection:
         "row",
@@ -1151,14 +973,12 @@ const styles =
         "flex-start",
       gap: 10,
     },
-
     propertyTitle: {
       color: "#0f172a",
       fontWeight:
         "900",
       fontSize: 16,
     },
-
     locationRow: {
       marginTop: 5,
       flexDirection:
@@ -1167,32 +987,27 @@ const styles =
         "center",
       gap: 4,
     },
-
     location: {
       color: "#64748b",
       fontSize: 12,
     },
-
     statusBadge: {
       borderWidth: 1,
       borderRadius: 20,
       paddingHorizontal: 9,
       paddingVertical: 5,
     },
-
     statusText: {
       fontWeight:
         "800",
       fontSize: 11,
     },
-
     divider: {
       height: 1,
       backgroundColor:
         "#f1f5f9",
       marginVertical: 14,
     },
-
     detailRow: {
       flexDirection:
         "row",
@@ -1201,14 +1016,12 @@ const styles =
       gap: 8,
       marginTop: 7,
     },
-
     detailText: {
       color: "#334155",
       fontSize: 13,
       fontWeight:
         "700",
     },
-
     pendingCard: {
       marginTop: 14,
       borderRadius: 11,
@@ -1221,7 +1034,6 @@ const styles =
         "center",
       gap: 8,
     },
-
     pendingText: {
       flex: 1,
       color: "#92400e",
@@ -1230,7 +1042,6 @@ const styles =
       fontWeight:
         "600",
     },
-
     viewRow: {
       marginTop: 15,
       paddingTop: 12,
@@ -1244,14 +1055,12 @@ const styles =
       alignItems:
         "center",
     },
-
     viewText: {
       color: "#147D64",
       fontWeight:
         "800",
       fontSize: 13,
     },
-
     emptyContainer: {
       flex: 1,
       alignItems:
@@ -1260,7 +1069,6 @@ const styles =
         "center",
       padding: 30,
     },
-
     emptyTitle: {
       marginTop: 13,
       color: "#0f172a",
@@ -1268,7 +1076,6 @@ const styles =
         "900",
       fontSize: 18,
     },
-
     emptyText: {
       marginTop: 7,
       textAlign:
@@ -1276,7 +1083,6 @@ const styles =
       color: "#64748b",
       lineHeight: 20,
     },
-
     createButton: {
       marginTop: 18,
       backgroundColor:
@@ -1290,7 +1096,6 @@ const styles =
         "center",
       gap: 7,
     },
-
     createButtonText: {
       color: "#ffffff",
       fontWeight:

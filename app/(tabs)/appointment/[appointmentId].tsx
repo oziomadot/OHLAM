@@ -1,3 +1,4 @@
+import InspectionFlowCard from 'components/inspection/InspectionFlowCard';
 import React, { useCallback, useState } from "react";
 import {
   ActivityIndicator,
@@ -15,11 +16,9 @@ import {
   useLocalSearchParams,
   useRouter,
 } from "expo-router";
-
 import API from "@/src/services/api";
 import Protected from "components/Protected";
 import ScreenWrapper from "components/ScreenWrapper";
-
 type AppointmentDetail = {
   id: number | string;
   customer_id?: number | string;
@@ -30,7 +29,6 @@ type AppointmentDetail = {
   customer_note?: string | null;
   lister_note?: string | null;
   meeting_place?: string | null;
-
   can_proceed_to_payment?: boolean;
   payment_status?: string | null;
   inspection_completed?: boolean;
@@ -60,50 +58,39 @@ type AppointmentDetail = {
     last_name?: string | null;
   } | null;
 };
-
 function firstParam(
   value: string | string[] | undefined
 ): string | null {
   if (Array.isArray(value)) {
     return value[0] || null;
   }
-
   return value || null;
 }
-
 function formatTime(value?: string | null): string {
   if (!value) {
     return "Not provided";
   }
-
   const [hourValue, minuteValue] = value.split(":");
   const hour = Number(hourValue);
   const minute = Number(minuteValue);
-
   if (Number.isNaN(hour) || Number.isNaN(minute)) {
     return value;
   }
-
   const date = new Date();
   date.setHours(hour, minute, 0, 0);
-
   return date.toLocaleTimeString("en-NG", {
     hour: "numeric",
     minute: "2-digit",
   });
 }
-
 function formatDate(value?: string | null): string {
   if (!value) {
     return "Not provided";
   }
-
   const date = new Date(`${value.slice(0, 10)}T12:00:00`);
-
   if (Number.isNaN(date.getTime())) {
     return value;
   }
-
   return date.toLocaleDateString("en-NG", {
     weekday: "long",
     day: "numeric",
@@ -111,12 +98,10 @@ function formatDate(value?: string | null): string {
     year: "numeric",
   });
 }
-
 function statusLabel(appointment: AppointmentDetail): string {
   if (appointment.status?.name) {
     return appointment.status.name;
   }
-
   return String(
     appointment.status?.code || "Appointment"
   )
@@ -124,10 +109,8 @@ function statusLabel(appointment: AppointmentDetail): string {
     .replace(/_/g, " ")
     .replace(/\b\w/g, (letter) => letter.toUpperCase());
 }
-
 function listerName(appointment: AppointmentDetail): string {
   const lister = appointment.lister;
-
   return (
     lister?.full_name ||
     lister?.name ||
@@ -137,18 +120,15 @@ function listerName(appointment: AppointmentDetail): string {
     "Property lister"
   );
 }
-
 type AppointmentViewerRole =
   | "customer"
   | "lister";
-
 export default function AppointmentDetailScreen() {
   const router = useRouter();
   const params = useLocalSearchParams<{
     appointmentId?: string | string[];
   }>();
   const appointmentId = firstParam(params.appointmentId);
-
   const [appointment, setAppointment] =
     useState<AppointmentDetail | null>(null);
   const [loading, setLoading] = useState(true);
@@ -159,7 +139,6 @@ export default function AppointmentDetailScreen() {
     useState<AppointmentViewerRole | null>(null);
   const [openingChat, setOpeningChat] =
     useState(false);
-
   const loadAppointment = useCallback(
     async (showLoading = true) => {
       if (!appointmentId) {
@@ -168,24 +147,18 @@ export default function AppointmentDetailScreen() {
         setRefreshing(false);
         return;
       }
-
       try {
         if (showLoading) {
           setLoading(true);
         }
-
         setErrorMessage(null);
-
         const response =
           await API.getAppointment(appointmentId);
-
         const loadedAppointment =
           response?.data ?? response?.appointment ?? null;
-
         if (!loadedAppointment?.id) {
           throw new Error("Appointment could not be loaded.");
         }
-
         setAppointment(loadedAppointment);
         setViewerRole(
           response?.viewer_role === "lister"
@@ -207,37 +180,30 @@ export default function AppointmentDetailScreen() {
     },
     [appointmentId]
   );
-
   useFocusEffect(
     useCallback(() => {
       void loadAppointment();
     }, [loadAppointment])
   );
-
   const openAppointmentChat = async () => {
     if (!appointment?.id || openingChat) {
       return;
     }
-
     try {
       setOpeningChat(true);
-
       const response =
         await API.createAppointmentConversation(
           appointment.id
         );
-
       const conversation =
         response?.data?.conversation ??
         response?.data ??
         response?.conversation;
-
       if (!conversation?.id) {
         throw new Error(
           "The conversation could not be opened."
         );
       }
-
       router.push({
         pathname:
           "/(tabs)/chat" as never,
@@ -259,100 +225,25 @@ export default function AppointmentDetailScreen() {
       setOpeningChat(false);
     }
   };
-
   const openPropertyDetails = () => {
   const propertyId =
     appointment?.property?.id ??
     appointment?.property?.uuid;
-
   if (!propertyId) {
     Alert.alert(
       "Unable to Open Property",
       "The property ID is missing from this appointment."
     );
-
     return;
   }
-
   router.push({
     pathname:
       "/(tabs)/properties/[id]" as never,
-
     params: {
       id: String(propertyId),
     },
   });
 };
-
-const proceedWithPayment = () => {
-  if (!appointment?.id) {
-    Alert.alert(
-      "Unable to Continue",
-      "The appointment ID is missing."
-    );
-
-    return;
-  }
-
-  if (viewerRole !== "customer") {
-    Alert.alert(
-      "Customer Payment",
-      "Only the customer can make payment for this property."
-    );
-
-    return;
-  }
-
-  if (!appointment.can_proceed_to_payment) {
-    Alert.alert(
-      "Payment Not Available",
-      "Payment will become available after the inspection has been successfully completed and verified."
-    );
-
-    return;
-  }
-
-  router.push({
-    /*
-     * This is the proposed payment screen.
-     * Create this route during payment implementation.
-     */
-    pathname:
-      "/(tabs)/property-payment/[settlementId]" as never,
-
-    params: {
-      appointmentId:
-        String(appointment.id),
-
-      propertyId:
-        String(
-          appointment.property?.id ??
-          appointment.property?.uuid ??
-          ""
-        ),
-    },
-  });
-};
-
-  const openInspection = () => {
-    if (!appointment?.id) {
-      Alert.alert(
-        "Unable to Open Inspection",
-        "The appointment ID is missing."
-      );
-      return;
-    }
-
-    router.push({
-      pathname:
-        "/(tabs)/inspection" as never,
-      params: {
-        appointmentId:
-          String(appointment.id),
-      },
-    });
-  };
-
   if (loading) {
     return (
       <Protected>
@@ -367,7 +258,6 @@ const proceedWithPayment = () => {
       </Protected>
     );
   }
-
   return (
     <Protected>
       <ScreenWrapper>
@@ -394,7 +284,6 @@ const proceedWithPayment = () => {
                 color="#0f172a"
               />
             </TouchableOpacity>
-
             <View style={styles.headerText}>
               <Text style={styles.title}>Appointment Details</Text>
               <Text style={styles.subtitle}>
@@ -402,7 +291,6 @@ const proceedWithPayment = () => {
               </Text>
             </View>
           </View>
-
           {errorMessage ? (
             <View style={styles.errorCard}>
               <MaterialCommunityIcons
@@ -414,14 +302,12 @@ const proceedWithPayment = () => {
                 Appointment unavailable
               </Text>
               <Text style={styles.errorText}>{errorMessage}</Text>
-
               <TouchableOpacity
                 style={styles.primaryButton}
                 onPress={() => void loadAppointment()}
               >
                 <Text style={styles.primaryButtonText}>Try Again</Text>
               </TouchableOpacity>
-
               <TouchableOpacity
                 style={styles.secondaryButton}
                 onPress={() =>
@@ -448,7 +334,6 @@ const proceedWithPayment = () => {
                   </Text>
                 </View>
               </View>
-
               <DetailCard title="Viewing Schedule" icon="calendar-clock">
                 <DetailRow
                   label="Date"
@@ -469,7 +354,6 @@ const proceedWithPayment = () => {
                   }
                 />
               </DetailCard>
-
               <DetailCard title="Property" icon="home-outline">
                 <DetailRow
                   label="Type"
@@ -501,7 +385,6 @@ const proceedWithPayment = () => {
                   value={listerName(appointment)}
                 />
               </DetailCard>
-
               {(appointment.customer_note || appointment.lister_note) && (
                 <DetailCard title="Notes" icon="note-text-outline">
                   {appointment.customer_note ? (
@@ -518,7 +401,6 @@ const proceedWithPayment = () => {
                   ) : null}
                 </DetailCard>
               )}
-
               <TouchableOpacity
   style={styles.propertyButton}
   activeOpacity={0.85}
@@ -529,18 +411,15 @@ const proceedWithPayment = () => {
     size={21}
     color="#2563eb"
   />
-
   <Text style={styles.propertyButtonText}>
     View Property Details
   </Text>
-
   <MaterialCommunityIcons
     name="chevron-right"
     size={22}
     color="#2563eb"
   />
 </TouchableOpacity>
-
               <View style={styles.actionCard}>
                 <Text style={styles.actionTitle}>
                   Appointment Communication
@@ -548,7 +427,6 @@ const proceedWithPayment = () => {
                 <Text style={styles.actionDescription}>
                   Keep messages about this viewing inside OHLAM SecureChat.
                 </Text>
-
                 <TouchableOpacity
                   style={styles.chatButton}
                   disabled={openingChat}
@@ -575,81 +453,7 @@ const proceedWithPayment = () => {
                   </Text>
                 </TouchableOpacity>
               </View>
-
-              <View style={styles.inspectionNotice}>
-                <MaterialCommunityIcons
-                  name="map-marker-check-outline"
-                  size={25}
-                  color="#92400e"
-                />
-                <View style={styles.flexOne}>
-                  <Text style={styles.inspectionButtonText}>
-  Submit Inspection Report
-</Text>
-                  <Text style={styles.inspectionNoticeText}>
-                    {viewerRole === "lister"
-                      ? "At the property, remind the customer to record the inspection outcome in OHLAM. Location verification and both parties’ reviews will be collected on the inspection screen."
-                      : "Record the inspection outcome only while you are at the property. OHLAM will request your location and your separate reviews of the property and lister."}
-                  </Text>
-                </View>
-              </View>
-
-              <TouchableOpacity
-                style={styles.inspectionButton}
-                activeOpacity={0.85}
-                onPress={openInspection}
-              >
-                <MaterialCommunityIcons
-                  name="map-marker-check-outline"
-                  size={21}
-                  color="#ffffff"
-                />
-                <Text style={styles.inspectionButtonText}>
-                  Submit Inspection Report
-                </Text>
-              </TouchableOpacity>
-
-              {viewerRole === "customer" &&
-appointment.can_proceed_to_payment === true ? (
-  <View style={styles.paymentCard}>
-    <View style={styles.paymentHeader}>
-      <MaterialCommunityIcons
-        name="shield-check-outline"
-        size={28}
-        color="#047857"
-      />
-
-      <View style={styles.flexOne}>
-        <Text style={styles.paymentTitle}>
-          Inspection completed
-        </Text>
-
-        <Text style={styles.paymentDescription}>
-          Your inspection has been verified. You can
-          now review the payment breakdown before
-          making payment through Paystack.
-        </Text>
-      </View>
-    </View>
-
-    <TouchableOpacity
-      style={styles.paymentButton}
-      activeOpacity={0.85}
-      onPress={proceedWithPayment}
-    >
-      <MaterialCommunityIcons
-        name="credit-card-check-outline"
-        size={22}
-        color="#ffffff"
-      />
-
-      <Text style={styles.paymentButtonText}>
-        Proceed With Payment
-      </Text>
-    </TouchableOpacity>
-  </View>
-) : null}
-
+              <InspectionFlowCard appointmentId={appointment.id} />
               <TouchableOpacity
                 style={styles.secondaryButton}
                 onPress={() =>
@@ -667,7 +471,6 @@ appointment.can_proceed_to_payment === true ? (
     </Protected>
   );
 }
-
 function DetailCard({
   title,
   icon,
@@ -691,7 +494,6 @@ function DetailCard({
     </View>
   );
 }
-
 function DetailRow({ label, value }: { label: string; value: string }) {
   return (
     <View style={styles.detailRow}>
@@ -702,7 +504,6 @@ function DetailRow({ label, value }: { label: string; value: string }) {
     </View>
   );
 }
-
 const styles = StyleSheet.create({
   container: {
     flexGrow: 1,
@@ -942,14 +743,12 @@ const styles = StyleSheet.create({
   justifyContent: "center",
   gap: 8,
 },
-
 propertyButtonText: {
   flex: 1,
   color: "#2563eb",
   fontWeight: "900",
   textAlign: "center",
 },
-
 paymentCard: {
   padding: 16,
   marginBottom: 14,
@@ -958,26 +757,22 @@ paymentCard: {
   borderWidth: 1,
   borderColor: "#a7f3d0",
 },
-
 paymentHeader: {
   flexDirection: "row",
   alignItems: "flex-start",
   gap: 11,
 },
-
 paymentTitle: {
   color: "#065f46",
   fontSize: 17,
   fontWeight: "900",
 },
-
 paymentDescription: {
   marginTop: 5,
   color: "#047857",
   lineHeight: 20,
   fontWeight: "600",
 },
-
 paymentButton: {
   minHeight: 50,
   marginTop: 15,
@@ -989,7 +784,6 @@ paymentButton: {
   justifyContent: "center",
   gap: 8,
 },
-
 paymentButtonText: {
   color: "#ffffff",
   fontWeight: "900",

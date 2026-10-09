@@ -1,20 +1,17 @@
+import InspectionFlowCard from 'components/inspection/InspectionFlowCard';
 import API from "@/src/services/api";
-
 import {
   MaterialCommunityIcons,
 } from "@expo/vector-icons";
-
 import {
   useFocusEffect,
   useLocalSearchParams,
   useRouter,
 } from "expo-router";
-
 import React, {
   useCallback,
   useState,
 } from "react";
-
 import {
   ActivityIndicator,
   Alert,
@@ -24,88 +21,70 @@ import {
   TouchableOpacity,
   View,
 } from "react-native";
-
 type Appointment = {
   id:
     | number
     | string;
-
   property_id:
     | number
     | string;
-
   appointment_date?:
     | string
     | null;
-
   start_time?:
     | string
     | null;
-
   end_time?:
     | string
     | null;
-
   customer_note?:
     | string
     | null;
-
   status?: {
     id?: number | string;
     code?: string | null;
     name?: string | null;
   } | string | null;
-
   property?: {
     id?: number | string;
     title?: string | null;
-
     property_type?: {
       name?: string | null;
     } | null;
-
     area?: {
       name?: string | null;
     } | null;
-
     state?: {
       name?: string | null;
     } | null;
   } | null;
-
   lister?: {
     id?: number | string;
     name?: string | null;
   } | null;
 };
-
 type AppointmentResponse =
   Appointment & {
     data?: Appointment;
     appointment?: Appointment;
   };
-
 export default function CustomerAppointmentDetailScreen() {
   const router =
     useRouter();
-
   const params =
     useLocalSearchParams<{
       appointmentId?:
         | string
         | string[];
     }>();
-
   const rawId =
     params.appointmentId;
-
   const appointmentId =
     Array.isArray(
       rawId
     )
       ? rawId[0]
       : rawId;
-
   const [
     appointment,
     setAppointment,
@@ -113,19 +92,16 @@ export default function CustomerAppointmentDetailScreen() {
     useState<Appointment | null>(
       null
     );
-
   const [
     loading,
     setLoading,
   ] =
     useState(true);
-
   /*
   |--------------------------------------------------------------------------
   | Load single appointment
   |--------------------------------------------------------------------------
   */
-
   const loadAppointment =
     useCallback(
       async () => {
@@ -136,67 +112,40 @@ export default function CustomerAppointmentDetailScreen() {
             "Appointment unavailable",
             "Appointment ID was not provided."
           );
-
+          setLoading(false);
+          setAppointment(null);
           router.back();
-
           return;
         }
-
         try {
           setLoading(
             true
           );
-
-          console.log(
-            "Loading customer appointment:",
-            appointmentId
-          );
-
+          
           const response =
             await API.get<AppointmentResponse>(
               `/customer/appointments/${appointmentId}`
             );
-
-          console.log(
-            "Customer appointment response:",
-            response.data
-          );
-
+          
           const data =
             response.data
               ?.data ||
             response.data
               ?.appointment ||
             response.data;
-
           if (!data?.id) {
             throw new Error(
               "Appointment could not be loaded."
             );
           }
-
           setAppointment(
             data
           );
         } catch (
           error: any
         ) {
-          console.error(
-            "CUSTOMER APPOINTMENT DETAIL ERROR",
-            {
-              status:
-                error?.response
-                  ?.status,
-
-              response:
-                error?.response
-                  ?.data,
-
-              message:
-                error?.message,
-            }
-          );
-
+          setAppointment(null);
+          
           Alert.alert(
             "Could not load appointment",
             error?.response
@@ -216,7 +165,6 @@ export default function CustomerAppointmentDetailScreen() {
         router,
       ]
     );
-
   useFocusEffect(
     useCallback(
       () => {
@@ -227,7 +175,6 @@ export default function CustomerAppointmentDetailScreen() {
       ]
     )
   );
-
   if (
     loading
   ) {
@@ -241,7 +188,6 @@ export default function CustomerAppointmentDetailScreen() {
           size="large"
           color="#147D64"
         />
-
         <Text
           style={
             styles.loadingText
@@ -252,7 +198,6 @@ export default function CustomerAppointmentDetailScreen() {
       </View>
     );
   }
-
   if (
     !appointment
   ) {
@@ -267,7 +212,6 @@ export default function CustomerAppointmentDetailScreen() {
           size={48}
           color="#94a3b8"
         />
-
         <Text
           style={
             styles.emptyTitle
@@ -275,7 +219,6 @@ export default function CustomerAppointmentDetailScreen() {
         >
           Appointment unavailable
         </Text>
-
         <TouchableOpacity
           style={
             styles.backAction
@@ -296,7 +239,6 @@ export default function CustomerAppointmentDetailScreen() {
       </View>
     );
   }
-
   const status =
     typeof appointment.status ===
       "string"
@@ -304,7 +246,6 @@ export default function CustomerAppointmentDetailScreen() {
       : appointment.status
           ?.code ||
         "unknown";
-
   const statusName =
     typeof appointment.status ===
       "object"
@@ -312,7 +253,6 @@ export default function CustomerAppointmentDetailScreen() {
           ?.name ||
         status
       : status;
-
   return (
     <ScrollView
       style={
@@ -342,7 +282,6 @@ export default function CustomerAppointmentDetailScreen() {
             color="#0f172a"
           />
         </TouchableOpacity>
-
         <View>
           <Text
             style={
@@ -351,7 +290,6 @@ export default function CustomerAppointmentDetailScreen() {
           >
             Appointment
           </Text>
-
           <Text
             style={
               styles.subtitle
@@ -361,7 +299,6 @@ export default function CustomerAppointmentDetailScreen() {
           </Text>
         </View>
       </View>
-
       <View
         style={
           styles.card
@@ -381,7 +318,6 @@ export default function CustomerAppointmentDetailScreen() {
               ?.name ||
             `Property #${appointment.property_id}`}
         </Text>
-
         {(appointment
           .property
           ?.area?.name ||
@@ -397,7 +333,6 @@ export default function CustomerAppointmentDetailScreen() {
               appointment
                 .property
                 ?.area?.name,
-
               appointment
                 .property
                 ?.state?.name,
@@ -408,13 +343,11 @@ export default function CustomerAppointmentDetailScreen() {
               .join(", ")}
           </Text>
         )}
-
         <View
           style={
             styles.divider
           }
         />
-
         <Detail
           icon="calendar-outline"
           label="Date"
@@ -423,13 +356,11 @@ export default function CustomerAppointmentDetailScreen() {
             "Not available"
           }
         />
-
         <Detail
           icon="clock-outline"
           label="Time"
           value={`${appointment.start_time || "--"} - ${appointment.end_time || "--"}`}
         />
-
         <Detail
           icon="information-outline"
           label="Status"
@@ -439,7 +370,6 @@ export default function CustomerAppointmentDetailScreen() {
             )
           }
         />
-
         {appointment
           .lister?.name && (
           <Detail
@@ -452,7 +382,6 @@ export default function CustomerAppointmentDetailScreen() {
             }
           />
         )}
-
         {appointment
           .customer_note && (
           <View
@@ -467,7 +396,6 @@ export default function CustomerAppointmentDetailScreen() {
             >
               Your note
             </Text>
-
             <Text
               style={
                 styles.noteText
@@ -481,10 +409,10 @@ export default function CustomerAppointmentDetailScreen() {
           </View>
         )}
       </View>
+      <InspectionFlowCard appointmentId={appointment.id} expectedRole="customer" />
     </ScrollView>
   );
 }
-
 function Detail({
   icon,
   label,
@@ -507,7 +435,6 @@ function Detail({
         size={21}
         color="#147D64"
       />
-
       <View>
         <Text
           style={
@@ -516,7 +443,6 @@ function Detail({
         >
           {label}
         </Text>
-
         <Text
           style={
             styles.detailValue
@@ -528,7 +454,6 @@ function Detail({
     </View>
   );
 }
-
 const styles =
   StyleSheet.create({
     container: {
@@ -536,12 +461,10 @@ const styles =
       backgroundColor:
         "#f8fafc",
     },
-
     content: {
       padding: 18,
       paddingBottom: 50,
     },
-
     loading: {
       flex: 1,
       alignItems:
@@ -552,12 +475,10 @@ const styles =
         "#f8fafc",
       padding: 30,
     },
-
     loadingText: {
       marginTop: 10,
       color: "#64748b",
     },
-
     header: {
       flexDirection:
         "row",
@@ -566,7 +487,6 @@ const styles =
       gap: 12,
       marginBottom: 20,
     },
-
     backButton: {
       width: 42,
       height: 42,
@@ -581,20 +501,17 @@ const styles =
       justifyContent:
         "center",
     },
-
     title: {
       color: "#0f172a",
       fontSize: 22,
       fontWeight:
         "900",
     },
-
     subtitle: {
       color: "#64748b",
       marginTop: 3,
       fontSize: 12,
     },
-
     card: {
       backgroundColor:
         "#ffffff",
@@ -604,26 +521,22 @@ const styles =
       borderColor:
         "#e2e8f0",
     },
-
     propertyTitle: {
       color: "#0f172a",
       fontWeight:
         "900",
       fontSize: 18,
     },
-
     location: {
       color: "#64748b",
       marginTop: 5,
     },
-
     divider: {
       height: 1,
       backgroundColor:
         "#e2e8f0",
       marginVertical: 17,
     },
-
     detail: {
       flexDirection:
         "row",
@@ -632,21 +545,18 @@ const styles =
       gap: 12,
       marginBottom: 16,
     },
-
     detailLabel: {
       color: "#64748b",
       fontSize: 11,
       fontWeight:
         "700",
     },
-
     detailValue: {
       color: "#0f172a",
       marginTop: 2,
       fontWeight:
         "800",
     },
-
     noteCard: {
       marginTop: 5,
       backgroundColor:
@@ -654,20 +564,17 @@ const styles =
       borderRadius: 12,
       padding: 13,
     },
-
     noteLabel: {
       color: "#64748b",
       fontSize: 11,
       fontWeight:
         "800",
     },
-
     noteText: {
       color: "#334155",
       marginTop: 5,
       lineHeight: 19,
     },
-
     emptyTitle: {
       color: "#0f172a",
       marginTop: 12,
@@ -675,7 +582,6 @@ const styles =
       fontWeight:
         "900",
     },
-
     backAction: {
       marginTop: 18,
       backgroundColor:
@@ -684,11 +590,9 @@ const styles =
       paddingVertical: 12,
       borderRadius: 12,
     },
-
     backActionText: {
       color: "#ffffff",
       fontWeight:
         "800",
     },
   });
-  
