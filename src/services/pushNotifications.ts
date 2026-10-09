@@ -9,7 +9,9 @@ import Constants from "expo-constants";
 import API from "@/src/services/api";
 import { setupNotificationChannels } from "@/src/services/notifications";
 
-export async function registerForPushNotifications() {
+export async function registerForPushNotifications(
+  devicePushToken?: Notifications.DevicePushToken
+) {
   if (!Device.isDevice) {
     console.log(
       "Push notifications require a physical device."
@@ -71,6 +73,9 @@ export async function registerForPushNotifications() {
       await Notifications
         .getExpoPushTokenAsync({
           projectId,
+          // A token-change listener already supplies the native token. Passing
+          // it here avoids fetching it again and recursively firing the listener.
+          ...(devicePushToken ? { devicePushToken } : {}),
         })
     ).data;
 

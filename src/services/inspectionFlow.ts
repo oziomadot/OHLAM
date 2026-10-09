@@ -97,7 +97,7 @@ export function errorText(error: unknown): string {
 }
 const root = (id: Id) => `/appointments/${encodeURIComponent(String(id))}/inspection-flow`;
 export async function loadInspectionFlow(id: Id): Promise<InspectionFlow> {
-  const response = await API.get(root(id));
+  const response = await API.get<{ data?: unknown }>(root(id));
   return validateFlow(response.data?.data);
 }
 export async function mutateInspectionFlow(id: Id, action: FlowAction): Promise<void> {
@@ -105,7 +105,7 @@ export async function mutateInspectionFlow(id: Id, action: FlowAction): Promise<
   await API.post(`${root(id)}/${action.kind}`, action.payload);
 }
 export async function prepareInspectionSettlement(id: Id, revision: number): Promise<{ settlement_id: Id; state: 'ready' | 'awaiting_account_details' | 'processing' | 'paid' }> {
-  const response = await API.post(`${root(id)}/prepare-payment`, { revision });
+  const response = await API.post<{ data?: { settlement_id: Id; state: 'ready' | 'awaiting_account_details' | 'processing' | 'paid' } }>(`${root(id)}/prepare-payment`, { revision });
   const result = response.data?.data;
   if (!result?.settlement_id || !['ready', 'awaiting_account_details', 'processing', 'paid'].includes(result.state)) {
     throw new Error('Laravel did not return a valid settlement. Payment cannot be opened.');

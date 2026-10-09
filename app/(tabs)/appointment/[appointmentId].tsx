@@ -1,4 +1,3 @@
-import InspectionFlowCard from 'components/inspection/InspectionFlowCard';
 import React, { useCallback, useState } from "react";
 import {
   ActivityIndicator,
@@ -453,7 +452,17 @@ export default function AppointmentDetailScreen() {
                   </Text>
                 </TouchableOpacity>
               </View>
-              <InspectionFlowCard appointmentId={appointment.id} />
+              <TouchableOpacity
+                style={styles.inspectionButton}
+                accessibilityRole="button"
+                onPress={() => router.push({
+                  pathname: "/appointment/inspection/[appointmentId]" as never,
+                  params: { appointmentId: String(appointment.id) },
+                })}
+              >
+                <MaterialCommunityIcons name="clipboard-check-outline" size={22} color="#ffffff" />
+                <Text style={styles.inspectionButtonText}>Inspection report</Text>
+              </TouchableOpacity>
               <TouchableOpacity
                 style={styles.secondaryButton}
                 onPress={() =>

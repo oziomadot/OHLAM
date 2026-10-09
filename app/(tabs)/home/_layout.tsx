@@ -123,9 +123,9 @@ void initializeNotifications();
             }
           );
 
-      const tokenSubscription = Notifications.addPushTokenListener(() => {
+      const tokenSubscription = Notifications.addPushTokenListener((devicePushToken) => {
         if (active) {
-          void registerForPushNotifications().catch(() => null);
+          void registerForPushNotifications(devicePushToken).catch(() => null);
         }
       });
 

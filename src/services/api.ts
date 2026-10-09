@@ -84,19 +84,8 @@ API.interceptors.response.use(
 
 
     console.error(
-
       "[API ERROR]",
-
-      JSON.stringify(
-
-        diagnostic,
-
-        null,
-
-        2
-
-      )
-
+      JSON.stringify(diagnostic, null, 2)
     );
 
 
