@@ -5,6 +5,7 @@ export function notificationRoute(data: Record<string, unknown>): string {
     return `/(tabs)/chat/${conversationId}`;
   }
   const route = typeof data.route === "string" ? data.route.replace(/^\/\(tabs\)/, "") : "";
+  if (/^\/property\/[a-zA-Z0-9-]+$/.test(route)) return `/(tabs)/home${route}`;
   if (/^\/(?:appointment\/\d+|appointment\/inspection\/\d+|appointment\/representative\/view\?appointmentId=\d+|property-payment\/transaction\/\d+|property-payment\/\d+|property-payment\/lister\/add-beneficiary\?appointmentId=\d+|wallet(?:\/referral-rewards|\/transactions)?|appointment\/lister\/create|property\/[a-zA-Z0-9-]+)$/.test(route)) {
     return `/(tabs)${route}`;
   }
