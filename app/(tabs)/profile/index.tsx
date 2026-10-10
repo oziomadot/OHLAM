@@ -17,6 +17,10 @@ import { Ionicons } from "@expo/vector-icons";
 import * as Clipboard from "expo-clipboard";
 import QRCode from "react-native-qrcode-svg";
 
+import { useCallback } from "react";
+import { useFocusEffect } from "expo-router";
+import { ENV } from "@/src/config/env";
+
 import Navbar from "components/Navbar";
 import Protected from "components/Protected";
 import API from "@/src/services/api";
@@ -28,13 +32,18 @@ export default function ProfileScreen() {
   const [profileData, setProfileData] = useState<any>(null);
   const router = useRouter();
 
-  const BASE_URL = __DEV__
-    ? "http://192.168.1.100:8000"
-    : "https://api.oramexhouseandland.com";
+  const BASE_URL = ENV.API_URL.replace(/\/api\/?$/, "");
+  
+  // __DEV__
+  //   ? "http://192.168.1.100:8000"
+  //   : "https://api.oramexhouseandland.com";
 
-  useEffect(() => {
-    fetchProfile();
-  }, []);
+useFocusEffect(
+  useCallback(() => {
+    void fetchProfile();
+  }, [])
+);
+
 
   const fetchProfile = async () => {
     try {
@@ -153,9 +162,16 @@ export default function ProfileScreen() {
     );
   }
 
-  const profilePicture = profileData?.profile_picture
-    ? { uri: `${BASE_URL}/storage/${profileData.profile_picture}` }
-    : require("@/assets/default-avatar.png");
+ const picture = profileData?.profile_picture_url
+  || profileData?.profile_picture;
+
+const profilePicture = picture
+  ? {
+      uri: /^https?:\/\//i.test(picture)
+        ? picture
+        : `${BASE_URL}/storage/${picture.replace(/^\/?(storage\/)?/, "")}`,
+    }
+  : require("@/assets/default-avatar.png");
 
   return (
     <Protected>
