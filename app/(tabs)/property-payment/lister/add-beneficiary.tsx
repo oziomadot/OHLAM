@@ -6,6 +6,7 @@ import {
   Text,
   TextInput,
   View,
+  StyleSheet
 } from "react-native";
 import { useFocusEffect, useLocalSearchParams, useRouter } from "expo-router";
 import { Picker } from "@react-native-picker/picker";
@@ -122,12 +123,12 @@ export default function BeneficiaryScreen() {
   return (
     <Protected>
       <ScrollView
-        contentContainerStyle={{ padding: 20, gap: 14, paddingBottom: 60 }}
+        contentContainerStyle={styles.content}
       >
-        <Text style={{ fontSize: 23, fontWeight: "700" }}>
+        <Text style={styles.title}>
           Property payment beneficiary
         </Text>
-        <Text>
+        <Text style={styles.text}>
           Provide the account that should receive the property payment, or
           confirm that an existing account is correct.
         </Text>
@@ -143,14 +144,14 @@ export default function BeneficiaryScreen() {
             />
           </>
         ) : !data ? (
-          <ActivityIndicator />
+          <ActivityIndicator color="#147D64" />
         ) : (
           <>
             <Text style={{ fontWeight: "700" }}>
               Property #{data.property_id}
             </Text>
             {data.beneficiaries.length === 0 ? (
-              <Text>No beneficiary has been provided yet.</Text>
+              <Text style={styles.text}>No beneficiary has been provided yet.</Text>
             ) : (
               data.beneficiaries.map((b) => (
                 <View
@@ -166,14 +167,14 @@ export default function BeneficiaryScreen() {
                   <Text>
                     {b.bank_name} · {b.masked_account_number}
                   </Text>
-                  <Text>Beneficiary: {b.beneficiary_type}</Text>
-                  <Text>
+                  <Text style={styles.text}>Beneficiary: {b.beneficiary_type}</Text>
+                  <Text style={styles.text}>
                     {b.bank_verified
                       ? "Bank account resolved"
                       : "Bank account needs verification"}
                   </Text>
                   {data.confirmed_id === b.id ? (
-                    <Text>✓ Confirmed for this appointment</Text>
+                    <Text style={styles.text}>✓ Confirmed for this appointment</Text>
                   ) : (
                     <ActionButton
                       title="Confirm these details are correct"
@@ -184,19 +185,14 @@ export default function BeneficiaryScreen() {
                 </View>
               ))
             )}
-            <View
-              style={{
-                backgroundColor: "#fff",
-                padding: 16,
-                borderRadius: 12,
-                gap: 10,
-              }}
-            >
+            <View style={styles.card}>
               <Text style={{ fontWeight: "700" }}>
                 Provide or replace beneficiary details
               </Text>
               <Text>Relationship to the property</Text>
               <Picker
+                style={styles.picker}
+                dropdownIconColor="#334155"
                 selectedValue={type}
                 onValueChange={setType}
                 enabled={!busy}
@@ -214,13 +210,15 @@ export default function BeneficiaryScreen() {
               </Picker>
               <Text>Bank</Text>
               <Picker
+                style={styles.picker}
+                dropdownIconColor="#334155"
                 selectedValue={bankCode}
                 onValueChange={setBankCode}
                 enabled={!busy}
               >
-                <Picker.Item label="Choose bank" value="" />
+                <Picker.Item label="Choose bank" value="" color="#0F172A" />
                 {banks.map((b) => (
-                  <Picker.Item key={b.code} label={b.name} value={b.code} />
+                  <Picker.Item key={b.code} label={b.name} value={b.code} color="#0F172A" />
                 ))}
               </Picker>
               {banks.length === 0 && (
@@ -242,7 +240,7 @@ export default function BeneficiaryScreen() {
               <TextInput
                 style={{
                   borderWidth: 1,
-                  borderColor: "#cbd5e1",
+                  borderColor: "#f1f4f8",
                   padding: 14,
                   borderRadius: 8,
                 }}
@@ -286,4 +284,58 @@ export default function BeneficiaryScreen() {
       </ScrollView>
     </Protected>
   );
+
+ 
 }
+
+ const styles = StyleSheet.create({
+  screen: {
+    flex: 1,
+    backgroundColor: "#F8FAFC",
+  },
+  content: {
+    padding: 20,
+    gap: 14,
+    paddingBottom: 60,
+  },
+  title: {
+    fontSize: 23,
+    fontWeight: "700",
+    color: "#0F172A",
+  },
+  heading: {
+    fontWeight: "700",
+    color: "#0F172A",
+  },
+  text: {
+    color: "#334155",
+    lineHeight: 22,
+  },
+  success: {
+    color: "#166534",
+    fontWeight: "600",
+  },
+  error: {
+    color: "#B91C1C",
+  },
+  card: {
+    backgroundColor: "#FFFFFF",
+    padding: 16,
+    borderRadius: 12,
+    borderWidth: 1,
+    borderColor: "#E2E8F0",
+    gap: 10,
+  },
+  picker: {
+    color: "#0F172A",
+    backgroundColor: "#F1F5F9",
+  },
+  input: {
+    color: "#0F172A",
+    backgroundColor: "#F8FAFC",
+    borderWidth: 1,
+    borderColor: "#94A3B8",
+    padding: 14,
+    borderRadius: 8,
+  },
+});
