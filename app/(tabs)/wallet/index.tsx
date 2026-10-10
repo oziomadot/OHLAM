@@ -554,6 +554,8 @@ const loadWallet = useCallback(
   }
 />
 
+        <Action icon="account-group-outline" title="Referral Rewards" subtitle="Track rewards and the limit for each agent you referred." onPress={() => goTo("/(tabs)/wallet/referral-rewards")} />
+
         <Action
           icon="history"
           title="Transaction History"

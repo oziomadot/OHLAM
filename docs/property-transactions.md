@@ -26,3 +26,15 @@ Already-paid transactions from the older flow are not automatically released or 
 ## Verification
 
 The isolated inspection/payment test suite runs with `vendor/bin/phpunit -c tests/InspectionFlow/phpunit.xml` and uses SQLite, notification fakes and Paystack HTTP fakes. It does not access live money. Production PostgreSQL concurrency and real device/provider delivery require staging validation.
+
+## Agent commission and bounded referral rewards
+
+The customer's gross agent fee stays unchanged. It is split into the agent's net 82% bank allocation and an OHLAM 18% retained allocation. The lister sees both amounts and cannot assign OHLAM's allocation to a bank recipient. Integer kobo rounding preserves the exact overall total.
+
+An eligible referral reward is **3.6% of OHLAM's 18% share**, not 3.6% of the gross agent fee. Its effective rate is 0.648% of the gross fee before kobo rounding. Example: ₦5,000 gross fee → ₦4,100 to the agent; ₦900 OHLAM share → ₦32.40 referral wallet reward, leaving ₦867.60 for OHLAM. Without an eligible referral, the whole ₦900 remains with OHLAM. The reward is credited to the listing agent's referrer (`users.referrer_id`), never to the customer or an arbitrary beneficiary. Referrer identity, fee shares, rate policy and reward limit are frozen at checkout. Existing checkout/payment snapshots keep their original terms.
+
+Default entitlement: first **10** successfully distributed, bonus-bearing property transactions per referrer–referee pair. `PROPERTY_REFERRAL_REWARD_LIMIT=10` controls the limit for newly initialised transactions. The unique pair counter and unique payment reward prevent duplicate or unlimited credits. A pending credit reserves one slot; retrying it uses the same slot. Unpaid, refunded or incomplete distributions earn no reward. Missing/inactive wallets leave a pending entitlement for the scheduler to retry; they do not block recipient payout completion. Subsequent transfer reversal does not automatically claw back an already-spent referral credit; it requires support/accounting review.
+
+Run the new `2026_10_10_170000_create_property_referral_rewards` migration. The existing scheduler credits pending entitlements through WalletService's available-balance ledger. Both notification and ledger metadata identify the referee by name and the reward number (for example 1 of 10). Wallet → Referral Rewards displays used/remaining rewards per referee, credited total, pending credits and paginated history. Access is restricted to the signed-in referrer.
+
+Wallet bonuses are funded from retained property-platform income. If property and wallet Paystack accounts are separate, treasury must keep the wallet provider balance funded for these newly credited withdrawal liabilities; a database credit does not move cash between Paystack accounts. Reward ledger rows distinguish these credits from deposits/refunds.

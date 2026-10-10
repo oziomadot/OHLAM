@@ -104,7 +104,7 @@ export default function BeneficiaryScreen() {
       { text: "Confirm all details", onPress: () => { void run(async () => {
         await API.post(`/appointments/${encodeURIComponent(id!)}/beneficiary/allocations`, {
           revision: data.revision, allocation_revision: data.allocation_revision, details_correct: true,
-          items: data.items.map(i => ({ id: i.id, amount: i.amount, beneficiary_id: i.type === "ohlam_service_fee" ? null : assignments[i.id], version: data.beneficiaries.find(b => b.id === assignments[i.id])?.version ?? null })),
+          items: data.items.map(i => ({ id: i.id, amount: i.amount, beneficiary_id: ["ohlam_service_fee", "agent_fee_platform_share"].includes(i.type) ? null : assignments[i.id], version: data.beneficiaries.find(b => b.id === assignments[i.id])?.version ?? null })),
         });
         Alert.alert("Recipients confirmed", "The customer can review the complete breakdown before paying.");
         router.replace(`/appointment/${id}` as never);
@@ -172,9 +172,10 @@ export default function BeneficiaryScreen() {
             )}
             <View style={styles.card}>
               <Text style={styles.heading}>Assign every property charge</Text>
+              <Text style={styles.text}>You receive 82% of the gross agent fee. OHLAM retains 18%, including a referral wallet reward of 3.6% of OHLAM’s share (0.648% of the gross agent fee) for eligible transactions. Customer expenses remain unchanged.</Text>
               {data.items.map(item => <View key={item.id} style={{ gap: 8 }}>
                 <Text style={styles.text}>{item.label}: ₦{Number(item.amount).toLocaleString("en-NG", { minimumFractionDigits: 2 })}</Text>
-                {item.type === "ohlam_service_fee" ? <Text style={styles.text}>OHLAM platform fee</Text> :
+                {["ohlam_service_fee", "agent_fee_platform_share"].includes(item.type) ? <Text style={styles.text}>Retained by OHLAM; eligible referral rewards are funded from this share.</Text> :
                   <Picker style={styles.picker} dropdownIconColor="#334155" selectedValue={assignments[item.id] || 0} enabled={!busy && !data.locked} onValueChange={value => setAssignments(old => ({ ...old, [item.id]: Number(value) }))}>
                     <Picker.Item label="Select recipient" value={0} color="#0f172a" />
                     {data.beneficiaries.filter(b => b.bank_verified).map(b => <Picker.Item key={b.id} value={b.id} color="#0f172a" label={`${b.declared_name} · ${b.account_name} · ${b.bank_name} ${b.masked_account_number}`} />)}
@@ -183,7 +184,7 @@ export default function BeneficiaryScreen() {
               <Text style={styles.heading}>Total property expenses: ₦{Number(data.total_amount).toLocaleString("en-NG", { minimumFractionDigits: 2 })}</Text>
               <Text style={styles.text}>The amounts must match the listing. Correct the listing first if a charge is wrong.</Text>
               {data.allocation_confirmed && <Text style={styles.success}>All recipients confirmed</Text>}
-              <ActionButton title="Confirm all recipients and amounts" disabled={busy || data.locked || data.items.some(i => i.type !== "ohlam_service_fee" && !assignments[i.id])} onPress={confirmAll} />
+              <ActionButton title="Confirm all recipients and amounts" disabled={busy || data.locked || data.items.some(i => !["ohlam_service_fee", "agent_fee_platform_share"].includes(i.type) && !assignments[i.id])} onPress={confirmAll} />
             </View>
             <View style={styles.card}>
               <Text style={{ color: "#0f172a", fontWeight: "700" }}>

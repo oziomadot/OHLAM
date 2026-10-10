@@ -239,6 +239,7 @@ export default function TransactionsScreen() {
                 </Text>
               </View>
 
+              {item.type === "property_referral_bonus" && item.metadata?.referee_name ? <Text style={styles.description}>Your referee {item.metadata.referee_name} has {item.metadata.property_action || "completed a transaction for"} a property. Reward {item.metadata.reward_number} of {item.metadata.reward_limit}.</Text> : null}
               {item.description ? (
                 <Text
                   style={

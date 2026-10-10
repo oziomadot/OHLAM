@@ -222,7 +222,7 @@ test('lister confirms availability before the payout action and duplicate taps s
 });
 test('beneficiary screen shows every charge and confirms exact amounts with selected recipient versions', async () => {
   const calls = [], alerts = [];
-  const data = { revision: 8, property_id: 2, allocation_revision: 3, total_amount: '105', locked: false, allocation_confirmed: false, items: [{ id: 1, type: 'property_amount', label: 'Rent', amount: '100', beneficiary_id: 7 }, { id: 2, type: 'agent_fee', label: 'Agent', amount: '5', beneficiary_id: 7 }], beneficiaries: [{ id: 7, beneficiary_type: 'owner', declared_name: 'Owner', account_name: 'Owner', bank_name: 'Bank', masked_account_number: '****1234', bank_verified: true, version: 'v1' }] };
+  const data = { revision: 8, property_id: 2, allocation_revision: 3, total_amount: '105', locked: false, allocation_confirmed: false, items: [{ id: 1, type: 'property_amount', label: 'Rent', amount: '100', beneficiary_id: 7 }, { id: 2, type: 'agent_fee', label: 'Agent net 82%', amount: '4.10', beneficiary_id: 7 }, { id: 3, type: 'agent_fee_platform_share', label: 'OHLAM share 18%', amount: '0.90', beneficiary_id: null }], beneficiaries: [{ id: 7, beneficiary_type: 'owner', declared_name: 'Owner', account_name: 'Owner', bank_name: 'Bank', masked_account_number: '****1234', bank_verified: true, version: 'v1' }] };
   const api = { get: async url => ({ data: { data: url === '/wallet/banks' ? [] : data } }), post: async (url, payload) => { calls.push({ url, payload }); return { data: {} }; } };
   function Picker({ children, ...props }) { return React.createElement('Picker', props, children); } Picker.Item = 'PickerItem';
   const C = source('app/(tabs)/property-payment/lister/add-beneficiary.tsx', {
@@ -235,6 +235,6 @@ test('beneficiary screen shows every charge and confirms exact amounts with sele
   const button = renderer.root.findByProps({ title: 'Confirm all recipients and amounts' }); assert.equal(button.props.disabled, false);
   await act(async () => button.props.onPress());
   await act(async () => alerts[0][2][1].onPress());
-  assert.deepEqual(calls[0], { url: '/appointments/3/beneficiary/allocations', payload: { revision: 8, allocation_revision: 3, details_correct: true, items: [{ id: 1, amount: '100', beneficiary_id: 7, version: 'v1' }, { id: 2, amount: '5', beneficiary_id: 7, version: 'v1' }] } });
+  assert.deepEqual(calls[0], { url: '/appointments/3/beneficiary/allocations', payload: { revision: 8, allocation_revision: 3, details_correct: true, items: [{ id: 1, amount: '100', beneficiary_id: 7, version: 'v1' }, { id: 2, amount: '4.10', beneficiary_id: 7, version: 'v1' }, { id: 3, amount: '0.90', beneficiary_id: null, version: null }] } });
   await act(async () => renderer.unmount());
 });
