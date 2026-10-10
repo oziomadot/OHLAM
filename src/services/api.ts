@@ -1709,11 +1709,21 @@ async updatePhoneNumber(  payload: UpdatePhoneNumberPayload): Promise<UpdatePhon
 
 }
 
-  async getIdCardTypes() {
+async getIdCardTypes() {
+  const token = await getItemSafe("pre_auth_token");
 
-    return this.request<any[]>("/id-card-types");
-
+  if (!token) {
+    throw new Error(
+      "Your registration session has expired. Please sign in to continue."
+    );
   }
+
+  return this.request<any[]>("/id-card-types", {
+    headers: {
+      Authorization: `Bearer ${token}`,
+    },
+  });
+}
 
 
 
