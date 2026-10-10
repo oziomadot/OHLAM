@@ -451,10 +451,7 @@ function getPropertyArea(
    * city is safer than exposing
    * property address.
    */
-  if (
-    property.city &&
-    property.city.trim()
-  ) {
+  if (property.city && property.city.trim()) {
     return property.city.trim();
   }
 
@@ -1216,26 +1213,14 @@ export default function ListerAppointmentRequests() {
   |--------------------------------------------------------------------------
   */
 
-  const openAppointment =
-    (
-      appointment:
-        Appointment
-    ) => {
-      const appointmentId =
-        String(
-          appointment.uuid ??
-            appointment.id
-        );
-
-      router.push({
-        pathname:
-          "/appointment/lister/view" as never,
-
-        params: {
-          appointmentId,
-        },
-      });
-    };
+  const openAppointment = (appointment: Appointment) => {
+  router.push({
+    pathname: "/appointment/[appointmentId]",
+    params: {
+      appointmentId: String(appointment.id),
+    },
+  });
+};
 
   /*
   |--------------------------------------------------------------------------

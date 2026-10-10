@@ -694,6 +694,7 @@ export function extractAuthToken(
 
 
 export type WalletTransaction = {
+  metadata?: { referee_name?: string; property_action?: string; reward_number?: number; reward_limit?: number };
   id: number;
   type: string;
   direction: "credit" | "debit";
