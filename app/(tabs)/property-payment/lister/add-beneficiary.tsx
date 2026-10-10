@@ -23,11 +23,16 @@ type Beneficiary = {
   masked_account_number: string;
   bank_verified: boolean;
   version: string;
+  declared_name: string;
 };
 type Data = {
   revision: number;
   property_id: number;
-  confirmed_id: number | null;
+  allocation_revision: number;
+  allocation_confirmed: boolean;
+  locked: boolean;
+  total_amount: string;
+  items: { id: number; type: string; label: string; amount: string; beneficiary_id: number | null }[];
   beneficiaries: Beneficiary[];
 };
 type Bank = { code: string; name: string };
@@ -41,6 +46,8 @@ export default function BeneficiaryScreen() {
   const [banks, setBanks] = useState<Bank[]>([]);
   const [error, setError] = useState("");
   const [busy, setBusy] = useState(false);
+  const [declaredName, setDeclaredName] = useState("");
+  const [assignments, setAssignments] = useState<Record<number, number>>({});
   const [type, setType] = useState("owner");
   const [bankCode, setBankCode] = useState("");
   const [account, setAccount] = useState("");
@@ -58,6 +65,7 @@ export default function BeneficiaryScreen() {
       );
       if (g === generation.current) {
         setData(r.data.data);
+        setAssignments(Object.fromEntries(r.data.data.items.map(i => [i.id, i.beneficiary_id || 0])));
         setError("");
       }
     } catch (e) {
@@ -89,40 +97,25 @@ export default function BeneficiaryScreen() {
       setBusy(false);
     }
   }
-  function confirm(b: Beneficiary) {
-    Alert.alert(
-      "Are these beneficiary details correct?",
-      `${b.account_name}\n${b.bank_name}\n${b.masked_account_number}`,
-      [
-        { text: "Cancel", style: "cancel" },
-        {
-          text: "Confirm correct",
-          onPress: () => {
-            void run(async () => {
-              await API.post(
-                `/appointments/${encodeURIComponent(id!)}/beneficiary/confirm`,
-                {
-                  revision: data!.revision,
-                  beneficiary_id: b.id,
-                  version: b.version,
-                  details_correct: true,
-                },
-              );
-              Alert.alert(
-                "Beneficiary confirmed",
-                "The customer can proceed once the inspection requirements are satisfied.",
-              );
-              router.replace(`/appointment/${id}` as never);
-            });
-          },
-        },
-      ],
-    );
+  function confirmAll() {
+    if (!data) return;
+    Alert.alert("Confirm payment breakdown", "Check every account owner, bank account and amount. These recipients will be paid automatically after you confirm property availability following payment.", [
+      { text: "Cancel", style: "cancel" },
+      { text: "Confirm all details", onPress: () => { void run(async () => {
+        await API.post(`/appointments/${encodeURIComponent(id!)}/beneficiary/allocations`, {
+          revision: data.revision, allocation_revision: data.allocation_revision, details_correct: true,
+          items: data.items.map(i => ({ id: i.id, amount: i.amount, beneficiary_id: ["ohlam_service_fee", "agent_fee_platform_share"].includes(i.type) ? null : assignments[i.id], version: data.beneficiaries.find(b => b.id === assignments[i.id])?.version ?? null })),
+        });
+        Alert.alert("Recipients confirmed", "The customer can review the complete breakdown before paying.");
+        router.replace(`/appointment/${id}` as never);
+      }); } },
+    ]);
   }
   const selectedBank = banks.find((b) => b.code === bankCode);
   return (
     <Protected>
       <ScrollView
+        style={styles.screen}
         contentContainerStyle={styles.content}
       >
         <Text style={styles.title}>
@@ -147,7 +140,7 @@ export default function BeneficiaryScreen() {
           <ActivityIndicator color="#147D64" />
         ) : (
           <>
-            <Text style={{ fontWeight: "700" }}>
+            <Text style={{ color: "#0f172a", fontWeight: "700" }}>
               Property #{data.property_id}
             </Text>
             {data.beneficiaries.length === 0 ? (
@@ -163,8 +156,8 @@ export default function BeneficiaryScreen() {
                     gap: 8,
                   }}
                 >
-                  <Text style={{ fontWeight: "700" }}>{b.account_name}</Text>
-                  <Text>
+                  <Text style={{ color: "#0f172a", fontWeight: "700" }}>{b.account_name}</Text>
+                  <Text style={{ color: "#0f172a" }}>
                     {b.bank_name} · {b.masked_account_number}
                   </Text>
                   <Text style={styles.text}>Beneficiary: {b.beneficiary_type}</Text>
@@ -173,29 +166,37 @@ export default function BeneficiaryScreen() {
                       ? "Bank account resolved"
                       : "Bank account needs verification"}
                   </Text>
-                  {data.confirmed_id === b.id ? (
-                    <Text style={styles.text}>✓ Confirmed for this appointment</Text>
-                  ) : (
-                    <ActionButton
-                      title="Confirm these details are correct"
-                      disabled={busy || !b.bank_verified}
-                      onPress={() => confirm(b)}
-                    />
-                  )}
+                  <Text style={{ color: "#334155" }}>Account owner: {b.declared_name}</Text>
                 </View>
               ))
             )}
             <View style={styles.card}>
-              <Text style={{ fontWeight: "700" }}>
+              <Text style={styles.heading}>Assign every property charge</Text>
+              <Text style={styles.text}>You receive 82% of the gross agent fee. OHLAM retains 18%, including a referral wallet reward of 3.6% of OHLAM’s share (0.648% of the gross agent fee) for eligible transactions. Customer expenses remain unchanged.</Text>
+              {data.items.map(item => <View key={item.id} style={{ gap: 8 }}>
+                <Text style={styles.text}>{item.label}: ₦{Number(item.amount).toLocaleString("en-NG", { minimumFractionDigits: 2 })}</Text>
+                {["ohlam_service_fee", "agent_fee_platform_share"].includes(item.type) ? <Text style={styles.text}>Retained by OHLAM; eligible referral rewards are funded from this share.</Text> :
+                  <Picker style={styles.picker} dropdownIconColor="#334155" selectedValue={assignments[item.id] || 0} enabled={!busy && !data.locked} onValueChange={value => setAssignments(old => ({ ...old, [item.id]: Number(value) }))}>
+                    <Picker.Item label="Select recipient" value={0} color="#0f172a" />
+                    {data.beneficiaries.filter(b => b.bank_verified).map(b => <Picker.Item key={b.id} value={b.id} color="#0f172a" label={`${b.declared_name} · ${b.account_name} · ${b.bank_name} ${b.masked_account_number}`} />)}
+                  </Picker>}
+              </View>)}
+              <Text style={styles.heading}>Total property expenses: ₦{Number(data.total_amount).toLocaleString("en-NG", { minimumFractionDigits: 2 })}</Text>
+              <Text style={styles.text}>The amounts must match the listing. Correct the listing first if a charge is wrong.</Text>
+              {data.allocation_confirmed && <Text style={styles.success}>All recipients confirmed</Text>}
+              <ActionButton title="Confirm all recipients and amounts" disabled={busy || data.locked || data.items.some(i => !["ohlam_service_fee", "agent_fee_platform_share"].includes(i.type) && !assignments[i.id])} onPress={confirmAll} />
+            </View>
+            <View style={styles.card}>
+              <Text style={{ color: "#0f172a", fontWeight: "700" }}>
                 Provide or replace beneficiary details
               </Text>
-              <Text>Relationship to the property</Text>
+              <Text style={{ color: "#0f172a" }}>Relationship to the property</Text>
               <Picker
                 style={styles.picker}
                 dropdownIconColor="#334155"
                 selectedValue={type}
                 onValueChange={setType}
-                enabled={!busy}
+                enabled={!busy && !data.locked}
               >
                 {[
                   "owner",
@@ -208,13 +209,13 @@ export default function BeneficiaryScreen() {
                   <Picker.Item key={t} label={t} value={t} />
                 ))}
               </Picker>
-              <Text>Bank</Text>
+              <Text style={{ color: "#0f172a" }}>Bank</Text>
               <Picker
                 style={styles.picker}
                 dropdownIconColor="#383a3c"
                 selectedValue={bankCode}
                 onValueChange={setBankCode}
-                enabled={!busy}
+                enabled={!busy && !data.locked}
               >
                 <Picker.Item label="Choose bank" value="" color="#0F172A" />
                 {banks.map((b) => (
@@ -223,7 +224,7 @@ export default function BeneficiaryScreen() {
               </Picker>
               {banks.length === 0 && (
                 <>
-                  <Text>The bank list could not be loaded.</Text>
+                  <Text style={{ color: "#0f172a" }}>The bank list could not be loaded.</Text>
                   <ActionButton
                     title="Retry bank list"
                     disabled={busy}
@@ -237,26 +238,33 @@ export default function BeneficiaryScreen() {
                   />
                 </>
               )}
+              <TextInput style={{ color: "#0f172a", borderColor: "#cbd5e1", borderWidth: 1, padding: 14, borderRadius: 8 }} placeholder="Account owner’s name" placeholderTextColor="#64748b" value={declaredName} onChangeText={setDeclaredName} editable={!busy && !data.locked} />
               <TextInput
-  style={styles.input}
-  placeholder="10-digit account number"
-  placeholderTextColor="#64748B"
-  selectionColor="#147D64"
-  keyboardType="number-pad"
-  maxLength={10}
-  editable={!busy}
-  value={account}
-  onChangeText={setAccount}
-/>
+                style={{
+                  color: "#0f172a",
+                  borderWidth: 1,
+                  borderColor: "#f1f4f8",
+                  padding: 14,
+                  borderRadius: 8,
+                }}
+                placeholder="10-digit account number"
+                placeholderTextColor="#64748b"
+                keyboardType="number-pad"
+                maxLength={10}
+                editable={!busy && !data.locked}
+                value={account}
+                onChangeText={setAccount}
+              />
               <ActionButton
                 title="Resolve and save bank account"
-                disabled={busy || !selectedBank || !/^\d{10}$/.test(account)}
+                disabled={busy || data.locked || !declaredName.trim() || !selectedBank || !/^\d{10}$/.test(account)}
                 onPress={() => {
                   void run(async () => {
                     await API.post(
                       `/appointments/${encodeURIComponent(id!)}/beneficiary`,
                       {
                         revision: data.revision,
+                        declared_name: declaredName.trim(),
                         beneficiary_type: type,
                         bank_code: bankCode,
                         bank_name: selectedBank!.name,
@@ -271,7 +279,7 @@ export default function BeneficiaryScreen() {
                   });
                 }}
               />
-              <Text>
+              <Text style={{ color: "#0f172a" }}>
                 Bank resolution confirms the account details. It does not verify
                 ownership of the property.
               </Text>
@@ -282,7 +290,7 @@ export default function BeneficiaryScreen() {
     </Protected>
   );
 
- 
+
 }
 
  const styles = StyleSheet.create({

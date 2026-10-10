@@ -192,3 +192,49 @@ test("lister submits an attendee rating and is redirected to beneficiary confirm
   ]);
   await act(async () => m.renderer.unmount());
 });
+
+async function mountTransaction(data) {
+  const calls = [], alerts = [];
+  const api = { get: async () => ({ data: { data } }), post: async (url, payload) => { calls.push({ url, payload }); return { data: { data } }; } };
+  const service = source('src/services/propertyTransactions.ts', { '@/src/services/api': { default: api, __esModule: true } });
+  const C = source('app/(tabs)/property-payment/transaction/[paymentId].tsx', {
+    'react-native': { View: 'View', Text: 'Text', TextInput: 'TextInput', ScrollView: 'ScrollView', ActivityIndicator: 'ActivityIndicator', AppState: { addEventListener: () => ({ remove() {} }) }, Alert: { alert: (...a) => alerts.push(a) } },
+    'expo-router': { useLocalSearchParams: () => ({ paymentId: '1' }), useRouter: () => ({ push() {} }), useFocusEffect: cb => React.useEffect(cb, [cb]) },
+    'components/Protected': { default: ({ children }) => children, __esModule: true },
+    'components/inspection/InspectionFlowCard': { ActionButton: 'ActionButton' },
+    '@/src/services/api': { default: api, __esModule: true }, '@/src/services/inspectionFlow': { errorText: e => e.message }, '@/src/services/propertyTransactions': service,
+  }).default;
+  let renderer; await act(async () => { renderer = require("react-test-renderer").create(React.createElement(C)); });
+  return { renderer, calls, alerts };
+}
+test('customer cannot authorise payouts from the transaction screen', async () => {
+  const m = await mountTransaction({ id: 1, property_id: 2, appointment_id: 3, reference: 'REF', status: 'property_payment_awaiting_availability', allocations: [], handover: null, can_confirm_availability: false });
+  assert.equal(m.renderer.root.findAllByProps({ title: 'Property is available — authorise payouts' }).length, 0);
+  await act(async () => m.renderer.unmount());
+});
+test('lister confirms availability before the payout action and duplicate taps submit once', async () => {
+  const m = await mountTransaction({ id: 1, property_id: 2, appointment_id: 3, reference: 'REF', status: 'property_payment_awaiting_availability', allocations: [], handover: null, can_confirm_availability: true });
+  await act(async () => m.renderer.root.findByProps({ title: 'Property is available — authorise payouts' }).props.onPress());
+  assert.equal(m.calls.length, 0);
+  await act(async () => { m.alerts[0][2][1].onPress(); m.alerts[0][2][1].onPress(); });
+  assert.deepEqual(m.calls, [{ url: '/property-transactions/1/availability', payload: { available: true, details_confirmed: true } }]);
+  await act(async () => m.renderer.unmount());
+});
+test('beneficiary screen shows every charge and confirms exact amounts with selected recipient versions', async () => {
+  const calls = [], alerts = [];
+  const data = { revision: 8, property_id: 2, allocation_revision: 3, total_amount: '105', locked: false, allocation_confirmed: false, items: [{ id: 1, type: 'property_amount', label: 'Rent', amount: '100', beneficiary_id: 7 }, { id: 2, type: 'agent_fee', label: 'Agent net 82%', amount: '4.10', beneficiary_id: 7 }, { id: 3, type: 'agent_fee_platform_share', label: 'OHLAM share 18%', amount: '0.90', beneficiary_id: null }], beneficiaries: [{ id: 7, beneficiary_type: 'owner', declared_name: 'Owner', account_name: 'Owner', bank_name: 'Bank', masked_account_number: '****1234', bank_verified: true, version: 'v1' }] };
+  const api = { get: async url => ({ data: { data: url === '/wallet/banks' ? [] : data } }), post: async (url, payload) => { calls.push({ url, payload }); return { data: {} }; } };
+  function Picker({ children, ...props }) { return React.createElement('Picker', props, children); } Picker.Item = 'PickerItem';
+  const C = source('app/(tabs)/property-payment/lister/add-beneficiary.tsx', {
+    'react-native': { View: 'View', Text: 'Text', TextInput: 'TextInput', ScrollView: 'ScrollView', ActivityIndicator: 'ActivityIndicator', StyleSheet: { create: s => s }, Alert: { alert: (...a) => alerts.push(a) } },
+    'expo-router': { useLocalSearchParams: () => ({ appointmentId: '3' }), useRouter: () => ({ replace() {} }), useFocusEffect: cb => React.useEffect(cb, [cb]) },
+    '@react-native-picker/picker': { Picker }, 'components/Protected': { default: ({ children }) => children, __esModule: true },
+    'components/inspection/InspectionFlowCard': { ActionButton: 'ActionButton' }, '@/src/services/api': { default: api, __esModule: true }, '@/src/services/inspectionFlow': { errorText: e => e.message },
+  }).default;
+  let renderer; await act(async () => { renderer = create(React.createElement(C)); });
+  const button = renderer.root.findByProps({ title: 'Confirm all recipients and amounts' }); assert.equal(button.props.disabled, false);
+  await act(async () => button.props.onPress());
+  await act(async () => alerts[0][2][1].onPress());
+  assert.deepEqual(calls[0], { url: '/appointments/3/beneficiary/allocations', payload: { revision: 8, allocation_revision: 3, details_correct: true, items: [{ id: 1, amount: '100', beneficiary_id: 7, version: 'v1' }, { id: 2, amount: '4.10', beneficiary_id: 7, version: 'v1' }, { id: 3, amount: '0.90', beneficiary_id: null, version: null }] } });
+  await act(async () => renderer.unmount());
+});
