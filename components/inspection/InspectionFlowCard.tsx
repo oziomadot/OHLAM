@@ -654,6 +654,9 @@ export default function InspectionFlowCard({
           onPress={beneficiary}
         />
       )}
+      {f.transaction_id && (
+        <ActionButton title="View property reservation, payouts and handover" disabled={disabled} onPress={() => router.push(`/property-payment/transaction/${f.transaction_id}` as never)} />
+      )}
       {f.payment_status === "property_payment_secured" && (
         <Text style={s.label}>Payment received and secured.</Text>
       )}

@@ -1,0 +1,28 @@
+# Property payment, availability and handover
+
+Wallet funding and withdrawals keep their existing routes, ledger and refund behaviour. Property checkout does not create wallet credits or debit customer wallet balances.
+
+## Workflow
+
+After the accepted appointment and inspection reports, the customer chooses proceed or decline. The lister's beneficiary screen displays every monetary charge from the listing (property amount, agent, legal, rental deposits/security/cleaning, itemised additional fees and any configured OHLAM fee). The lister adds verified accounts with declared account owner names, assigns a recipient to each charge and confirms all amounts and accounts. Multiple charges may use one account; multiple accounts may have the same beneficiary relationship. Listing charges determine the amounts; the lister cannot invent a different checkout total.
+
+The customer reviews the full recipient breakdown and refund notice. Initialisation freezes recipient snapshots and acquires a property checkout hold, preventing another appointment from paying for it concurrently. Paystack checkout has no automatic split. A verified successful charge reserves the property and notifies both participants. Only the lister can confirm availability for this customer. Confirmation authorises subsequent automatic transfers of the exact saved amounts. The scheduler reconciles payouts; the property becomes rented or sold only when every beneficiary transfer succeeds. The OHLAM fee remains in the property payment account. Each participant can propose handover through the transaction screen; the other accepts, and both confirm completion. They can also arrange details through the existing appointment/chat screen.
+
+Unavailable properties or expired confirmation deadlines request a full refund of the undistributed transaction. Unknown provider POST outcomes never create a new payment/transfer/refund reference automatically. They reconcile the existing operation or require support review. Partial/failed/reversed payouts leave a reservation and a visible review state. After distribution, refunds need recipient cooperation; this implementation does not promise or initiate a full postdistribution refund.
+
+## Deployment
+
+1. Deploy this backend with the matching OHLAM changes. Back up the database, then run `php artisan migrate --force` and `php artisan optimize:clear`. Use incremental migrations, never `migrate:fresh`. The new migration completes old settlement placeholder tables without deleting rows.
+2. Set `APP_URL` to the public HTTPS backend URL and configure trusted proxy headers correctly. Guest invitations and forms use HTTPS. Configure mail and the database notification channel/queue worker.
+3. Configure Paystack signed webhooks to the existing Paystack webhook endpoint. Enable transfers for the business account and configure automated transfer approval in the Paystack dashboard if approved for your account. OTP-required transfers remain in review; the application does not bypass OTP.
+4. For actual cash separation from refundable wallet money, use a separate eligible Paystack account for property transactions and configure `PROPERTY_PAYSTACK_SECRET_KEY`. Without this setting, existing `PAYSTACK_SECRET_KEY` is used; application records are separate but provider balances are shared. Do not treat separate database ledgers as isolated provider cash. Configure the property account's webhook to the same endpoint: event references select the proper signature key. The existing wallet secret continues verifying wallet events.
+5. Property transfer balance must cover payouts plus Paystack charges. Checkout settlement timing, automatic bank settlements and transfer fees must be configured with Paystack. No recipient amount is reduced automatically to pay provider fees; OHLAM funds these fees. Insufficient balance waits for funding without creating a transfer; unknown POST results go to review. Set `PROPERTY_TRANSFER_FEE_RESERVE_KOBO` to cover the applicable fee per transfer (default 10000 kobo buffer). The buffer is a funding check, not a customer charge. Avoid funding property transfers from wallet refund reserves.
+6. Run Laravel's scheduler every minute: `* * * * * cd /var/www/html && php artisan schedule:run >> /dev/null 2>&1`. Use a shared cache driver supporting atomic locks on multiple workers. `php artisan property-transactions:process` provides a manual reconciliation run (it may initiate authorised payouts/refunds).
+7. Optional environment settings: `PROPERTY_CHECKOUT_HOLD_MINUTES` (default 30), `PROPERTY_CONFIRMATION_HOURS` (48), `PROPERTY_SERVICE_FEE_KOBO` (0). Run config cache after changing them. No invented platform fee is charged by default.
+8. In Paystack test mode, test accepted inspection → multiple recipients → exact total → checkout → reservation → lister confirmation → transfers → rented/sold → agreed handover. Also test unavailability, deadline expiry, wrong actor, mismatched amounts, duplicate webhooks and partial payout failure before enabling live collection.
+
+Already-paid transactions from the older flow are not automatically released or retroactively assigned recipients. They require support review. Expired checkouts remain auditable; a later successful charge is routed to refund rather than stealing another customer's reservation. A refunded unavailable listing stays hidden until separately reviewed/reopened.
+
+## Verification
+
+The isolated inspection/payment test suite runs with `vendor/bin/phpunit -c tests/InspectionFlow/phpunit.xml` and uses SQLite, notification fakes and Paystack HTTP fakes. It does not access live money. Production PostgreSQL concurrency and real device/provider delivery require staging validation.

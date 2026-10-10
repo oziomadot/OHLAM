@@ -6,9 +6,11 @@ import {
   ScrollView,
   Text,
   View,
+  Switch,
 } from "react-native";
-import { useFocusEffect, useLocalSearchParams } from "expo-router";
+import { useFocusEffect, useLocalSearchParams, useRouter } from "expo-router";
 import * as WebBrowser from "expo-web-browser";
+import { transactionLabels } from "@/src/services/propertyTransactions";
 import Protected from "components/Protected";
 import { ActionButton } from "components/inspection/InspectionFlowCard";
 import API from "@/src/services/api";
@@ -21,6 +23,8 @@ export default function PaymentScreen() {
   const id = Array.isArray(params.settlementId)
     ? params.settlementId[0]
     : params.settlementId;
+  const router = useRouter();
+  const [termsAccepted, setTermsAccepted] = useState(false);
   const [data, setData] = useState<SettlementView | null>(null);
   const [error, setError] = useState("");
   const [busy, setBusy] = useState(false);
@@ -87,7 +91,7 @@ export default function PaymentScreen() {
     await run(async () => {
       const r = await API.post<{
         data: { state?: string; authorization_url?: string };
-      }>(`${root}/pay`);
+      }>(`${root}/pay`, { allocation_revision: data?.allocation_revision, refund_terms_accepted: termsAccepted });
       if (r.data.data.state === "paid") return;
       const url = r.data.data.authorization_url;
       if (!url || !url.startsWith("https://checkout.paystack.com/"))
@@ -105,9 +109,10 @@ export default function PaymentScreen() {
   return (
     <Protected>
       <ScrollView
+        style={{ backgroundColor: "#f8fafc" }}
         contentContainerStyle={{ padding: 20, gap: 14, paddingBottom: 60 }}
       >
-        <Text style={{ fontSize: 23, fontWeight: "700" }}>
+        <Text style={{ color: "#0f172a", fontSize: 23, fontWeight: "700" }}>
           Property payment
         </Text>
         {error ? (
@@ -116,7 +121,7 @@ export default function PaymentScreen() {
           <ActivityIndicator />
         ) : (
           <>
-            <Text style={{ fontSize: 18, fontWeight: "600" }}>
+            <Text style={{ color: "#0f172a", fontSize: 18, fontWeight: "600" }}>
               {data.property_label}
             </Text>
             <View
@@ -128,11 +133,11 @@ export default function PaymentScreen() {
               }}
             >
               {data.items.map((item, i) => (
-                <Text key={`${item.type}-${i}`}>
-                  {item.label}: {money(item.amount)}
+                <Text style={{ color: "#0f172a" }} key={`${item.type}-${i}`}>
+                  {item.label}: {money(item.amount)}{item.recipient ? `\n${item.recipient.account_name} · ${item.recipient.bank_name} ${item.recipient.masked_account_number}` : ""}
                 </Text>
               ))}
-              <Text style={{ fontSize: 21, fontWeight: "700" }}>
+              <Text style={{ color: "#0f172a", fontSize: 21, fontWeight: "700" }}>
                 Total: {money(data.total_amount)}
               </Text>
             </View>
@@ -144,9 +149,9 @@ export default function PaymentScreen() {
                   borderRadius: 12,
                 }}
               >
-                <Text style={{ fontWeight: "700" }}>Confirmed beneficiary</Text>
-                <Text>{data.beneficiary.account_name}</Text>
-                <Text>
+                <Text style={{ color: "#0f172a", fontWeight: "700" }}>Confirmed beneficiary</Text>
+                <Text style={{ color: "#0f172a" }}>{data.beneficiary.account_name}</Text>
+                <Text style={{ color: "#0f172a" }}>
                   {data.beneficiary.bank_name} ·{" "}
                   {data.beneficiary.masked_account_number}
                 </Text>
@@ -154,7 +159,7 @@ export default function PaymentScreen() {
             )}
             {data.state === "awaiting_account_details" && (
               <>
-                <Text>
+                <Text style={{ color: "#0f172a" }}>
                   The lister needs to provide or confirm beneficiary details for
                   this property. An email and in-app request have been sent.
                   Refresh after they confirm.
@@ -174,25 +179,28 @@ export default function PaymentScreen() {
                 />
               </>
             )}
-            {data.state === "ready" && (
-              <ActionButton
+            {(data.state === "ready" || data.state === "processing") && <>
+              <Text style={{ color: "#334155" }}>{data.refund_notice}</Text>
+              <View style={{ flexDirection: "row", alignItems: "center", gap: 12 }}><Switch value={termsAccepted} onValueChange={setTermsAccepted} /><Text style={{ color: "#0f172a", flex: 1 }}>I have reviewed the recipients, amounts and refund terms.</Text></View>
+
+            </>}
+            {data.state === "ready" && <ActionButton
                 title="Pay securely with Paystack"
-                disabled={busy}
+                disabled={busy || !termsAccepted}
                 onPress={() => {
                   void pay();
                 }}
-              />
-            )}
+              />}
             {data.state === "processing" && (
               <>
-                <Text>
+                <Text style={{ color: "#0f172a" }}>
                   Payment is awaiting confirmation. Check the existing payment
                   before trying anything else.
                 </Text>
                 {data.payment?.authorization_url && (
                   <ActionButton
                     title="Resume existing checkout"
-                    disabled={busy}
+                    disabled={busy || !termsAccepted}
                     onPress={() => {
                       void pay();
                     }}
@@ -207,6 +215,7 @@ export default function PaymentScreen() {
                 />
               </>
             )}
+            {data.state === "closed" && <Text style={{ color: "#334155" }}>This checkout has expired. Open the transaction below to review its status before arranging a new appointment.</Text>}
             {data.state === "paid" && (
               <View
                 style={{
@@ -215,18 +224,19 @@ export default function PaymentScreen() {
                   borderRadius: 12,
                 }}
               >
-                <Text style={{ fontSize: 19, fontWeight: "700" }}>
-                  Payment received and secured
+                <Text style={{ color: "#0f172a", fontSize: 19, fontWeight: "700" }}>
+                  {transactionLabels[data.transaction?.status ?? ""] || "Payment received"}
                 </Text>
-                <Text>Reference: {data.payment?.reference}</Text>
-                <Text>
+                <Text style={{ color: "#0f172a" }}>Reference: {data.payment?.reference}</Text>
+                <Text style={{ color: "#0f172a" }}>
                   The successful payment has been verified by the backend.
-                  Release of property funds follows OHLAM's approval process.
+                  The property is reserved. The lister must confirm availability before automatic recipient payments begin.
                 </Text>
               </View>
             )}
           </>
         )}
+        {data?.transaction && <ActionButton title="View reservation, payouts and handover" onPress={() => router.push(`/property-payment/transaction/${data.transaction!.id}` as never)} />}
         <ActionButton
           title="Refresh payment review"
           disabled={busy}

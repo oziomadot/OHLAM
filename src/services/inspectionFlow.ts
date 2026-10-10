@@ -40,6 +40,7 @@ export type InspectionFlow = {
     decided_at: string;
   };
   payment_status: string | null;
+  transaction_id?: number | null;
   can_proceed_to_payment: boolean;
   beneficiary_confirmed: boolean;
   capabilities: {
@@ -108,14 +109,17 @@ export async function mutateInspectionFlow(
   return { ...response.data.data, flow: validateFlow(response.data.data.flow) };
 }
 export type SettlementView = {
+  allocation_revision: number;
+  refund_notice: string;
+  transaction: null | { id: number; status: string };
   id: Id;
   settlement_id: Id;
   appointment_id: Id;
   property_label: string;
   currency: string;
   total_amount: string;
-  state: "ready" | "awaiting_account_details" | "processing" | "paid";
-  items: { type: string; label: string; amount: string }[];
+  state: "ready" | "awaiting_account_details" | "processing" | "paid" | "closed";
+  items: { type: string; label: string; amount: string; recipient?: { account_name: string; bank_name: string; masked_account_number: string } | null }[];
   beneficiary: null | {
     account_name: string;
     bank_name: string;
