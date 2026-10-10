@@ -11,7 +11,8 @@
     "postinstall": "patch-package",
     "prebuild": "expo prebuild --clean",
     "build:android": "expo prebuild --clean && expo build:android",
-    "build:ios": "expo prebuild --clean && expo build:ios"
+    "build:ios": "expo prebuild --clean && expo build:ios",
+    "test:inspection-flow": "node --test scripts/inspection-flow.test.cjs"
   },
   "jest": {
     "preset": "jest-expo",

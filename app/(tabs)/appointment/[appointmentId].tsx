@@ -18,6 +18,7 @@ import {
 import API from "@/src/services/api";
 import Protected from "components/Protected";
 import ScreenWrapper from "components/ScreenWrapper";
+import InspectionFlowCard from "components/inspection/InspectionFlowCard";
 type AppointmentDetail = {
   id: number | string;
   customer_id?: number | string;
@@ -452,17 +453,7 @@ export default function AppointmentDetailScreen() {
                   </Text>
                 </TouchableOpacity>
               </View>
-              <TouchableOpacity
-                style={styles.inspectionButton}
-                accessibilityRole="button"
-                onPress={() => router.push({
-                  pathname: "/appointment/inspection/[appointmentId]" as never,
-                  params: { appointmentId: String(appointment.id) },
-                })}
-              >
-                <MaterialCommunityIcons name="clipboard-check-outline" size={22} color="#ffffff" />
-                <Text style={styles.inspectionButtonText}>Inspection report</Text>
-              </TouchableOpacity>
+              <InspectionFlowCard appointmentId={appointment.id} />
               <TouchableOpacity
                 style={styles.secondaryButton}
                 onPress={() =>

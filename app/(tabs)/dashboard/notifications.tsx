@@ -846,6 +846,12 @@ export default function NotificationScreen() {
                                       item.message
                                     }
                                   </Text>
+                                  {(() => {
+                                    const route = item.route || item.data?.route;
+                                    if (typeof route !== 'string' || !/^\/(?:appointment\/\d+|appointment\/representative\/view\?appointmentId=\d+|property-payment\/lister\/add-beneficiary\?appointmentId=\d+)$/.test(route)) return null;
+                                    return <TouchableOpacity accessibilityRole="button" onPress={() => router.push(route as never)} style={{ padding: 12, backgroundColor: '#166534', borderRadius: 8, marginTop: 10 }}><Text style={{ color: '#fff', fontWeight: '700' }}>Open appointment action</Text></TouchableOpacity>;
+                                  })()}
+
                                 </View>
                               )}
                             </View>

@@ -1305,6 +1305,9 @@ const openAppointment = (
           />
         }
       >
+        <TouchableOpacity accessibilityRole="button" onPress={() => router.push('/appointment/representative/view' as never)} style={{ padding: 14, backgroundColor: '#dcfce7', borderRadius: 10, marginBottom: 12 }}>
+          <Text style={{ color: '#14532d', fontWeight: '700' }}>My inspection invitations as a representative</Text>
+        </TouchableOpacity>
         {/*
         |--------------------------------------------------------------------------
         | HEADER

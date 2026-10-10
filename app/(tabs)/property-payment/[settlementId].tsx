@@ -1,824 +1,240 @@
-import React, {
-  useCallback,
-  useState,
-} from "react";
-
+import React, { useCallback, useRef, useState } from "react";
 import {
   ActivityIndicator,
   Alert,
-  Pressable,
+  AppState,
   ScrollView,
-  StyleSheet,
   Text,
   View,
 } from "react-native";
+import { useFocusEffect, useLocalSearchParams } from "expo-router";
+import * as WebBrowser from "expo-web-browser";
+import Protected from "components/Protected";
+import { ActionButton } from "components/inspection/InspectionFlowCard";
+import API from "@/src/services/api";
+import { SettlementView, errorText } from "@/src/services/inspectionFlow";
 
-import {
-  useFocusEffect,
-  useLocalSearchParams,
-  useRouter,
-} from "expo-router";
-
-import * as WebBrowser
-  from "expo-web-browser";
-
-import API, {
-  PropertySettlement,
-} from "@/src/services/api";
-
-const money = (
-  value: string | number
-) =>
-  `₦${Number(value ?? 0).toLocaleString(
-    "en-NG",
-    {
-      minimumFractionDigits: 2,
-      maximumFractionDigits: 2,
-    }
-  )}`;
-
-
-  type BeneficiaryStatus = {
-  exists: boolean;
-  verified: boolean;
-  account_name?: string | null;
-  bank_name?: string | null;
-  masked_account_number?: string | null;
-};
-
-function BeneficiaryRow({
-  label,
-  beneficiary,
-}: {
-  label: string;
-  beneficiary?: BeneficiaryStatus;
-}) {
-  const ready =
-    beneficiary?.exists === true &&
-    beneficiary?.verified === true;
-
-  return (
-    <View style={styles.beneficiaryRow}>
-      <View style={styles.flexOne}>
-        <Text style={styles.beneficiaryLabel}>
-          {label}
-        </Text>
-
-        {ready ? (
-          <>
-            <Text style={styles.accountName}>
-              {beneficiary.account_name ??
-                "Verified account"}
-            </Text>
-
-            <Text style={styles.muted}>
-              {[
-                beneficiary.bank_name,
-                beneficiary.masked_account_number,
-              ]
-                .filter(Boolean)
-                .join(" • ")}
-            </Text>
-          </>
-        ) : (
-          <Text style={styles.missingText}>
-            {beneficiary?.exists
-              ? "Account requires verification"
-              : "Account details not provided"}
-          </Text>
-        )}
-      </View>
-
-      <Text
-        style={
-          ready
-            ? styles.readyBadge
-            : styles.missingBadge
-        }
-      >
-        {ready ? "Verified" : "Required"}
-      </Text>
-    </View>
-  );
-}
-
-export default function PropertyPaymentScreen() {
-  const router = useRouter();
-
-  const {
-    settlementId,
-  } = useLocalSearchParams<{
-    settlementId: string;
-  }>();
-
-  const [
-    settlement,
-    setSettlement,
-  ] = useState<PropertySettlement | null>(
-    null
-  );
-
-  const [
-    requestingAccounts,
-    setRequestingAccounts,
-  ] = useState(false);
-
-  const [
-    loading,
-    setLoading,
-  ] = useState(true);
-
-  const [
-    paying,
-    setPaying,
-  ] = useState(false);
-
-
-
-const loadSettlement = useCallback(
-  async () => {
-    if (!settlementId) {
-      setSettlement(null);
-      setLoading(false);
-
-      Alert.alert(
-        "Invalid Payment",
-        "The settlement ID is missing."
-      );
-
+const money = (value: string) =>
+  `₦${Number(value).toLocaleString("en-NG", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
+export default function PaymentScreen() {
+  const params = useLocalSearchParams<{ settlementId?: string | string[] }>();
+  const id = Array.isArray(params.settlementId)
+    ? params.settlementId[0]
+    : params.settlementId;
+  const [data, setData] = useState<SettlementView | null>(null);
+  const [error, setError] = useState("");
+  const [busy, setBusy] = useState(false);
+  const lock = useRef(false);
+  const generation = useRef(0);
+  const root = `/property-settlements/${encodeURIComponent(id ?? "")}`;
+  const reload = useCallback(async () => {
+    const g = ++generation.current;
+    if (!id) {
+      setError("Payment review ID is missing.");
       return;
     }
-
     try {
-      setLoading(true);
-
-      const data =
-        await API.getPropertySettlement(
-          Number(settlementId)
-        );
-
-      setSettlement(data);
-    } catch (error: any) {
-      setSettlement(null);
-
-      Alert.alert(
-        "Error",
-        error?.response?.data?.message ??
-          error?.message ??
-          "Unable to load payment."
+      const r = await API.get<{ data: SettlementView }>(
+        `/property-settlements/${encodeURIComponent(id)}`,
       );
+      if (g === generation.current) {
+        setData(r.data.data);
+        setError("");
+      }
+    } catch (e) {
+      if (g === generation.current) setError(errorText(e));
+    }
+  }, [id]);
+  useFocusEffect(
+    useCallback(() => {
+      void reload();
+      const sub = AppState.addEventListener("change", (state) => {
+        if (state === "active") void reload();
+      });
+      return () => {
+        generation.current++;
+        sub.remove();
+      };
+    }, [reload]),
+  );
+  async function run(work: () => Promise<void>) {
+    if (lock.current) return;
+    lock.current = true;
+    setBusy(true);
+    try {
+      await work();
+    } catch (e) {
+      Alert.alert("Payment update", errorText(e));
     } finally {
-      setLoading(false);
+      await reload();
+      lock.current = false;
+      setBusy(false);
     }
-  },
-  [settlementId]
-);
-
-
-
-useFocusEffect(
-  useCallback(() => {
-    void loadSettlement();
-  }, [loadSettlement])
-);
-
-  const handlePay = async () => {
-    if (!settlement) {
-      return;
-    }
-
-    if (
-  settlement.beneficiary_readiness?.ready !==
-  true
-) {
-  Alert.alert(
-    "Accounts Not Ready",
-    "The property beneficiary and lister accounts must both be verified before payment."
-  );
-
-  return;
-}
-
-    try {
-      setPaying(true);
-
-      const payment =
-        await API.initializePropertyPayment(
-          settlement.id
-        );
-
-      if (!payment.authorization_url) {
+  }
+  async function verify() {
+    await run(async () => {
+      const r = await API.post<{ data: SettlementView }>(`${root}/verify`);
+      setData(r.data.data);
+      Alert.alert(
+        r.data.data.state === "paid" ? "Payment received" : "Payment pending",
+        r.data.data.state === "paid"
+          ? "Your payment has been verified and secured."
+          : "The provider has not confirmed a successful payment yet.",
+      );
+    });
+  }
+  async function pay() {
+    await run(async () => {
+      const r = await API.post<{
+        data: { state?: string; authorization_url?: string };
+      }>(`${root}/pay`);
+      if (r.data.data.state === "paid") return;
+      const url = r.data.data.authorization_url;
+      if (!url || !url.startsWith("https://checkout.paystack.com/"))
         throw new Error(
-          "Payment URL was not returned."
+          "Checkout details are unavailable. Check payment status or contact support.",
         );
-      }
-
-      /*
-       * Opens Paystack hosted checkout.
-       *
-       * OHLAM never handles card details.
-       */
-      await WebBrowser.openBrowserAsync(
-        payment.authorization_url
+      await WebBrowser.openBrowserAsync(url);
+      // Closing the browser never establishes payment success.
+      const verified = await API.post<{ data: SettlementView }>(
+        `${root}/verify`,
       );
-
-      /*
-       * Customer comes back from Paystack.
-       *
-       * Refresh settlement.
-       *
-       * The webhook is the source of truth,
-       * NOT the browser returning.
-       */
-      await loadSettlement();
-    } catch (error: any) {
-      Alert.alert(
-        "Payment Error",
-        error?.response?.data?.message ??
-          error?.message ??
-          "Unable to start payment."
-      );
-    } finally {
-      setPaying(false);
-    }
-  };
-
-  if (loading) {
-    return (
-      <View style={styles.center}>
-        <ActivityIndicator size="large" />
-
-        <Text style={styles.loadingText}>
-          Preparing payment...
-        </Text>
-      </View>
-    );
+      setData(verified.data.data);
+    });
   }
-
-  if (!settlement) {
-    return (
-      <View style={styles.center}>
-        <Text>
-          Payment settlement was not found.
-        </Text>
-      </View>
-    );
-  }
-
-  const statusCode =
-    settlement.status?.code;
-
- 
-
-  const paymentPending =
-    statusCode ===
-    "settlement_payment_pending";
-
-  const paid =
-    statusCode ===
-    "settlement_paid";
-
-    const handleRequestAccountDetails =
-  async () => {
-    if (
-      !settlement ||
-      requestingAccounts
-    ) {
-      return;
-    }
-
-    try {
-      setRequestingAccounts(true);
-
-      await API.requestPropertyPaymentAccounts(
-        settlement.id
-      );
-
-      Alert.alert(
-        "Request Sent",
-        "The property lister has been notified to provide and verify the required account details."
-      );
-
-      await loadSettlement();
-    } catch (error: any) {
-      Alert.alert(
-        "Unable to Send Request",
-        error?.response?.data?.message ??
-          error?.message ??
-          "The account-details request could not be sent."
-      );
-    } finally {
-      setRequestingAccounts(false);
-    }
-  };
-
-
-  const readiness =
-  settlement.beneficiary_readiness;
-
-  const beneficiariesReady =
-  readiness?.ready === true;
-
-
-
-  const paymentReady =
-    statusCode ===
-      "settlement_payment_ready" &&
-    beneficiariesReady;
-
-
-
-
-
   return (
-    <ScrollView
-      style={styles.container}
-      contentContainerStyle={
-        styles.content
-      }
-    >
-      <Text style={styles.title}>
-        Property Payment
-      </Text>
-
-      {settlement.property && (
-        <View style={styles.card}>
-          <Text style={styles.cardTitle}>
-            {settlement.property.title ??
-              "Property"}
-          </Text>
-
-          {!!settlement.property.address && (
-            <Text style={styles.muted}>
-              {settlement.property.address}
-            </Text>
-          )}
-        </View>
-      )}
-
-      <View style={styles.card}>
-        <Text style={styles.sectionTitle}>
-          Payment Breakdown
+    <Protected>
+      <ScrollView
+        contentContainerStyle={{ padding: 20, gap: 14, paddingBottom: 60 }}
+      >
+        <Text style={{ fontSize: 23, fontWeight: "700" }}>
+          Property payment
         </Text>
-
-        {settlement.items?.map(
-          (item) => (
+        {error ? (
+          <Text style={{ color: "#b91c1c" }}>{error}</Text>
+        ) : !data ? (
+          <ActivityIndicator />
+        ) : (
+          <>
+            <Text style={{ fontSize: 18, fontWeight: "600" }}>
+              {data.property_label}
+            </Text>
             <View
-              key={item.id}
-              style={styles.row}
+              style={{
+                padding: 18,
+                backgroundColor: "#fff",
+                borderRadius: 12,
+                gap: 12,
+              }}
             >
-              <Text style={styles.label}>
-                {item.label}
-              </Text>
-
-              <Text style={styles.amount}>
-                {money(item.amount)}
+              {data.items.map((item, i) => (
+                <Text key={`${item.type}-${i}`}>
+                  {item.label}: {money(item.amount)}
+                </Text>
+              ))}
+              <Text style={{ fontSize: 21, fontWeight: "700" }}>
+                Total: {money(data.total_amount)}
               </Text>
             </View>
-          )
-        )}
-
-        <View style={styles.divider} />
-
-        <View style={styles.row}>
-          <Text style={styles.totalLabel}>
-            Total
-          </Text>
-
-          <Text style={styles.totalAmount}>
-            {money(
-              settlement.total_amount
-            )}
-          </Text>
-        </View>
-      </View>
-
-
-
-      <View style={styles.card}>
-  <Text style={styles.sectionTitle}>
-    Payment Recipients
-  </Text>
-
-  <Text style={styles.recipientNotice}>
-    OHLAM verifies the recipient accounts before
-    allowing payment. Complete account numbers are
-    hidden for security.
-  </Text>
-
-  <BeneficiaryRow
-    label="Property beneficiary"
-    beneficiary={
-      readiness?.property_beneficiary
-    }
-  />
-
-  <View style={styles.divider} />
-
-  <BeneficiaryRow
-    label="Property lister"
-    beneficiary={readiness?.lister}
-  />
-</View>
-
-      {!paid &&
- !paymentPending &&
-      !beneficiariesReady && (
-  <View style={styles.notice}>
-    <Text style={styles.noticeTitle}>
-      Account Details Required
-    </Text>
-
-    <Text style={styles.noticeText}>
-      Payment cannot start until the property
-      beneficiary account and the lister account
-      have been provided and verified.
-    </Text>
-
-    <Text style={styles.warningText}>
-      Do not transfer money directly to an agent
-      or to an account sent outside OHLAM.
-    </Text>
-
-    <Pressable
-      style={[
-        styles.requestButton,
-        requestingAccounts &&
-          styles.disabledButton,
-      ]}
-      disabled={
-        requestingAccounts ||
-        readiness?.request_already_sent === true
-      }
-      onPress={() =>
-        void handleRequestAccountDetails()
-      }
-    >
-      {requestingAccounts ? (
-        <ActivityIndicator color="#ffffff" />
-      ) : (
-        <Text style={styles.requestButtonText}>
-          {readiness?.request_already_sent
-            ? "Request Already Sent"
-            : "Request Account Details"}
-        </Text>
-      )}
-    </Pressable>
-
-    <Pressable
-      style={styles.secondaryButton}
-      onPress={() => void loadSettlement()}
-    >
-      <Text style={styles.secondaryButtonText}>
-        Check Again
-      </Text>
-    </Pressable>
-  </View>
-)}
-
-      {paymentReady && (
-        <>
-          <View style={styles.readyBox}>
-            <Text style={styles.readyTitle}>
-              Payment Ready
-            </Text>
-
-            <Text style={styles.readyText}>
-              The payment route for this
-              property has been prepared.
-              Review the amounts carefully
-              before proceeding.
-            </Text>
-          </View>
-
-          <Pressable
-  style={[
-    styles.payButton,
-    paying && styles.disabledButton,
-  ]}
-  disabled={paying}
-  onPress={() => void handlePay()}
->
-            {paying ? (
-              <ActivityIndicator />
-            ) : (
-              <Text
-                style={styles.payButtonText}
+            {data.beneficiary && (
+              <View
+                style={{
+                  padding: 18,
+                  backgroundColor: "#fff",
+                  borderRadius: 12,
+                }}
               >
-                Proceed to Paystack
-              </Text>
+                <Text style={{ fontWeight: "700" }}>Confirmed beneficiary</Text>
+                <Text>{data.beneficiary.account_name}</Text>
+                <Text>
+                  {data.beneficiary.bank_name} ·{" "}
+                  {data.beneficiary.masked_account_number}
+                </Text>
+              </View>
             )}
-          </Pressable>
-        </>
-      )}
-
-
-
-      {paymentPending && (
-        <View style={styles.notice}>
-          <Text style={styles.noticeTitle}>
-            Payment Processing
-          </Text>
-
-          <Text style={styles.noticeText}>
-            If you completed payment,
-            OHLAM is waiting for payment
-            confirmation.
-          </Text>
-
-          <Pressable
-            style={styles.secondaryButton}
-            onPress={() => void loadSettlement()}
-          >
-            <Text
-              style={
-                styles.secondaryButtonText
-              }
-            >
-              Refresh Payment Status
-            </Text>
-          </Pressable>
-        </View>
-      )}
-
-      {paid && (
-        <View style={styles.paidBox}>
-          <Text style={styles.paidTitle}>
-            Payment Confirmed
-          </Text>
-
-          <Text style={styles.paidText}>
-            OHLAM has received confirmation
-            of this property payment.
-          </Text>
-        </View>
-      )}
-
-      <Pressable
-        style={styles.backButton}
-        onPress={() => router.back()}
-      >
-        <Text style={styles.backButtonText}>
-          Back
-        </Text>
-      </Pressable>
-    </ScrollView>
+            {data.state === "awaiting_account_details" && (
+              <>
+                <Text>
+                  The lister needs to provide or confirm beneficiary details for
+                  this property. An email and in-app request have been sent.
+                  Refresh after they confirm.
+                </Text>
+                <ActionButton
+                  title="Request beneficiary details"
+                  disabled={busy}
+                  onPress={() => {
+                    void run(async () => {
+                      await API.post(`${root}/request-account-details`);
+                      Alert.alert(
+                        "Request recorded",
+                        "The lister has been notified if details are still missing.",
+                      );
+                    });
+                  }}
+                />
+              </>
+            )}
+            {data.state === "ready" && (
+              <ActionButton
+                title="Pay securely with Paystack"
+                disabled={busy}
+                onPress={() => {
+                  void pay();
+                }}
+              />
+            )}
+            {data.state === "processing" && (
+              <>
+                <Text>
+                  Payment is awaiting confirmation. Check the existing payment
+                  before trying anything else.
+                </Text>
+                {data.payment?.authorization_url && (
+                  <ActionButton
+                    title="Resume existing checkout"
+                    disabled={busy}
+                    onPress={() => {
+                      void pay();
+                    }}
+                  />
+                )}
+                <ActionButton
+                  title="Check payment status"
+                  disabled={busy}
+                  onPress={() => {
+                    void verify();
+                  }}
+                />
+              </>
+            )}
+            {data.state === "paid" && (
+              <View
+                style={{
+                  padding: 18,
+                  backgroundColor: "#dcfce7",
+                  borderRadius: 12,
+                }}
+              >
+                <Text style={{ fontSize: 19, fontWeight: "700" }}>
+                  Payment received and secured
+                </Text>
+                <Text>Reference: {data.payment?.reference}</Text>
+                <Text>
+                  The successful payment has been verified by the backend.
+                  Release of property funds follows OHLAM's approval process.
+                </Text>
+              </View>
+            )}
+          </>
+        )}
+        <ActionButton
+          title="Refresh payment review"
+          disabled={busy}
+          onPress={() => {
+            void reload();
+          }}
+        />
+      </ScrollView>
+    </Protected>
   );
 }
-
-const styles = StyleSheet.create({
-  container: {
-    flex: 1,
-  },
-
-  content: {
-    padding: 20,
-    paddingBottom: 50,
-  },
-
-  center: {
-    flex: 1,
-    alignItems: "center",
-    justifyContent: "center",
-    padding: 24,
-  },
-
-  loadingText: {
-    marginTop: 12,
-  },
-
-  title: {
-    fontSize: 26,
-    fontWeight: "700",
-    marginBottom: 20,
-  },
-
-  card: {
-    borderWidth: 1,
-    borderColor: "#ddd",
-    borderRadius: 12,
-    padding: 16,
-    marginBottom: 16,
-  },
-
-  cardTitle: {
-    fontSize: 18,
-    fontWeight: "700",
-  },
-
-  muted: {
-    marginTop: 6,
-    opacity: 0.65,
-  },
-
-  sectionTitle: {
-    fontSize: 18,
-    fontWeight: "700",
-    marginBottom: 15,
-  },
-
-  row: {
-    flexDirection: "row",
-    justifyContent: "space-between",
-    gap: 12,
-    marginBottom: 12,
-  },
-
-  label: {
-    flex: 1,
-    fontSize: 15,
-  },
-
-  amount: {
-    fontWeight: "600",
-  },
-
-  divider: {
-    borderTopWidth: 1,
-    borderColor: "#ddd",
-    marginVertical: 8,
-  },
-
-  totalLabel: {
-    fontSize: 18,
-    fontWeight: "700",
-  },
-
-  totalAmount: {
-    fontSize: 18,
-    fontWeight: "700",
-  },
-
-  notice: {
-    borderWidth: 1,
-    borderColor: "#ddd",
-    borderRadius: 12,
-    padding: 18,
-    marginTop: 6,
-  },
-
-  noticeTitle: {
-    fontSize: 18,
-    fontWeight: "700",
-    marginBottom: 8,
-  },
-
-  noticeText: {
-    lineHeight: 21,
-  },
-
-  warningText: {
-    marginTop: 12,
-    lineHeight: 21,
-    fontWeight: "600",
-  },
-
-  readyBox: {
-    borderWidth: 1,
-    borderColor: "#ddd",
-    borderRadius: 12,
-    padding: 18,
-    marginBottom: 16,
-  },
-
-  readyTitle: {
-    fontSize: 18,
-    fontWeight: "700",
-    marginBottom: 8,
-  },
-
-  readyText: {
-    lineHeight: 21,
-  },
-
-  payButton: {
-    minHeight: 52,
-    borderRadius: 10,
-    alignItems: "center",
-    justifyContent: "center",
-    backgroundColor: "#111",
-    paddingHorizontal: 20,
-  },
-
-  payButtonText: {
-    color: "#fff",
-    fontSize: 16,
-    fontWeight: "700",
-  },
-
-  secondaryButton: {
-    marginTop: 18,
-    minHeight: 48,
-    borderWidth: 1,
-    borderColor: "#222",
-    borderRadius: 10,
-    alignItems: "center",
-    justifyContent: "center",
-  },
-
-  secondaryButtonText: {
-    fontWeight: "600",
-  },
-
-  paidBox: {
-    borderWidth: 1,
-    borderColor: "#ddd",
-    borderRadius: 12,
-    padding: 18,
-  },
-
-  paidTitle: {
-    fontSize: 20,
-    fontWeight: "700",
-    marginBottom: 8,
-  },
-
-  paidText: {
-    lineHeight: 21,
-  },
-
-  backButton: {
-    marginTop: 25,
-    alignItems: "center",
-    padding: 14,
-  },
-
-  backButtonText: {
-    fontWeight: "600",
-  },
-
-  flexOne: {
-  flex: 1,
-},
-
-recipientNotice: {
-  color: "#64748b",
-  lineHeight: 20,
-  marginBottom: 16,
-},
-
-beneficiaryRow: {
-  flexDirection: "row",
-  alignItems: "center",
-  gap: 12,
-  paddingVertical: 8,
-},
-
-beneficiaryLabel: {
-  color: "#64748b",
-  fontSize: 12,
-  fontWeight: "700",
-  textTransform: "uppercase",
-},
-
-accountName: {
-  marginTop: 4,
-  color: "#0f172a",
-  fontWeight: "700",
-},
-
-missingText: {
-  marginTop: 4,
-  color: "#b45309",
-  fontWeight: "600",
-},
-
-readyBadge: {
-  color: "#047857",
-  backgroundColor: "#d1fae5",
-  paddingHorizontal: 9,
-  paddingVertical: 5,
-  borderRadius: 20,
-  fontSize: 12,
-  fontWeight: "700",
-},
-
-missingBadge: {
-  color: "#b45309",
-  backgroundColor: "#fef3c7",
-  paddingHorizontal: 9,
-  paddingVertical: 5,
-  borderRadius: 20,
-  fontSize: 12,
-  fontWeight: "700",
-},
-
-requestButton: {
-  minHeight: 50,
-  marginTop: 18,
-  borderRadius: 10,
-  alignItems: "center",
-  justifyContent: "center",
-  backgroundColor: "#2563eb",
-  paddingHorizontal: 18,
-},
-
-requestButtonText: {
-  color: "#ffffff",
-  fontWeight: "700",
-},
-
-disabledButton: {
-  opacity: 0.55,
-},
-});
