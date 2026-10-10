@@ -11,6 +11,7 @@ test('opens the particular appointment and property transaction', () => {
  assert.equal(notificationRoute({route:'/appointment/8'}), '/(tabs)/appointment/8');
  assert.equal(notificationRoute({route:'/property-payment/transaction/11'}), '/(tabs)/property-payment/transaction/11');
  assert.equal(notificationRoute({route:'/(tabs)/wallet/referral-rewards'}), '/(tabs)/wallet/referral-rewards');
+ assert.equal(notificationRoute({route:'/property/abc-123'}), '/(tabs)/home/property/abc-123');
 });
 test('opens chat using either notification type field', () => {
  assert.equal(notificationRoute({notification_type:'chat_message',conversation_id:9}), '/(tabs)/chat/9');
