@@ -211,14 +211,14 @@ export default function BeneficiaryScreen() {
               <Text>Bank</Text>
               <Picker
                 style={styles.picker}
-                dropdownIconColor="#334155"
+                dropdownIconColor="#383a3c"
                 selectedValue={bankCode}
                 onValueChange={setBankCode}
                 enabled={!busy}
               >
                 <Picker.Item label="Choose bank" value="" color="#0F172A" />
                 {banks.map((b) => (
-                  <Picker.Item key={b.code} label={b.name} value={b.code} color="#0F172A" />
+                  <Picker.Item key={b.code} label={b.name} value={b.code} color="#f5f7fc" />
                 ))}
               </Picker>
               {banks.length === 0 && (
@@ -238,19 +238,16 @@ export default function BeneficiaryScreen() {
                 </>
               )}
               <TextInput
-                style={{
-                  borderWidth: 1,
-                  borderColor: "#f1f4f8",
-                  padding: 14,
-                  borderRadius: 8,
-                }}
-                placeholder="10-digit account number"
-                keyboardType="number-pad"
-                maxLength={10}
-                editable={!busy}
-                value={account}
-                onChangeText={setAccount}
-              />
+  style={styles.input}
+  placeholder="10-digit account number"
+  placeholderTextColor="#64748B"
+  selectionColor="#147D64"
+  keyboardType="number-pad"
+  maxLength={10}
+  editable={!busy}
+  value={account}
+  onChangeText={setAccount}
+/>
               <ActionButton
                 title="Resolve and save bank account"
                 disabled={busy || !selectedBank || !/^\d{10}$/.test(account)}
