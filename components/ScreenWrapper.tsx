@@ -28,8 +28,10 @@ const ScreenWrapper: React.FC<ScreenWrapperProps> = ({ children, style, scrollSt
           keyboardShouldPersistTaps="handled"
         >
           {children}
-          <FloatingRagButton />
+        
+        <FloatingRagButton />
         </ScrollView>
+        
       </TouchableWithoutFeedback>
     </KeyboardAvoidingView>
   );
@@ -39,8 +41,7 @@ const styles = StyleSheet.create({
   container: { flex: 1, backgroundColor: "#fff" },
   scroll: {
     flexGrow: 1,
-    paddingHorizontal: 24,
-    paddingVertical: 40,
+   
   },
 });
 

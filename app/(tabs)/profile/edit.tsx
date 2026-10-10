@@ -12,17 +12,15 @@ import { View,
     Alert,
  } from "react-native";
 import Navbar from "components/Navbar";
-import { useForm, Controller, useWatch} from "react-hook-form";
-import { useAuth } from "context/AuthContext";
+import { useForm, Controller } from "react-hook-form";
+import { useAuth } from "@/context/AuthContext";
 import API from "@/src/services/api";
-import { useState, useEffect, useCallback  } from "react";
-import AsyncStorage from "@react-native-async-storage/async-storage";
-import { Picker } from "@react-native-picker/picker";
+import { useState, useEffect } from "react";
 import * as ImagePicker from "expo-image-picker";
 // API_BASE_URL is now defined in the API service
 import { useRouter } from "expo-router";
-import { useFocusEffect } from '@react-navigation/native';
-import { getItem, setItem } from "../../utils/storage";
+import { ENV } from "@/src/config/env";
+import { setItemSafe } from "@/utils/storage";
 
 
 import CustomAlert from "components/CustomAlert";
@@ -39,7 +37,7 @@ const EditProfileScreen = () => {
    const [alertTitle, setAlertTitle] = useState("");
    const [alertMessage, setAlertMessage] = useState("");
   const [selectedImage, setSelectedImage] = useState<string | null>(null);
-  const BASE_URL = API;
+  const BASE_URL = ENV.API_URL.replace(/\/api\/?$/, "");
 
  const [formData, setFormData] = useState<Record<string, any>>({});
  const [selectedImageFile, setSelectedImageFile] = useState<any>(null);
@@ -211,19 +209,24 @@ setSelectedImageFile(imageToUpload);
   });
 
   // Send new image if selected
-  if (selectedImage && formData.profile_picture) {
-    payload.append("profile_picture", formData.profile_picture);
-  }
-
+ 
   if (selectedImageFile) {
   payload.append("profile_picture", selectedImageFile);
 }
 
   try {
-    const res = await API.updateProfile(payload);
+   const res = await API.updateProfile(payload);
 
-    showAlert("Success", "Profile updated!");
-    router.push("/home");
+if (!res?.user?.id) {
+  throw new Error(
+    "The server did not return your updated profile."
+  );
+}
+
+await setItemSafe("user", JSON.stringify(res.user));
+
+showAlert("Success", "Profile updated!");
+router.back();
   } catch (err: any) {
     showAlert("Error", err.response?.data?.message || "Update failed");
   } finally {

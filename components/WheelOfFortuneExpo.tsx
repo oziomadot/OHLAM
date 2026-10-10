@@ -10,7 +10,7 @@ import {
 } from "react-native";
 import Svg, { G, Path, Text as SvgText } from "react-native-svg";
 import * as d3 from "d3-shape";
-import { useWheelSpin } from "src/hooks/useWheelSpin"; // adjust path as needed
+import { useWheelSpin } from "@/src/hooks/useWheelSpin"; // adjust path as needed
 import { useRouter } from "expo-router";
 
 

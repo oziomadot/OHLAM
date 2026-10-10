@@ -14,16 +14,103 @@ import { setItemSafe, getItemSafe } from "@/utils/storage";
 import API  from "@/src/services/api";
 import Navbar from "components/Navbar";
 import ScreenWrapper from "components/ScreenWrapper";
-import ApiService from "@/src/services/api";
+import axios from 'axios';
 import CustomAlert from "components/CustomAlert";
 
+
+function getApiErrorMessage(
+  error: unknown
+): string {
+  /*
+   * Errors normalized by ApiService.request().
+   */
+  if (
+    typeof error === "object" &&
+    error !== null
+  ) {
+    const apiError =
+      error as {
+        message?: unknown;
+        status?: unknown;
+        errors?: Record<
+          string,
+          string[] | string
+        >;
+        response?: {
+          data?: {
+            message?: unknown;
+            errors?: Record<
+              string,
+              string[] | string
+            >;
+          };
+        };
+      };
+
+    const backendData =
+      apiError.response?.data;
+
+    const message =
+      backendData?.message ??
+      apiError.message;
+
+    if (
+      typeof message === "string" &&
+      message.trim()
+    ) {
+      return message;
+    }
+
+    const errors =
+      backendData?.errors ??
+      apiError.errors;
+
+    if (
+      errors &&
+      typeof errors === "object"
+    ) {
+      const firstMessage =
+        Object.values(errors)
+          .flat()
+          .find(
+            (
+              value
+            ): value is string =>
+              typeof value ===
+              "string" &&
+              value.trim().length > 0
+          );
+
+      if (firstMessage) {
+        return firstMessage;
+      }
+    }
+  }
+
+  if (axios.isAxiosError(error)) {
+    if (!error.response) {
+      return "Network error. Check your internet connection and try again.";
+    }
+
+    return (
+      error.response.data?.message ??
+      "The request could not be completed."
+    );
+  }
+
+  if (
+    error instanceof Error &&
+    error.message
+  ) {
+    return error.message;
+  }
+
+  return "Something went wrong. Please try again.";
+}
+
 const PhoneNumberVerification = () => {
-  const router = useRouter();
-  const [phoneNumber, setPhoneNumber] = useState("");
-  const [otp, setOtp] = useState("");
-  const [loading, setLoading] = useState(false);
-  const [otpSent, setOtpSent] = useState(false);
-  const [userId, setUserId] = useState<string | null>(null);
+  const router = useRouter();  
+  const [loading, setLoading] = useState(false); 
   const [user, setUser] = useState<any>(null);
   const [newPhoneNumber, setNewPhoneNumber] = useState("");
   const [updatingPhoneNumber, setUpdatingPhoneNumber] = useState(false);
@@ -33,111 +120,270 @@ const PhoneNumberVerification = () => {
   const [alertMessage, setAlertMessage] = useState("");
   const [alertOnCloseCallback, setAlertOnCloseCallback] = useState<(() => void) | null>(null);
   
-  const { control, handleSubmit, formState: { errors } } = useForm();
+  const { control, handleSubmit, formState: { errors } } = useForm<PhoneVerificationForm>();
 
-  const showAlert = (title: string, message: string, callback?: () => void) => {
-    setAlertTitle(title);
-    setAlertMessage(message);
-    setAlertOnCloseCallback(callback || null);
-    setAlertVisible(true);
-  };
+ const showAlert = (
+  title: string,
+  message: string,
+  callback?: () => void
+) => {
+  setAlertTitle(title);
+  setAlertMessage(message);
+  setAlertOnCloseCallback(() => callback ?? null);
+  setAlertVisible(true);
+};
+
 
   // Load user info on mount
   React.useEffect(() => {
-    const loadUserInfo = async () => {
-      const user = await getItemSafe("user");
-      const UserId = await getItemSafe("user_id");
-      if (UserId) {
-        setUserId(UserId);
+  const loadUserInfo = async () => {
+    try {
+      const storedUser = await getItemSafe("user");
+    
+
+    
+
+      if (storedUser) {
+        setUser(JSON.parse(storedUser));
       }
-      if (user) {
-        setUser(user);
-      }
-    };
-    loadUserInfo();
-  }, []);
-
- 
-
-  
-
-  const resendPhoneCode = async () => {
-     setLoading(true);
-        console.log("Resending code to phone number");
-        try {
-          // Always fetch the latest userId from storage
-          const currentUserId = await getItemSafe("user_id");
-          console.log("Sending request with userId:", currentUserId);
-    
-          if (!currentUserId) {
-            showAlert("Error", "User ID missing. Please log in again.");
-            return;
-          }
-    
-          const res = await API.post(`/send-phone-Code`, {
-            user_id: currentUserId,
-            method: "phone_number"
-          });
-    
-        
-    
-          if (res.status === 200 && res.data.status === 200) {
-             await setItemSafe("user_id", res.data.user_id);
-            showAlert("Sent", res.data.successMessage || "A new code has been sent to your phone number.");
-          
-          } 
-    
-        } catch (error) {
-          
-    
-           console.log(error.response?.data || error.message);
-    
-      // 👇 handle 422 (or any backend error message)
-      const errorMessage =
-        error.response?.data?.errorMessage || "Unable to resend code. Please try again.";
-    
-      showAlert("Error", errorMessage);
-        } finally {
-          setLoading(false);
-        }
+    } catch (error) {
+      showAlert(
+        "Storage Error",
+        "Stored registration information could not be read."
+      );
+    }
   };
 
-  const verifyOtp = async ({ code }) => {
-  const otp = code?.trim();
-  const userId = await getItemSafe("user_id");
-  const userData = await getItemSafe("user");
+  loadUserInfo();
+}, []);
 
-  if (!otp || otp.length !== 6) {
-    Alert.alert("Error", "Please enter a valid 6-digit OTP");
-    return;
-  }
 
+type PhoneVerificationForm = {
+  code: string;
+};
+
+type ApiError = {
+  message?: string;
+  status?: number;
+  errors?: Record<string, string[]>;
+};
+  
+
+  const resendPhoneCode = async (): Promise<void> => {
   setLoading(true);
+
   try {
-    const res = await API.post("/verify-phone", {
-      user_id: userId,
-      code: otp,
-      user: userData,
+    const currentUserId = await getItemSafe("user_id");
+
+    if (!currentUserId) {
+      showAlert(
+        "Session Error",
+        "Your user ID is missing. Please restart registration."
+      );
+      return;
+    }
+
+    const response = await API.resendPhoneCode({
+      user_id: currentUserId,
     });
 
-    if (res.status === 200 && res.data.status === 200) {
-      await setItemSafe("user_phone", phoneNumber);
-      await setItemSafe("registration_step", "face-record");
-      await setUser(userData ? JSON.parse(userData) : null);
-
-      router.replace("/auth/faceRecord");
-      Alert.alert("Phone Number Verified!", res.data.successMessage);
-    } else {
-      Alert.alert("Error", res.data.message || "Invalid OTP. Please try again.");
+    if (response.user_id !== undefined) {
+      await setItemSafe("user_id", String(response.user_id));
     }
-  } catch (error) {
-    console.error("OTP verification error:", error);
-    Alert.alert("Error", "Failed to verify OTP. Please try again.");
+
+    showAlert("Code Sent", response.message ?? "A new verification code has been sent to your phone number.");
+  }  catch (error) {
+  const message = getApiErrorMessage(error);
+
+  
+    showAlert(
+      "Unable to Send Code",
+      message ??
+        "Unable to resend the verification code. Please try again."
+    );
   } finally {
     setLoading(false);
   }
 };
 
+
+  
+  
+
+  const verifyOtp = async (formData: PhoneVerificationForm): Promise<void> => {
+  const verificationCode = formData.code.trim();
+
+  if (!/^\d{6}$/.test(verificationCode)) {
+    showAlert(
+      "Invalid Code",
+      "Please enter the complete 6-digit verification code."
+    );
+    return;
+  }
+
+  const currentUserId = await getItemSafe("user_id");
+
+  if (!currentUserId) {
+    showAlert(
+      "Session Error",
+      "Your user ID is missing. Please restart registration."
+    );
+    return;
+  }
+
+  setLoading(true);
+
+  try {
+    const response = await API.verifyPhone({
+      user_id: currentUserId,
+      code: verificationCode,
+    });
+
+
+    const tokenAfterPhone =
+  await getItemSafe("pre_auth_token");
+
+console.log(
+  "[PHONE VERIFIED] Pre-auth token exists:",
+  Boolean(tokenAfterPhone)
+);
+
+console.log(
+  "[PHONE VERIFIED] Token length:",
+  tokenAfterPhone?.length ?? 0
+);
+
+if (!tokenAfterPhone) {
+  throw new Error(
+    "The verification session disappeared after phone verification."
+  );
+}
+
+const tokenTest =
+  await API.testPreAuthToken();
+
+console.log(
+  "[PHONE VERIFIED] Token test:",
+  JSON.stringify(tokenTest, null, 2)
+);
+
+
+
+    if (response.user) {
+      const userToStore =
+        typeof response.user === "string"
+          ? response.user
+          : JSON.stringify(response.user);
+
+      await setItemSafe("user", userToStore);
+
+      setUser(
+        typeof response.user === "string"
+          ? JSON.parse(response.user)
+          : response.user
+      );
+    }
+
+    await setItemSafe("registration_step", "face-record");
+
+    showAlert(
+      "Phone Number Verified",
+      response.message ?? "Your phone number has been verified successfully.",
+      () => {
+        router.replace("/auth/faceRecord");
+      }
+    );
+  }  catch (error) {
+  const message = getApiErrorMessage(error);
+
+  
+
+    showAlert(
+      "Verification Failed",
+      message ??
+        "The verification code is invalid or expired."
+    );
+  } finally {
+    setLoading(false);
+  }
+};
+
+
+
+const updatePhoneNumber = async (): Promise<void> => {
+  const phone = newPhoneNumber.trim();
+
+  if (!phone) {
+    showAlert(
+      "Missing Phone Number",
+      "Please enter your new phone number."
+    );
+    return;
+  }
+
+ if (!/^\+[1-9]\d{7,14}$/.test(phone)) {
+  showAlert(
+    "Invalid Phone Number",
+    "Enter the number in international format, for example +2348012345678 or +31612345678."
+  );
+
+  return;
+}
+  
+
+  setUpdatingPhoneNumber(true);
+
+  try {
+    const currentUserId = await getItemSafe("user_id");
+
+    if (!currentUserId) {
+      showAlert(
+        "Session Error",
+        "Your user ID is missing. Please restart registration."
+      );
+      return;
+    }
+
+    const response = await API.updatePhoneNumber({
+      user_id: currentUserId,
+      phone,
+    });
+
+    await setItemSafe("user_phone", phone);
+
+    if (response.user) {
+      await setItemSafe("user", JSON.stringify(response.user));
+
+      setUser(response.user);
+    } else {
+      setUser((currentUser: any) => ({
+        ...currentUser,
+        phonenumber: phone,
+      }));
+    }
+
+
+    setShowUpdatePhoneNumber(false);
+    setNewPhoneNumber("");
+
+    showAlert(
+      "Phone Number Updated",
+      response.message ??
+        "Your phone number was updated and a new code was sent."
+    );
+  }  catch (error) {
+  const message = getApiErrorMessage(error);
+
+  
+    showAlert(
+      "Update Failed",
+      message ??
+        "Your phone number could not be updated."
+    );
+  } finally {
+    setUpdatingPhoneNumber(false);
+  }
+};
 
 
   return (
@@ -214,40 +460,19 @@ const PhoneNumberVerification = () => {
         style={styles.input}
       />
 
-      <TouchableOpacity
-        style={styles.updateBtn}
-        disabled={updatingPhoneNumber}
-        onPress={async () => {
-          if (!newPhoneNumber.trim()) {
-            showAlert("Error", "Please enter your new PhoneNumber address.");
-            return;
-          }
-
-          setUpdatingPhoneNumber(true);
-
-          try {
-            const userId = await getItemSafe("user_id");
-
-            const res = await API.updatePhoneNumber('payload');
-
-            showAlert("Success", res.message || "PhoneNumber updated. Verification code sent.");
-
-            await setItemSafe("user_PhoneNumber", newPhoneNumber.trim());
-
-            setShowUpdatePhoneNumber(false);
-            setNewPhoneNumber("");
-          } catch (err: any) {
-            console.log("Update PhoneNumber error:", err);
-            showAlert("Error", err.message || "Could not update PhoneNumber.");
-          } finally {
-            setUpdatingPhoneNumber(false);
-          }
-        }}
-      >
-        <Text style={styles.updateBtnText}>
-          {updatingPhoneNumber ? "Updating..." : "Update PhoneNumber"}
-        </Text>
-      </TouchableOpacity>
+     <TouchableOpacity
+  style={styles.updateBtn}
+  disabled={updatingPhoneNumber}
+  onPress={updatePhoneNumber}
+>
+  {updatingPhoneNumber ? (
+    <ActivityIndicator color="#fff" />
+  ) : (
+    <Text style={styles.updateBtnText}>
+      Update Phone Number
+    </Text>
+  )}
+</TouchableOpacity>
     </View>
   )}
 </View>

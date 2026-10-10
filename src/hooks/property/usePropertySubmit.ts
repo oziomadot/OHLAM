@@ -1,4 +1,3 @@
-import AsyncStorage from "@react-native-async-storage/async-storage";
 import API from "@/src/services/api";
 import { router } from "expo-router";
 
@@ -16,6 +15,15 @@ type Args = {
   setLoading: (value: boolean) => void;
 };
 
+type AdditionalFeeItem = {
+  reason: string;
+  amount: string | number;
+};
+
+type AdditionalExpenseItem = {
+  description: string;
+};
+
 export function usePropertySubmit({
   selectedPropertyType,
   selectedListingRoleName,
@@ -29,184 +37,611 @@ export function usePropertySubmit({
   showAlert,
   setLoading,
 }: Args) {
-  const validateMedia = () => {
-    if (selectedPropertyType === 1) {
-      const required = [
-        "wholeBuilding",
-        "sittingRoom",
-        "kitchenImage",
-        "room",
-        "toiletImage",
-      ];
+  const hasFile = (file: any) => {
+    if (!file) return false;
 
-      for (const key of required) {
-        if (!images[key]) {
-          showAlert(
-            "Missing Media",
-            `Please upload ${key.replace(/([A-Z])/g, " $1").toLowerCase()}`
-          );
-          return false;
-        }
-      }
+    return Boolean(
+      file.uri ||
+      file.name
+    );
+  };
+
+  const moneyToNumber = (
+    value: string | number | null | undefined
+  ) => {
+    const cleaned = String(
+      value ?? ""
+    )
+      .replace(/,/g, "")
+      .trim();
+
+    if (!cleaned) {
+      return 0;
     }
 
-    if (selectedPropertyType === 2) {
-      if (!images.wholeBuilding) {
-        showAlert("Missing Image", "Please upload whole building photo.");
+    const parsed = Number(cleaned);
+
+    return Number.isFinite(parsed)
+      ? parsed
+      : 0;
+  };
+
+  const validateAdditionalCharges = (
+    formData: any
+  ) => {
+    const declaredAdditionalFee =
+      moneyToNumber(
+        formData.additional_fee
+      );
+
+    const feeItems: AdditionalFeeItem[] =
+      Array.isArray(
+        formData.additional_fee_items
+      )
+        ? formData.additional_fee_items
+        : [];
+
+    const cleanedFeeItems =
+      feeItems
+        .map((item) => ({
+          reason: String(
+            item?.reason ?? ""
+          ).trim(),
+
+          amount:
+            moneyToNumber(
+              item?.amount
+            ),
+        }))
+        .filter(
+          (item) =>
+            item.reason !== "" ||
+            item.amount > 0
+        );
+
+    if (
+      declaredAdditionalFee > 0
+    ) {
+      if (
+        cleanedFeeItems.length === 0
+      ) {
+        showAlert(
+          "Additional Fee Breakdown Required",
+          "Please provide at least one reason and amount for the additional fee."
+        );
+
         return false;
       }
 
-      if (!video) {
-        showAlert("Missing Video", "Please upload property video.");
+      const invalidRow =
+        cleanedFeeItems.some(
+          (item) =>
+            !item.reason ||
+            item.amount <= 0
+        );
+
+      if (invalidRow) {
+        showAlert(
+          "Invalid Additional Fee Row",
+          "Every additional fee row must contain a reason and an amount greater than zero."
+        );
+
         return false;
       }
-    }
 
-    if (selectedPropertyType === 3 && !video) {
-      showAlert("Missing Video", "Please upload land video.");
+      const breakdownTotal =
+        cleanedFeeItems.reduce(
+          (
+            total,
+            item
+          ) =>
+            total +
+            item.amount,
+          0
+        );
+
+      if (
+        Math.abs(
+          breakdownTotal -
+            declaredAdditionalFee
+        ) > 0.009
+      ) {
+        showAlert(
+          "Additional Fee Total Does Not Match",
+          `The declared additional fee is ₦${declaredAdditionalFee.toLocaleString(
+            "en-NG"
+          )}, but the breakdown total is ₦${breakdownTotal.toLocaleString(
+            "en-NG"
+          )}.`
+        );
+
+        return false;
+      }
+    } else if (
+      cleanedFeeItems.length > 0
+    ) {
+      showAlert(
+        "Additional Fee Is Missing",
+        "You entered additional fee rows, but the Additional Fee total is zero."
+      );
+
       return false;
     }
 
     return true;
   };
 
-  const onSubmit = async (formData: any) => {
-    if (!validateMedia()) return;
+  
+const validateMedia = (): boolean => {
+  const hasVideo =
+    Boolean(
+      video?.uri ||
+      video?.name
+    );
+
+  if (selectedPropertyType === 3) {
+    const hasLandPhoto =
+      Boolean(
+        images?.wholeBuilding?.uri
+      );
 
     if (
-      ["landlord", "developer"].includes(selectedListingRoleName) &&
-      !proofDocument
+      !hasLandPhoto &&
+      !hasVideo
     ) {
-      showAlert("Missing Document", "Please upload the required proof document.");
+      showAlert(
+        "Property Media Required",
+        "Please upload at least one land photo or one land video."
+      );
+
+      return false;
+    }
+
+    return true;
+  }
+
+  const hasAnyPhoto =
+    Boolean(
+      images?.wholeBuilding?.uri ||
+      images?.sittingRoom?.uri ||
+      images?.kitchenImage?.uri ||
+      images?.room?.uri ||
+      images?.toiletImage?.uri
+    );
+
+  if (
+    !hasAnyPhoto &&
+    !hasVideo
+  ) {
+    showAlert(
+      "Property Media Required",
+      "Please upload at least one property photo or one property video."
+    );
+
+    return false;
+  }
+
+  return true;
+};
+
+
+
+  const appendFile = (
+    data: FormData,
+    fieldName: string,
+    file: any,
+    defaultName: string,
+    defaultType: string
+  ) => {
+    if (!file) return;
+
+    if (
+      typeof File !== "undefined" &&
+      file instanceof File
+    ) {
+      data.append(
+        fieldName,
+        file
+      );
+
       return;
     }
 
-    if (!formData.latitude || !formData.longitude) {
+    if (!file.uri) {
+      return;
+    }
+
+    data.append(fieldName, {
+      uri: file.uri,
+      name: file.name || defaultName,
+      type: file.type || defaultType,
+    } as any);
+  };
+
+  const appendAdditionalFeeItems = (
+    data: FormData,
+    items: AdditionalFeeItem[]
+  ) => {
+    items
+      .map((item) => ({
+        reason: String(
+          item?.reason ?? ""
+        ).trim(),
+
+        amount:
+          moneyToNumber(
+            item?.amount
+          ),
+      }))
+      .filter(
+        (item) =>
+          item.reason !== "" ||
+          item.amount > 0
+      )
+      .forEach(
+        (
+          item,
+          index
+        ) => {
+          data.append(
+            `additional_fee_items[${index}][reason]`,
+            item.reason
+          );
+
+          data.append(
+            `additional_fee_items[${index}][amount]`,
+            String(
+              item.amount
+            )
+          );
+        }
+      );
+  };
+
+  const appendAdditionalExpenses = (
+    data: FormData,
+    items: AdditionalExpenseItem[]
+  ) => {
+    items
+      .map((item) => ({
+        description:
+          String(
+            item?.description ??
+              ""
+          ).trim(),
+      }))
+      .filter(
+        (item) =>
+          item.description !== ""
+      )
+      .forEach(
+        (
+          item,
+          index
+        ) => {
+          data.append(
+            `additional_expenses[${index}][description]`,
+            item.description
+          );
+        }
+      );
+  };
+
+  const onSubmit = async (
+    formData: any
+  ) => {
+    if (
+      !validateMedia()
+    ) {
+      return;
+    }
+
+    if (
+      !validateAdditionalCharges(
+        formData
+      )
+    ) {
+      return;
+    }
+
+    if (
+      [
+        "landlord",
+        "developer",
+      ].includes(
+        selectedListingRoleName
+      ) &&
+      !proofDocument
+    ) {
+      showAlert(
+        "Missing Document",
+        "Please upload the required proof document."
+      );
+
+      return;
+    }
+
+    if (
+      !formData.latitude ||
+      !formData.longitude
+    ) {
       showAlert(
         "Missing Location",
         "Please capture the GPS location of the property."
       );
+
       return;
     }
 
     setLoading(true);
 
     try {
-      const data = new FormData();
+      const data =
+        new FormData();
 
-      Object.entries(formData).forEach(([key, val]) => {
-        if (typeof val === "boolean") {
-          data.append(key, val ? "1" : "0");
-        } else if (val !== undefined && val !== null && typeof val !== "object") {
-          data.append(key, String(val).replace(/,/g, ""));
+      /*
+       * Normal scalar fields only.
+       *
+       * Arrays are appended separately below.
+       */
+      Object.entries(
+        formData
+      ).forEach(
+        ([key, val]) => {
+
+ if (
+      selectedPropertyType === 3 &&
+      [
+        "access_road",
+        "survey_plan",
+        "c_of_o",
+      ].includes(key)
+    ) {
+      return;
+    }
+
+          if (
+            key ===
+              "additional_fee_items" ||
+            key ===
+              "additional_expenses"
+          ) {
+            return;
+          }
+
+          if (
+            typeof val ===
+            "boolean"
+          ) {
+            data.append(
+              key,
+              val ? "1" : "0"
+            );
+
+            return;
+          }
+
+          if (
+            val === undefined ||
+            val === null ||
+            typeof val ===
+              "object"
+          ) {
+            return;
+          }
+
+          data.append(
+            key,
+            String(val)
+              .replace(
+                /,/g,
+                ""
+              )
+          );
         }
-      });
+      );
 
-      // Object.entries(images).forEach(([key, file]: any) => {
-      //   if (!file) return;
-
-      //   data.append(key, {
-      //     uri: file.uri,
-      //     name: file.name || `${key}.jpg`,
-      //     type: file.type || "image/jpeg",
-      //   } as any);
-      // });
-
-      // if (video) {
-      //   data.append("video", {
-      //     uri: video.uri,
-      //     name: video.name || "video.mp4",
-      //     type: video.type || "video/mp4",
-      //   } as any);
-      // }
-
-Object.entries(images).forEach(([key, file]: any) => {
-  if (!file || !file.uri) return;
-  data.append(
-    key,
-    {
-      uri: file.uri,
-      name: file.name || `${key}.jpg`,
-      type: file.type || "image/jpeg",
-    } as any
+      if (selectedPropertyType === 3) {
+  data.set(
+    "access_road",
+    formData.access_road ? "1" : "0"
   );
-});
 
-if (video?.uri) {
-  data.append(
-    "video",
-    {
-      uri: video.uri,
-      name: video.name || "video.mp4",
-      type: video.type || "video/mp4",
-    } as any
+  data.set(
+    "survey_plan",
+    formData.survey_plan ? "1" : "0"
+  );
+
+  data.set(
+    "c_of_o",
+    formData.c_of_o ? "1" : "0"
   );
 }
 
+      appendAdditionalFeeItems(
+        data,
+        Array.isArray(
+          formData.additional_fee_items
+        )
+          ? formData.additional_fee_items
+          : []
+      );
 
+      appendAdditionalExpenses(
+        data,
+        Array.isArray(
+          formData.additional_expenses
+        )
+          ? formData.additional_expenses
+          : []
+      );
 
-      if (proofDocument) {
-        data.append("proof_document", {
-          uri: proofDocument.uri,
-          name: proofDocument.name,
-          type: proofDocument.type,
-        } as any);
+      Object.entries(
+        images || {}
+      ).forEach(
+        ([key, file]: any) => {
+          if (
+            !hasFile(file)
+          ) {
+            return;
+          }
+
+          appendFile(
+            data,
+            key,
+            file,
+            `${key}.jpg`,
+            "image/jpeg"
+          );
+        }
+      );
+
+      if (
+        hasFile(video)
+      ) {
+        appendFile(
+          data,
+          "video",
+          video,
+          "property-video.mp4",
+          "video/mp4"
+        );
       }
 
-      if (floorPlan) {
-        data.append("floor_plan", {
-          uri: floorPlan.uri,
-          name: floorPlan.name,
-          type: floorPlan.type,
-        } as any);
+      if (
+        hasFile(
+          proofDocument
+        )
+      ) {
+        appendFile(
+          data,
+          "proof_document",
+          proofDocument,
+          "proof_document.pdf",
+          proofDocument?.type ||
+            "application/pdf"
+        );
       }
 
-      if (threeSixtyVideo) {
-        data.append("three_sixty_video", {
-          uri: threeSixtyVideo.uri,
-          name: threeSixtyVideo.name,
-          type: threeSixtyVideo.type,
-        } as any);
+      if (
+        hasFile(
+          floorPlan
+        )
+      ) {
+        appendFile(
+          data,
+          "floor_plan",
+          floorPlan,
+          "floor_plan.pdf",
+          floorPlan?.type ||
+            "application/pdf"
+        );
       }
 
-      const res = await API.createProperty(data);
+      if (
+        hasFile(
+          threeSixtyVideo
+        )
+      ) {
+        appendFile(
+          data,
+          "three_sixty_video",
+          threeSixtyVideo,
+          "360_video.mp4",
+          "video/mp4"
+        );
+      }
+
+      /*
+       * Useful while wiring Laravel.
+       * Remove later if you no longer need it.
+       */
+      if (__DEV__) {
+        console.log(
+          "PROPERTY ADDITIONAL FEES:",
+          formData
+            .additional_fee_items
+        );
+
+        console.log(
+          "PROPERTY ADDITIONAL EXPENSES:",
+          formData
+            .additional_expenses
+        );
+      }
+
+      const res =
+        await API.createProperty(
+          data
+        );
 
       reset();
       resetFiles();
 
-      if (res.flagged) {
+      if (
+        res.flagged ||
+        res.under_investigation
+      ) {
         showAlert(
           "Under Review",
-          "This property has been flagged. Please contact management."
+          res.message ||
+            "This property requires review."
         );
 
-        //next route is dashboard
+        router.replace(
+          "/(tabs)/dashboard"
+        );
 
-        router.replace('/(tabs)/dashboard');
-      } else {
-        showAlert("Success", res.message || "Property saved successfully");
-         router.replace('/(tabs)/dashboard');
+        return;
       }
-    } catch (err: any) {
-      const responseData = err.response?.data;
-      console.error("Upload error:", responseData || err.message || err);
 
-      const validationErrors = responseData?.errors;
-      const firstErrorMessage = validationErrors
-        ? Object.values(validationErrors).flat()[0]
-        : null;
+      showAlert(
+        "Success",
+        res.message ||
+          "Property saved successfully"
+      );
+
+      router.replace(
+        "/(tabs)/dashboard"
+      );
+    } catch (
+      err: any
+    ) {
+      const responseData =
+        err.response?.data;
+
+      console.error(
+        "Upload error:",
+        responseData ||
+          err.message ||
+          err
+      );
+
+      const validationErrors =
+        responseData?.errors;
+
+      const firstErrorMessage =
+        validationErrors
+          ? Object.values(
+              validationErrors
+            ).flat()[0]
+          : null;
 
       showAlert(
         "Error",
-        firstErrorMessage ||
-          responseData?.message ||
-          err.message ||
-          "Something went wrong while saving property"
+        String(
+          firstErrorMessage ||
+            responseData?.message ||
+            err.message ||
+            "Something went wrong while saving property"
+        )
       );
     } finally {
       setLoading(false);
     }
   };
 
-  return { onSubmit };
+  return {
+    onSubmit,
+  };
 }

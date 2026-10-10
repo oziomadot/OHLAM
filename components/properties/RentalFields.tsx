@@ -1,7 +1,8 @@
-import React from "react";
+import React, {useEffect} from "react";
 import { Text, TextInput, View, Switch, StyleSheet } from "react-native";
 import { Controller } from "react-hook-form";
 import FormPicker from "./FormPicker";
+
 
 type Props = {
   control: any;
@@ -26,6 +27,23 @@ export default function RentalFields({
   handleMoneyChange,
   handleMoneyBlur,
 }: Props) {
+
+useEffect(() => {
+  if (selectedBuildingType !== 3) {
+    setValue(
+      "flatType_id",
+      "",
+      {
+        shouldDirty: true,
+        shouldValidate: false,
+      }
+    );
+  }
+}, [
+  selectedBuildingType,
+  setValue,
+]);
+
   return (
     <>
       <Controller
@@ -142,25 +160,31 @@ export default function RentalFields({
         )}
       />
 
-      {["caution_fee", "security_fee", "cleaning_fee"].map((name) => (
-        <View key={name}>
-          <Text style={styles.label}>{name.replace("_", " ").toUpperCase()}</Text>
-          <Controller
-            control={control}
-            name={name}
-            render={({ field }) => (
-              <TextInput
-                placeholder={name.replace("_", " ")}
-                keyboardType="numeric"
-                style={styles.input}
-                value={field.value}
-                onChangeText={(text) => handleMoneyChange(text, name)}
-                onBlur={() => handleMoneyBlur(name)}
-              />
-            )}
-          />
-        </View>
-      ))}
+      {[
+  ["Caution / Refundable Deposit", "caution_fee"],
+  ["Security Fee", "security_fee"],
+  ["Cleaning Fee", "cleaning_fee"],
+].map(([label, name]) => (
+  <View key={name}>
+    <Text style={styles.label}>{label}</Text>
+
+    <Controller
+      control={control}
+      name={name}
+      render={({ field }) => (
+        <TextInput
+          placeholder={`Enter ${label.toLowerCase()}`}
+          keyboardType="numeric"
+          style={styles.input}
+          value={field.value}
+          onChangeText={(text) => handleMoneyChange(text, name)}
+          onBlur={() => handleMoneyBlur(name)}
+        />
+      )}
+    />
+  </View>
+))}
+
 
       <Controller control={control} name="rentpaymentmethod_id" rules={{ required: "Rent payment method is required" }} render={({ field }) => (
         <FormPicker label="Rent Payment Method" items={dropdowns.rentpaymentMethods || []} value={field.value} onChange={field.onChange} error={errors.rentpaymentmethod_id?.message} />
@@ -187,4 +211,16 @@ const styles = StyleSheet.create({
     alignItems: "center",
     marginVertical: 6,
   },
+  inputError: {
+  borderColor: "#D32F2F",
+},
+
+error: {
+  color: "#D32F2F",
+  fontSize: 13,
+  marginTop: -5,
+  marginBottom: 10,
+},
+
+
 });

@@ -1,9 +1,10 @@
 {
+  "extends": "expo/tsconfig.base",
   "compilerOptions": {
-    "baseUrl": ".",
     "jsx": "react-jsx",
     "esModuleInterop": true,
     "skipLibCheck": true,
+    "module": "esnext",
     "moduleResolution": "bundler",
     "resolveJsonModule": true,
     "moduleSuffixes": [
@@ -14,18 +15,43 @@
       ""
     ],
     "paths": {
-      "@/*": ["./app/*"],
-      "@/components/*": ["src/components/*"],
-      "@/hooks/*": ["./src/hooks/*"],
-      "@/utils/*": ["./src/utils/*"],
-      "@/context/*": ["./context/*"],
-      "@/config/*": ["./src/config/*"],
-      "@/config": ["./src/config"],
-      "@/assets/*": ["./assets/*"],
-      "@/assets": ["./assets"],
-      "@/src/*": ["./src/*"],
-      "@/hooks": ["./src/hooks"],
+      "@/*": [
+        "./*"
+      ],
+      "@/utils/*": [
+        "./src/utils/*"
+      ],
+      "@/components/*": [
+        "./src/components/*"
+      ],
+      "@/hooks/*": [
+        "./src/hooks/*"
+      ],
+      "@/services/*": [
+        "./src/services/*"
+      ],
+      "@/context/*": [
+        "./context/*"
+      ],
+      "@/config": [
+        "./src/config"
+      ],
+      "@/config/*": [
+        "./src/config/*"
+      ],
+      "@/assets": [
+        "./assets"
+      ],
+      "@/assets/*": [
+        "./assets/*"
+      ],
+      "components/*": [
+        "./components/*"
+      ]
     }
   },
-  "extends": "expo/tsconfig.base"
+  "include": [
+    "**/*.ts",
+    "**/*.tsx"
+  ]
 }

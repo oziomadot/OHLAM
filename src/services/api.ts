@@ -1,43 +1,55 @@
-import axios, {
-  AxiosError,
-  AxiosInstance,
-  AxiosRequestConfig,
-} from "axios";
-
+import axios, { AxiosError, AxiosInstance, AxiosRequestConfig,} from "axios";
 import { getItemSafe, setItemSafe, removeItemSafe } from "@/utils/storage";
 import { getDeviceDetails } from "@/utils/device";
-import { env } from "@/src/config/env";
+import { ENV } from '@/src/config/env';
+
+
+
+
 
 const TOKEN_KEY = "auth_token";
+export const BASE_URL = ENV.API_URL;
 
-export const BASE_URL = env.apiUrl;
+
 
 if (__DEV__) {
-  console.log("[API] Environment:", env.name);
+
+  console.log("[API] Environment:", ENV.APP_ENV);
+
   console.log("[API] Base URL:", BASE_URL);
+
 }
 
-export const API: AxiosInstance = axios.create({
-  baseURL: BASE_URL,
-  timeout: 120_000,
-  headers: {
-    Accept: "application/json",
-  },
-});
 
-/**
- * Automatically add the authentication token to every request.
- */
+
+export const API: AxiosInstance =
+
+  axios.create({
+    baseURL: BASE_URL,
+    timeout: 120_000,
+    headers: {
+      Accept: "application/json",
+    },
+
+  });
+
+
+
 API.interceptors.request.use(
   async (config) => {
-    try {
+    config.headers.set("Accept", "application/json");
+
+    // Preserve the token explicitly supplied by
+    // email, phone, KYC, or device verification.
+    if (!config.headers.has("Authorization")) {
       const token = await getItemSafe(TOKEN_KEY);
 
-      if (token) {
-        config.headers.Authorization = `Bearer ${token}`;
+      if (token?.trim()) {
+        config.headers.set(
+          "Authorization",
+          `Bearer ${token}`
+        );
       }
-    } catch (error) {
-      console.warn("[API] Failed to attach authentication token:", error);
     }
 
     return config;
@@ -45,440 +57,2720 @@ API.interceptors.request.use(
   (error) => Promise.reject(error)
 );
 
-/**
- * Central API response and error handling.
- */
+
+
 API.interceptors.response.use(
   (response) => response,
   (error: AxiosError<any>) => {
-    const status = error.response?.status;
-    const url = error.config?.url;
-    const method = error.config?.method?.toUpperCase();
-    const data = error.response?.data;
+    const diagnostic = {
+      baseURL: error.config?.baseURL,
+      url: error.config?.url,
+      fullURL:
+        `${error.config?.baseURL ?? ""}` +
 
-    console.error(`[API] ${method ?? "REQUEST"} ${url ?? "unknown"}`, {
-      status,
-      message: data?.message ?? error.message,
-      errors: data?.errors,
-    });
+        `${error.config?.url ?? ""}`,
+
+      method: error.config?.method?.toUpperCase(),
+      status: error.response?.status ?? 0,
+      message: error.message,
+      code: error.code,
+      hasResponse: Boolean(error.response),
+      hasRequest:
+
+        Boolean(error.request),
+
+    };
+
+
+
+    console.error(
+      "[API ERROR]",
+      JSON.stringify(diagnostic, null, 2)
+    );
+
+
 
     return Promise.reject(error);
+
   }
+
 );
+
+
+
+
+
+export async function verifyNewDeviceFace(formData: FormData) {
+  console.log("[verifyNewDeviceFace] formData", formData);
+  const preAuthToken = await getItemSafe("pre_auth_token");
+  if (!preAuthToken) {
+    throw new Error(
+      "Device verification session is missing.");}
+  const url = `${BASE_URL}/auth/device/verify-face`;
+ console.log("[verifyNewDeviceFace] POST", url);
+  const response = await API.post("/auth/device/verify-face", formData, {
+    headers: {
+      Authorization: `Bearer ${preAuthToken}`,
+      Accept: "application/json",
+    },
+  });
+ console.log("[verifyNewDeviceFace] response status", response.status);
+ await removeItemSafe("pre_auth_token");
+ return response.data;
+
+}
+
+
+type ApiDataResponse<T> = {
+  success?: boolean;
+  message?: string;
+  data: T;
+};
+
+export type AppointmentPreparationSlot = {
+  date: string;
+  start_time: string;
+  end_time: string;
+};
+
+export type AppointmentPreparationDay = {
+  date: string;
+  day_name: string;
+  formatted_date: string;
+  slots: AppointmentPreparationSlot[];
+};
+
+export type AppointmentPreparationResponse = {
+  success: boolean;
+
+  can_book: boolean;
+
+  code:
+    | "READY_TO_BOOK"
+    | "OWN_PROPERTY"
+    | "PROPERTY_NOT_AVAILABLE"
+    | "EXISTING_APPOINTMENT"
+    | "INSUFFICIENT_ESCROW"
+    | "LISTER_NO_AVAILABILITY"
+    | string;
+
+  message?: string;
+
+  property_available?: boolean;
+
+  required_escrow?: number;
+
+  current_balance?: number;
+
+  amount_needed?: number;
+
+  existing_appointment?: {
+    id: number;
+    appointment_date: string;
+    start_time: string;
+    end_time: string;
+    status?: string;
+  } | null;
+
+  availability?: AppointmentPreparationDay[];
+
+  availability_period?: {
+    from: string;
+    to: string;
+    days: number;
+  };
+
+  lister_notified?: boolean;
+
+  inspection?: any;
+};
+
+
+
+export type AppointmentDetailResponse = {
+  success: boolean;
+
+  data?: any;
+
+  appointment?: any;
+
+  viewer_role?: "customer" | "lister";
+};
+
+export type AppointmentInspectionFailureReason = {
+  id: number;
+  name: string;
+  code: string;
+};
+
+export type AppointmentInspectionResponse = {
+  success: boolean;
+
+  data?: {
+    reasons: AppointmentInspectionFailureReason[];
+
+    report: any;
+  };
+};
+
+export type AppointmentInspectionSubmitPayload = {
+  outcome_code:
+    | "inspection_completed"
+    | "inspection_not_completed";
+
+  reason_code?: string | null;
+
+  explanation?: string | null;
+
+  reviews?: {
+    subject_type: "user" | "property";
+
+    subject_id: number;
+
+    rating: number;
+
+    comment?: string | null;
+  }[];
+
+  latitude?: number;
+
+  longitude?: number;
+
+  accuracy_metres?: number;
+
+  captured_at?: string;
+};
+
+export type AppointmentInspectionSubmitResponse = {
+  success: boolean;
+
+  message?: string;
+
+  data?: any;
+};
+
+export type AppointmentConversationResponse = {
+  success: boolean;
+
+  data?: any;
+
+  conversation?: any;
+};
+
+
+export type SettlementBeneficiaryStatus = {
+  exists: boolean;
+  verified: boolean;
+  account_name?: string | null;
+  bank_name?: string | null;
+  masked_account_number?: string | null;
+};
+
+export type PropertySettlementItem = {
+  id: number | string;
+  type?: string | null;
+  label: string;
+  amount: string | number;
+  beneficiary_id?: number | null;
+};
+
+export type PropertySettlement = {
+  id: number;
+  uuid?: string | null;
+
+  property_id?: number | string;
+  customer_id?: number | string;
+  lister_id?: number | string;
+  appointment_id?: number | string | null;
+
+  total_amount: string | number;
+  currency?: string;
+
+  status?: {
+    id?: number;
+    code?: string | null;
+    name?: string | null;
+  } | null;
+
+  property?: {
+    id?: number | string;
+    uuid?: string | null;
+    title?: string | null;
+    address?: string | null;
+  } | null;
+
+  items?: PropertySettlementItem[];
+
+  beneficiary_readiness?: {
+    ready: boolean;
+
+    property_beneficiary:
+      SettlementBeneficiaryStatus;
+
+    lister:
+      SettlementBeneficiaryStatus;
+
+    missing: string[];
+
+    request_already_sent: boolean;
+  };
+
+  payment_ready_at?: string | null;
+  paid_at?: string | null;
+  created_at?: string | null;
+  updated_at?: string | null;
+};
+
+export type InitializePropertyPaymentResponse = {
+  payment_id: number;
+  reference: string;
+  authorization_url: string;
+  access_code?: string;
+  amount: string | number;
+  currency: string;
+};
+
+
+
 
 type RequestOptions = {
   method?: AxiosRequestConfig["method"];
   body?: unknown;
   headers?: Record<string, string>;
   params?: Record<string, unknown>;
+
 };
+
+
 
 type ApiError = {
+
   status: number;
+
   message: string;
+
   errors: Record<string, string[]>;
+
 };
 
+
+
+export type ResendPhoneCodePayload = {
+
+  user_id: string | number;
+
+};
+
+
+
+export type ResendPhoneCodeResponse = {
+
+  status: number;
+
+  message: string;
+
+  user_id: string | number;
+
+};
+
+
+
+export type VerifyPhonePayload = {
+
+  user_id: string | number;
+
+  code: string;
+
+};
+
+
+
+export type VerifyPhoneResponse = {
+
+  status: number;
+
+  message: string;
+
+  user_id?: string | number;
+
+  user?: Record<string, unknown>;
+
+};
+
+
+
+export type UpdatePhoneNumberPayload = {
+
+  user_id: string | number;
+
+  phone: string;
+
+};
+
+
+
+export type UpdatePhoneNumberResponse = {
+
+  status: number;
+
+  message: string;
+
+  user_id?: string | number;
+
+  user?: Record<string, unknown>;
+
+};
+
+
+
+
+
+export type UserResponse = {
+
+  id: string | number;
+
+  email: string;
+
+  phonenumber?: string;
+
+  [key: string]: unknown;
+
+};
+
+
+
+export type VerifyEmailPayload = {
+
+  user_id: string | number;
+
+  code: string;
+
+};
+
+
+
+export type VerifyEmailResponse = {
+
+  status: number;
+
+  message: string;
+
+  user_id: string | number;
+
+  user: UserResponse;
+
+};
+
+
+
+export type ResendEmailCodePayload = {
+
+  user_id: string | number;
+
+  method?: "email";
+
+};
+
+
+
+export type ResendEmailCodeResponse = {
+
+  status: number;
+
+  message: string;
+
+  user_id?: string | number;
+
+  user?: UserResponse;
+
+};
+
+
+
+export type UpdateEmailPayload = {
+
+  user_id: string | number;
+
+  email: string;
+
+};
+
+
+
+export type UpdateEmailResponse = {
+
+  status: number;
+
+  message: string;
+
+  user_id?: string | number;
+
+  user?: UserResponse;
+
+};
+
+
+
+export type LoginSecurityStatusResponse = {
+
+  status: number;
+
+  data: {
+
+    pin_enabled: boolean;
+
+    pin_locked_until?: string | null;
+
+  };
+
+};
+
+
+
+export type BasicMessageResponse = {
+
+  status: number;
+
+  message: string;
+
+};
+
+
+
+export type PinLoginPayload = {
+
+  login: string;
+
+  pin: string;
+
+  device_id: string;
+
+  device_secret: string;
+
+};
+
+
+
+export type PinLoginResponse = {
+
+  status: number;
+
+  message?: string;
+
+  token?: string;
+
+  access_token?: string;
+
+  user?: unknown;
+
+  next_step?: string;
+
+  verification_required?: boolean;
+
+};
+
+
+
+export type UserSummary = {
+
+  id: number;
+
+  email?: string;
+
+  phonenumber?: string;
+
+  firstname?: string;
+
+  surname?: string;
+
+  [key: string]: unknown;
+
+};
+
+
+
+export type AuthResponse = {
+
+  status: number;
+
+  message?: string;
+
+
+
+  token?: string;
+
+  access_token?: string;
+
+  auth_token?: string;
+
+  plainTextToken?: string;
+
+
+
+  user?: UserSummary;
+
+
+
+  verification_required?: boolean;
+
+  next_step?: string;
+
+  pre_auth_token?: string;
+
+
+
+  code?: string;
+
+  remaining_attempts?: number;
+
+  locked_until?: string | null;
+
+};
+
+
+
+export type LoginSecurityResponse = {
+
+  status: number;
+
+  data: {
+
+    pin_enabled: boolean;
+
+    pin_locked_until?: string | null;
+
+  };
+
+};
+
+
+
+export type TrustedDeviceResponse = {
+
+  status: number;
+
+  message: string;
+
+  data: {
+
+    device_id: string;
+
+    device_secret: string;
+
+  };
+
+};
+
+
+
+export function extractAuthToken(
+
+  response: AuthResponse
+
+): string | null {
+
+  return (
+
+    response.token ||
+
+    response.access_token ||
+
+    response.auth_token ||
+
+    response.plainTextToken ||
+
+    null
+
+  );
+
+}
+
+
+
+
+
+
+
+
+
+export type WalletTransaction = {
+  metadata?: { referee_name?: string; property_action?: string; reward_number?: number; reward_limit?: number };
+  id: number;
+  type: string;
+  direction: "credit" | "debit";
+  balance_bucket:
+    | "available"
+    | "locked"
+    | "escrow"
+    | string;
+  amount: string | number;
+  reference?: string;
+  description?: string;
+  processed_at?: string;
+  created_at?: string;
+};
+
+export type WalletTransactionsResponse = {
+  success?: boolean;
+  message?: string;
+  data: {
+    data: WalletTransaction[];
+    current_page?: number;
+    first_page_url?: string;
+    from?: number;
+    last_page?: number;
+    last_page_url?: string;
+    next_page_url?: string | null;
+    path?: string;
+    per_page?: number;
+    prev_page_url?: string | null;
+    to?: number;
+    total?: number;
+  };
+};
+
+export type WalletSummary = {
+  id?: number;
+  available_balance: string | number;
+  locked_balance: string | number;
+  escrow_balance: string | number;
+  coin_balance: string | number;
+  currency?: string;
+};
+
+export type WalletFundingAccount = {
+  account_name: string;
+  account_number: string;
+  bank_name: string;
+};
+
+export type PayoutBankAccount = {
+  id: number;
+  bank_name: string;
+  bank_code: string;
+  account_name: string;
+  account_number: string;
+  is_verified: boolean;
+  is_active: boolean;
+};
+
+export type WalletDetailsResponse = {
+  success: boolean;
+  data: {
+    wallet?: WalletSummary;
+    funding_account?: WalletFundingAccount | null;
+    bank_account?: WalletFundingAccount | null;
+  };
+};
+
+
+
 class ApiService {
+
   public readonly baseURL: string;
+
   public readonly defaults: AxiosInstance["defaults"];
 
+
+
   constructor() {
+
     this.baseURL = BASE_URL;
+
     this.defaults = API.defaults;
+
   }
+
+
 
   get<T = unknown>(url: string, config?: AxiosRequestConfig) {
+
     return API.get<T>(url, config);
+
   }
 
-  post<T = unknown>(
-    url: string,
-    data?: unknown,
-    config?: AxiosRequestConfig
-  ) {
+
+
+  post<T = unknown>(url: string, data?: unknown, config?: AxiosRequestConfig) {
+
     return API.post<T>(url, data, config);
+
   }
 
-  put<T = unknown>(
-    url: string,
-    data?: unknown,
-    config?: AxiosRequestConfig
-  ) {
+
+
+  put<T = unknown>(url: string, data?: unknown, config?: AxiosRequestConfig) {
+
     return API.put<T>(url, data, config);
+
   }
 
-  patch<T = unknown>(
-    url: string,
-    data?: unknown,
-    config?: AxiosRequestConfig
-  ) {
+
+
+  patch<T = unknown>(url: string, data?: unknown, config?: AxiosRequestConfig) {
+
     return API.patch<T>(url, data, config);
+
   }
+
+
 
   delete<T = unknown>(url: string, config?: AxiosRequestConfig) {
+
     return API.delete<T>(url, config);
+
   }
+
+
 
   async getToken(): Promise<string | null> {
+
     return getItemSafe(TOKEN_KEY);
+
   }
+
+
 
   async setToken(token: string): Promise<void> {
-    if (!token) {
-      return;
-    }
+
+    if (!token) return;
 
     await setItemSafe(TOKEN_KEY, token);
+
   }
+
+
 
   async removeToken(): Promise<void> {
+
     await removeItemSafe(TOKEN_KEY);
+
   }
 
-  async request<T = unknown>(
-    endpoint: string,
-    options: RequestOptions = {}
-  ): Promise<T> {
+
+
+  async request<T = unknown>(endpoint: string, options: RequestOptions = {}): Promise<T> {
+
     const {
+
       method = "GET",
+
       body,
+
       headers = {},
+
       params,
+
     } = options;
 
+
+
     try {
+
       const response = await API.request<T>({
+
         url: endpoint,
+
         method,
+
         data: body,
+
         headers,
+
         params,
+
       });
 
+
+
       return response.data;
+
     } catch (error) {
+
       const axiosError = error as AxiosError<any>;
 
+
+
       const apiError: ApiError = {
+
         status: axiosError.response?.status ?? 0,
+
         message:
+
           axiosError.response?.data?.message ??
+
           axiosError.message ??
+
           "Something went wrong",
+
         errors: axiosError.response?.data?.errors ?? {},
+
       };
 
+
+
       throw apiError;
+
     }
+
   }
+
+
+
+
+
+  private async preAuthRequest<T>(endpoint: string, options: RequestOptions = {}): Promise<T> {
+
+  const preAuthToken = await getItemSafe("pre_auth_token");
+
+
+
+  if (!preAuthToken) {
+
+    throw {
+
+      status: 401,
+
+      message:
+
+        "Your verification session is missing. Please register or log in again.",
+
+      errors: {},
+
+    } satisfies ApiError;
+
+  }
+
+
+
+  return this.request<T>(endpoint, {
+
+    ...options,
+
+    headers: {
+
+      ...(options.headers ?? {}),
+
+      Accept: "application/json",
+
+      Authorization: `Bearer ${preAuthToken}`,
+
+    },
+
+  });
+
+}
+
+
 
   // Authentication endpoints
 
+
+
   async login(email: string, password: string) {
-    const device = await getDeviceDetails();
 
-    const response = await API.post("/login", {
+  const device = await getDeviceDetails();
+
+
+
+  const response = await API.post("/login", {
+    email,
+    password,
+    ...device,
+  });
+
+
+
+  const data = response.data;
+
+
+
+  if (data?.authentication_state === "authenticated" && data?.token) {
+
+    await setItemSafe("auth_token", data.token);
+
+    await removeItemSafe("pre_auth_token");
+
+  } else if (
+
+    data?.authentication_state === "pre_auth" &&
+
+    data?.pre_auth_token
+
+  ) {
+
+    await setItemSafe("pre_auth_token", data.pre_auth_token);
+
+    await removeItemSafe("auth_token");
+
+  } else if (
+
+    data?.requires_device_verification &&
+
+    data?.pre_auth_token
+
+  ) {
+
+    await setItemSafe("pre_auth_token", data.pre_auth_token);
+
+    await removeItemSafe("auth_token");
+
+  }
+
+
+
+  return data;
+
+}
+
+
+
+ async forgetPassword( email: string): Promise<{  success: boolean;
+  message?: string;
+}> {
+  return this.request<{
+    success: boolean;
+    message?: string;
+  }>('/forgot-password', {
+    method: 'POST',
+    body: {
       email,
+    },
+  });
+}
+
+
+
+  async resetPassword(
+  email: string,
+  token: string,
+  password: string,
+  passwordConfirmation: string
+): Promise<{
+  success: boolean;
+  message?: string;
+}> {
+  return this.request<{
+    success: boolean;
+    message?: string;
+  }>('/reset-password', {
+    method: 'POST',
+    body: {
+      email,
+      token,
       password,
-      ...device,
-    });
+      password_confirmation: passwordConfirmation,
+    },
+  });
+}
 
-    if (response.data?.token) {
-      await this.setToken(response.data.token);
-    }
 
-    return response.data;
-  }
-
-  async forgetPassword(email: string) {
-    return this.request("/forgot-password", {
-      method: "POST",
-      body: { email },
-    });
-  }
 
   async register(userData: unknown) {
-    const response = await API.post("/register", userData);
-
-    if (response.data?.token) {
-      await this.setToken(response.data.token);
+      const response = await API.post("/register", userData);
+      const preAuthToken = response.data?.pre_auth_token;
+      if (!preAuthToken) {
+        throw new Error("No verification token was returned by the server.");
+      }
+      await removeItemSafe("auth_token");
+      await setItemSafe("pre_auth_token", String(preAuthToken));
+      const storedToken = await getItemSafe("pre_auth_token");
+      if (storedToken !== String(preAuthToken)) {
+        throw new Error("The verification token could not be stored correctly.");
+      }
+      return response.data;
     }
 
-    return response.data;
+
+
+  async verifyEmail(
+
+    payload: VerifyEmailPayload
+
+  ): Promise<VerifyEmailResponse> {
+
+    const { user_id, code } = payload;
+
+  const preAuthToken =
+
+    await getItemSafe("pre_auth_token");
+
+
+
+  if (!preAuthToken) {
+
+    throw new Error(
+
+      "Your verification session is missing. Please register or log in again."
+
+    );
+
   }
 
-  async verifyEmail(payload: unknown) {
-    return this.request("/verify-email", {
-      method: "POST",
-      body: payload,
-    });
+
+
+  const normalizedCode =
+
+    String(code).trim();
+
+
+
+  if (!/^\d{6}$/.test(normalizedCode)) {
+
+    throw new Error(
+
+      "Please enter the complete six-digit verification code."
+
+    );
+
   }
 
-  async resendEmailCode(payload: unknown) {
-    return this.request("/resend-email-code", {
-      method: "POST",
-      body: payload,
-    });
-  }
 
-  async updateEmail(payload: unknown) {
-    return this.request("/update-email", {
-      method: "POST",
-      body: payload,
-    });
-  }
 
-  async updatePhoneNumber(payload: unknown) {
-    return this.request("/update-phone-number", {
-      method: "POST",
-      body: payload,
-    });
-  }
+  try {
 
-  async getIdCardTypes() {
-    return this.request("/id-card-types");
-  }
+    const response = await API.post(
 
-  async verifyIdCard(formData: FormData) {
-    const response = await API.post("/verify-id-card", formData, {
-      headers: {
-        Accept: "application/json",
-        "Content-Type": "multipart/form-data",
+      "/verify-email",
+
+      {
+
+        user_id: Number(user_id),
+
+
+
+        /*
+
+         * Keep this as a string so leading zeroes
+
+         * are preserved.
+
+         */
+
+        code: normalizedCode,
+
       },
-    });
+
+      {
+
+        headers: {
+
+          Accept: "application/json",
+
+          Authorization:
+
+            `Bearer ${preAuthToken}`,
+
+        },
+
+      }
+
+    );
+
+
 
     return response.data;
+
+  } catch (error: any) {
+
+    const status =
+
+      error?.response?.status ??
+
+      error?.status;
+
+
+
+    const responseData =
+
+      error?.response?.data ??
+
+      error?.data;
+
+
+
+    const validationMessage =
+
+      responseData?.errors?.code?.[0] ??
+
+      responseData?.errors
+
+        ?.user_id?.[0];
+
+
+
+    let message =
+
+      validationMessage ??
+
+      responseData?.message ??
+
+      error?.message ??
+
+      "Email verification failed.";
+
+
+
+    if (status === 401) {
+
+      message =
+
+        "Your verification session has expired. Please log in again.";
+
+    } else if (status === 403) {
+
+      message =
+
+        "This verification session does not belong to your account.";
+
+    } else if (status === 422) {
+
+      message =
+
+        validationMessage ??
+
+        responseData?.message ??
+
+        "The verification code is invalid or has expired.";
+
+    } else if (status === 429) {
+
+      message =
+
+        responseData?.message ??
+
+        "Too many attempts. Please wait before trying again.";
+
+    }
+
+
+
+    console.error(
+
+      "[EMAIL VERIFY] Request failed:",
+
+      {
+
+        status,
+
+        message,
+
+        data: responseData,
+
+        user_id,
+
+        codeLength:
+
+          normalizedCode.length,
+
+
+
+        /*
+
+         * Do not log the actual OTP.
+
+         */
+
+        hasCode:
+
+          normalizedCode.length > 0,
+
+      }
+
+    );
+
+
+
+    const verificationError =
+
+      new Error(message) as Error & {
+
+        status?: number;
+
+        data?: unknown;
+
+      };
+
+
+
+    verificationError.status = status;
+
+    verificationError.data = responseData;
+    throw verificationError;
+
   }
+
+}
+
+
+
+async resendEmailCode( payload: ResendEmailCodePayload): Promise<ResendEmailCodeResponse> {
+
+    return this.preAuthRequest<ResendEmailCodeResponse>(
+
+      "/resend-email-code",
+
+      {
+
+        method: "POST",
+
+        body: payload,
+
+      }
+
+    );
+
+  }
+
+
+
+async updateEmail(payload: UpdateEmailPayload): Promise<UpdateEmailResponse> {
+
+      return this.preAuthRequest<UpdateEmailResponse>(
+
+        "/update-email",
+
+        {
+
+          method: "POST",
+
+          body: payload,
+
+        }
+
+      );
+
+    }
+
+
+
+ async resendPhoneCode(payload: ResendPhoneCodePayload): Promise<ResendPhoneCodeResponse> {
+
+      return this.preAuthRequest<ResendPhoneCodeResponse>(
+
+        "/send-phone-code",
+
+        {
+
+          method: "POST",
+
+          body: payload,
+
+        }
+
+      );
+
+    }
+
+
+
+async verifyPhone(payload: VerifyPhonePayload): Promise<VerifyPhoneResponse> {
+
+      return this.preAuthRequest<VerifyPhoneResponse>(
+
+        "/verify-phone",
+
+        {
+
+          method: "POST",
+
+          body: payload,
+
+        }
+
+      );
+
+    }
+
+
+
+async updatePhoneNumber(  payload: UpdatePhoneNumberPayload): Promise<UpdatePhoneNumberResponse> {
+
+      return this.preAuthRequest<UpdatePhoneNumberResponse>(
+
+        "/update-phone-number",
+
+        {
+
+          method: "POST",
+
+          body: payload,
+
+        }
+
+      );
+
+    }
+
+
+
+
+
+    async getLoginSecurity(): Promise<LoginSecurityStatusResponse> {
+
+        return API
+
+          .get<LoginSecurityStatusResponse>("/login-security")
+
+          .then((response) => response.data);
+
+      }
+
+
+
+  async setLoginPin(payload: {
+
+        current_password: string;
+
+        pin: string;
+
+        pin_confirmation: string;
+
+      }): Promise<BasicMessageResponse> {
+
+        return API
+
+          .post<BasicMessageResponse>("/login-security/pin", payload)
+
+          .then((response) => response.data);
+
+      }
+
+
+
+  async disableLoginPin(payload: {
+
+        current_password: string;
+
+      }): Promise<BasicMessageResponse> {
+
+        return API
+
+          .delete<BasicMessageResponse>("/login-security/pin", {
+
+            data: payload,
+
+          })
+
+          .then((response) => response.data);
+
+      }
+
+
+
+  async loginWithPin(
+
+  payload: PinLoginPayload
+
+) {
+
+  const response =
+
+    await API.post(
+
+      "/login/pin",
+
+      payload
+
+    );
+
+
+
+  return response.data;
+
+}
+
+
+
+
+
+  async getCurrentUser() {
+
+    return API
+
+      .get("/user")
+
+      .then((response) => response.data);
+
+  }
+
+
+
+  async registerTrustedLoginDevice(payload: {
+
+    device_id: string;
+
+    device_name?: string;
+
+    platform?: string;
+
+    app_version?: string;
+
+  }): Promise<TrustedDeviceResponse> {
+
+    return API
+
+      .post<TrustedDeviceResponse>(
+
+        "/trusted-login-devices",
+
+        payload
+
+      )
+
+      .then((response) => response.data);
+
+  }
+
+
+
+  async revokeTrustedLoginDevice(payload: {
+
+    device_id: string;
+
+  }) {
+
+    return API
+
+      .delete(
+
+        "/trusted-login-devices/current",
+
+        {
+
+          data: payload,
+
+        }
+
+      )
+
+      .then((response) => response.data);
+
+  }
+
+
+
+    // KYC endpoints
+
+
+
+ async kycLiveness(formData: FormData) {
+
+  const preAuthToken =
+
+    await getItemSafe("pre_auth_token");
+
+
+
+  console.log("[KYC] Token exists:", Boolean(preAuthToken));
+
+
+
+  console.log("[KYC] Token format valid:", Boolean(
+
+      preAuthToken &&
+
+      preAuthToken.includes("|")
+
+    )
+
+  );
+
+
+
+  console.log("[KYC] Token length:", preAuthToken?.length ?? 0);
+
+
+
+  if (!preAuthToken) {
+
+    throw new Error(
+
+      "Your verification session is missing. Please restart registration."
+
+    );
+
+  }
+
+
+
+  if (!preAuthToken.includes("|")) {
+
+    throw new Error(
+
+      "Your verification session is invalid. Please restart registration."
+
+    );
+
+  }
+
+
+
+  const controller = new AbortController();
+
+
+
+  const timeoutId = setTimeout(() => {
+
+    controller.abort();
+
+  }, 120_000);
+
+
+
+  try {
+
+    const response = await this.post<any>("/kyc-liveness", formData, {
+
+      headers: {
+
+        Authorization: `Bearer ${preAuthToken}`,
+
+      },
+
+      signal: controller.signal,
+
+      timeout: 120_000,
+
+    });
+
+
+
+    console.log("[KYC] Response:", JSON.stringify(response.data, null, 2));
+
+
+
+    return response.data;
+
+  } catch (error: any) {
+
+    if (
+
+      error?.name === "AbortError" ||
+
+      error?.name === "CanceledError" ||
+
+      error?.code === "ERR_CANCELED"
+
+    ) {
+
+      throw new Error(
+
+        "The face upload timed out. Please check your connection and try again."
+
+      );
+
+    }
+
+
+
+    const data = error.response?.data;
+
+    const message = data?.message ?? error.message ?? "Face verification failed.";
+
+
+
+    console.error("[KYC] Upload failed:", {
+
+      name: error?.name,
+
+      message,
+
+      status: error.response?.status,
+
+      data,
+
+    });
+
+
+
+    const err = new Error(message) as Error & {
+
+      status?: number;
+
+      data?: unknown;
+
+    };
+
+
+
+    err.status = error.response?.status;
+
+    err.data = data;
+
+
+
+    throw err;
+
+  } finally {
+
+    clearTimeout(timeoutId);
+
+  }
+
+}
+
+async getIdCardTypes() {
+  const token = await getItemSafe("pre_auth_token");
+
+  if (!token) {
+    throw new Error(
+      "Your registration session has expired. Please sign in to continue."
+    );
+  }
+
+  return this.request<any[]>("/id-card-types", {
+    headers: {
+      Authorization: `Bearer ${token}`,
+    },
+  });
+}
+
+
+
+
+
+
+
+async verifyIdCard(formData: FormData) {
+
+  const preAuthToken = await getItemSafe("pre_auth_token");
+  if (!preAuthToken) {
+        throw new Error(
+      "Your verification session is missing. Please log in again."
+    );
+
+  }
+  console.log("[ID KYC] Upload URL:",  `${BASE_URL}/verify-id-card`);
+  console.log("[ID KYC] Token exists:", Boolean(preAuthToken));
+  const controller = new AbortController();
+  const timeoutId = setTimeout(() => {
+      controller.abort();
+    }, 120_000);
+
+  try {
+    const response = await API.post( "/verify-id-card", formData,
+      { headers: {
+          Accept: "application/json",
+          Authorization: `Bearer ${preAuthToken}`,
+        },
+
+
+        /*
+
+         * Do not manually set Content-Type.
+
+         * Axios must create the multipart boundary.
+
+         */
+
+        signal: controller.signal,
+        timeout: 120_000,
+      }
+    );
+
+  console.log("[ID KYC] HTTP status:", response.status);
+  console.log("[ID KYC] Verification response:", 
+    JSON.stringify(
+        response.data,
+        null,
+        2));
+
+   return response.data;
+
+  } catch (error: any) {
+
+    const status = error?.response?.status ?? error?.status;
+    const responseData = error?.response?.data ?? error?.data;
+
+    if (error?.name === "AbortError" || error?.name === "CanceledError" ||
+      error?.code === "ERR_CANCELED" || error?.code === "ECONNABORTED"
+    ) {
+      const timeoutError = new Error(
+          "The ID-card verification took too long. Please try again."
+        ) as Error & {
+          status?: number;
+          data?: unknown;
+        };
+      timeoutError.status = 408;
+      throw timeoutError;
+    }
+
+    let message = responseData?.message ?? error?.message ?? "ID verification failed.";
+    if (status === 504) {
+      message = "The identity verification server took too long to respond. Your document may already have been uploaded. Please wait briefly before trying again.";
+    } else if (status === 503) {
+
+      message = responseData?.message ??
+
+        "The identity verification service is temporarily unavailable.";
+
+    } else if (status === 413) {
+
+      message = "The ID image is too large. Please use a smaller or lower-resolution image.";
+
+    } else if (status === 422) {
+      message = responseData?.message ?? "The submitted ID information is invalid.";
+    }
+
+  console.error( "[ID KYC] Upload failed:",   {
+        name: error?.name,
+        originalMessage: error?.message,
+        message,
+        status,
+        data: responseData,
+        code: error?.code,
+      }
+
+    );
+
+
+
+    const uploadError =
+
+      new Error(message) as Error & {
+
+        status?: number;
+
+        data?: unknown;
+
+      };
+
+
+
+    uploadError.status = status;
+
+    uploadError.data = responseData;
+
+
+
+    throw uploadError;
+
+  } finally {
+    clearTimeout(timeoutId);
+  }
+
+}
+
+
+
+
+
+
 
   async updateProfile(formData: FormData) {
+
     const response = await API.post("/update-profile", formData, {
+
       headers: {
+
         Accept: "application/json",
+
         "Content-Type": "multipart/form-data",
+
       },
+
     });
+
+
 
     return response.data;
+
   }
+
+
 
   async logout() {
+
     try {
+
       await API.post("/logout");
+
     } catch (error) {
+
       console.warn("[API] Server logout failed:", error);
+
     } finally {
+
       await this.removeToken();
+
     }
+
   }
+
+
 
   async deleteAccount() {
+
     return this.request("/account/delete-request", {
+
       method: "POST",
+
     });
+
   }
 
-  // Property endpoints
 
+
+
+
+
+
+  // Property endpoints
   async getProperties(filters: Record<string, unknown> = {}) {
     return API.get("/properties", {
       params: filters,
     });
   }
 
+
+
   async getProperty(id: number | string) {
+
     return API.get(`/properties/${id}`);
+
   }
+
+
 
   async getPropertySlots(
     propertyId: number | string,
     userId: number | string
   ) {
+
     return API.get(`/property/${propertyId}/slots/${userId}`);
+
   }
+
+
 
   async submitAppointment(payload: unknown) {
+
     return API.post("/submit-appointment", payload);
+
   }
+
+
 
   async getPropertyDropdowns() {
+
     return API.get("/property/dropdowns");
+
   }
+
+
 
   async getPropertyArea(stateId: number | string) {
+
     return API.get("/property/areas", {
+
       params: {
+
         state_id: stateId,
+
       },
+
     });
+
   }
+
+
 
   async createProperty(formData: FormData) {
+
     const response = await API.post("/properties", formData, {
+
       headers: {
+
         Accept: "application/json",
+
         "Content-Type": "multipart/form-data",
+
       },
+
     });
 
+
+
     return response.data;
+
   }
+
+
 
   async getMyProperties() {
+
     const response = await API.get("/my-properties");
+
     return response.data;
+
   }
+
+
 
   async myProperties() {
+
     return API.get("/my-properties");
+
   }
+
+
 
   async deletePropertyRequest(
+
     id: number | string,
+
     reason: string
+
   ) {
+
     return API.post(`/properties/${id}/delete-request`, {
+
       reason,
+
     });
+
   }
+
+
 
   async propertyAppointments(id: number | string) {
+
     return API.get(`/properties/${id}/appointments`);
+
   }
+
+
 
   async propertyDetails(id: number | string) {
+
     return API.get(`/properties/${id}`);
+
   }
+
+
 
   async updateProperty(id: number | string, data: unknown) {
+
     return API.post(`/properties/${id}/update`, data);
+
   }
+
+
 
   async propertyStatus(id: number | string) {
+
     return API.get(`/properties/${id}/status`);
+
   }
 
-  // KYC endpoints
 
-  async kycLiveness(formData: FormData) {
-    const response = await API.post("/kyc-liveness", formData, {
-      headers: {
-        Accept: "application/json",
-        "Content-Type": "multipart/form-data",
-      },
-    });
 
-    return response.data;
-  }
+  
+
+
 
   async verifyFaceForNewDevice(formData: FormData) {
+
     const response = await API.post(
+
       "/verify-face-new-device",
+
       formData,
+
       {
+
         headers: {
+
           Accept: "application/json",
-          "Content-Type": "multipart/form-data",
+
         },
+
       }
+
     );
 
+
+
     return response.data;
+
   }
+
+
 
   // Wallet endpoints
 
-  async getWalletStatement() {
-    const response = await API.get("/wallet/statement");
-    return response.data;
+
+
+  async getWalletStatement(): Promise<WalletDetailsResponse["data"]> {
+
+    const response = await API.get<WalletDetailsResponse>("/wallet");
+
+    return response.data.data;
+
   }
+
+
 
   // Policy endpoints
 
+
+
   async getPolicies() {
+
     return API.get("/policies");
+
   }
 
+
+
   async getPolicy(slug: string) {
+
     return API.get(`/policies/${slug}`);
+
   }
+
+
 
   // Vacancy endpoints
 
+
+
   async getVacancies() {
+
     return API.get("/vacancies");
+
   }
 
+
+
   async applyVacancy(
+
     vacancyId: number | string,
+
     formData: FormData
+
   ) {
+
     return API.post(`/vacancies/${vacancyId}/apply`, formData, {
+
       headers: {
+
         Accept: "application/json",
+
         "Content-Type": "multipart/form-data",
+
       },
+
     });
+
   }
+
+
 
   // Contact endpoint
 
+
+
   async sendContactMessage(data: unknown) {
+
     const response = await API.post("/contact", data);
+
     return response.data;
+
   }
+
+
 
   // Chat endpoints
 
+
+
   async getMyChatGroups() {
+
     return API.get("/chat-groups");
+
   }
+
+
 
   async createChatGroup(data: unknown) {
+
     return API.post("/chat-groups", data);
+
   }
+
+
 
   async addChatGroupMembers(
+
     groupId: number | string,
+
     userIds: Array<number | string>
+
   ) {
+
     return API.post(`/chat-groups/${groupId}/members`, {
+
       user_ids: userIds,
+
     });
+
   }
+
+
 
   async getChatGroupMessages(groupId: number | string) {
+
     return API.get(`/chat-groups/${groupId}/messages`);
+
   }
 
+
+
   async sendGroupMessage(
+
     groupId: number | string,
+
     message: string
+
   ) {
+
     return API.post(`/chat-groups/${groupId}/messages`, {
+
       message,
+
     });
+
   }
+
+
 
   // Notification endpoints
 
+
+
   async markNotificationAsRead(id: number | string) {
-    return API.post(`/notifications/${id}/read`);
+    const response = await API.patch(`/notifications/${id}/read`);
+    return response.data;
   }
+
+
 
   async getNotifications() {
     const response = await API.get("/notifications");
     return response.data;
   }
 
+
+  async savePushToken(
+  payload: {
+    token: string;
+    platform: string;
+  }
+  ) {
+  const response =
+    await API.post(
+      "/notifications/push-token",
+      payload
+    );
+
+  return response.data;
+}
+
+async getUnreadNotificationCount() {
+  const response = await API.get("/notifications/unread-count");
+  return response.data;
+}
+
+
+
+async markAllNotificationsAsRead() {
+  const response = await API.patch("/notifications/read-all");
+  return response.data;
+}
+
+
+
   // Dashboard endpoints
+
+
 
   async getDashboardSummary() {
     const response = await API.get("/dashboard/summary");
     return response.data;
   }
+
+
+
+
+
+
+
+
+
+
+
+
+  async testPreAuthToken() {
+      const preAuthToken = await getItemSafe("pre_auth_token");
+      if (!preAuthToken) {
+        throw new Error("No pre-auth token stored.");
+      }
+      const response = await API.get("/pre-auth-test", {
+        headers: {Authorization: `Bearer ${preAuthToken}`, },
+      });
+      return response.data;
+    }
+
+
+  async getAppointmentDashboard() {
+    return API.get("/appointments/dashboard");
+  }
+
+ async getAppointmentEligibility(propertyId: string | number) {
+  return API.get(
+    `/property/${propertyId}/appointment-eligibility`
+  );
 }
 
+async getPropertyAvailableSlots(propertyId: string | number, date: string) {
+  return API.get(`/properties/${propertyId}/available-slots`, {
+    params: {
+      date,
+    },
+  });
+}
+
+async createAppointment(payload: {
+  property_id: string | number;
+  appointment_date: string;
+  start_time: string;
+  end_time: string;
+  customer_note?: string | null;
+}) {
+  return API.post("/appointments", payload);
+}
+
+
+async getAppointmentBookableProperties() {
+  return API.get("/appointments/bookable-properties");
+}
+
+async storePropertyInterest(
+  propertyId: string | number
+) {
+  return API.post(
+    `/properties/${propertyId}/interest`
+  );
+}
+
+async removePropertyInterest(
+  propertyId: string | number
+) {
+  return API.delete(
+    `/properties/${propertyId}/interest`
+  );
+}
+
+
+
+
+
+
+async acceptAppointment(
+  appointmentId: string | number
+) {
+  return API.post(
+    `/appointments/${appointmentId}/accept`
+  );
+}
+
+async rejectAppointment(
+  appointmentId: string | number,
+  listerNote?: string
+) {
+  return API.post(
+    `/appointments/${appointmentId}/reject`,
+    {
+      lister_note:
+        listerNote || null,
+    }
+  );
+}
+
+async cancelAppointment(
+  appointmentId: string | number
+) {
+  return API.post(
+    `/appointments/${appointmentId}/cancel`
+  );
+}
+
+async completeAppointment(
+  appointmentId: string | number
+) {
+  return API.post(
+    `/appointments/${appointmentId}/complete`
+  );
+}
+
+async getCustomerAppointment(
+  appointmentId: string | number
+) {
+  const response = await API.get(
+    `/customer/appointments/${appointmentId}`
+  );
+
+  return response.data;
+}
+
+
+
+
+
+async getWalletTransactions(params?: {
+  page?: number;
+  type?: string;
+  balance_bucket?: "available" | "locked" | "escrow";
+}): Promise<WalletTransactionsResponse> {
+  const query = new URLSearchParams();
+
+  if (params?.page) {
+    query.append(
+      "page",
+      String(params.page)
+    );
+  }
+
+  if (params?.type) {
+    query.append(
+      "type",
+      params.type
+    );
+  }
+
+  if (params?.balance_bucket) {
+    query.append(
+      "balance_bucket",
+      params.balance_bucket
+    );
+  }
+
+  const suffix =
+    query.toString()
+      ? `?${query.toString()}`
+      : "";
+
+  const response = await this.get<WalletTransactionsResponse>(
+    `/wallet/transactions${suffix}`
+  );
+
+  return response.data;
+}
+
+async getWalletEscrow() {
+  const response =
+    await this.get(
+      "/wallet/escrow"
+    );
+
+  return response.data;
+}
+
+async createWalletFundingAccount(): Promise<{
+  message?: string;
+  account?: WalletFundingAccount | null;
+  funding_account?: WalletFundingAccount | null;
+}> {
+  const response =
+    await this.post<{
+      message?: string;
+      account?: WalletFundingAccount | null;
+      funding_account?: WalletFundingAccount | null;
+    }>(
+      "/wallet/create-virtual-account"
+    );
+
+  return response.data;
+}
+
+async createPropertyDeposit(
+  interestId: number
+): Promise<{ message?: string }> {
+  const response =
+    await this.post<{ message?: string }>(
+      "/property-deposits",
+      {
+        interest_id: interestId,
+      }
+    );
+
+  return response.data;
+}
+
+
+async canCreateAvailability(): Promise<{ can_create: boolean; message?: string }> {
+  const response = await this.get<{ can_create: boolean; message?: string }>(
+    '/lister/can-create-availability'
+  )
+
+  return response.data;
+}
+
+async createAvailability(
+  payload: {
+    availability: {
+      day_of_week: number;
+      start_time: string;
+      end_time: string;
+    }[];
+  }
+): Promise<{ message?: string }> {
+  const response = await this.post<{ message?: string }>(
+    '/lister/availability',
+    payload
+  )
+
+  return response.data;
+}
+
+
+// Wallet payout 
+// /wallet/bank-account
+
+async getPayoutBankAccount(): Promise<{
+  bank_accounts: PayoutBankAccount[];
+}> {
+  const response =
+    await this.get<{
+      data?: {
+        bank_accounts?: PayoutBankAccount[];
+      } | null;
+
+      bank_accounts?: PayoutBankAccount[];
+    }>(
+      "/wallet/bank-accounts"
+    );
+
+  const data =
+    response.data;
+
+  return {
+    bank_accounts:
+      data?.data?.bank_accounts ??
+      data?.bank_accounts ??
+      [],
+  };
+}
+
+async requestWalletWithdrawal(
+  payload: {
+    amount: number;
+    bank_account_id?: number;
+  }
+): Promise<{ message?: string }> {
+  const response = await this.post<{ message?: string }>(
+    "/wallet/withdrawals",
+    payload
+  );
+
+  return response.data;
+}
+
+async getWalletWithdrawals() {
+  return this.get(
+    "/wallet/withdrawals"
+  );
+}
+
+
+
+
+
+async savePayoutBankAccount(
+  payload: {
+    bank_name: string;
+    bank_code?: string;
+    account_number: string;
+    account_name: string;
+  }
+): Promise<{ message?: string }> {
+  const response = await this.post<{ message?: string }>(
+    "/wallet/bank-account",
+    payload
+  );
+
+  return response.data;
+}
+
+async deletePayoutBankAccount() {
+  return this.delete(
+    "/wallet/bank-account"
+  );
+}
+
+
+
+async getPayoutBanks() {
+  return this.get(
+    "/wallet/banks"
+  );
+}
+
+async resolvePayoutBankAccount(
+  payload: {
+    bank_code: string;
+    account_number: string;
+  }
+) {
+  return this.post(
+    "/wallet/bank-account/resolve",
+    payload
+  );
+}
+
+async createPropertySettlement(
+  propertyId: number | string,
+  appointmentId: number | string
+): Promise<PropertySettlement> {
+  const response =
+    await this.post<
+      ApiDataResponse<PropertySettlement>
+    >(
+      `/properties/${propertyId}/settlements`,
+      {
+        appointment_id: appointmentId,
+      }
+    );
+
+  return response.data.data;
+}
+
+
+async getPropertySettlement(
+  settlementId: number | string
+): Promise<PropertySettlement> {
+  const response =
+    await this.get<
+      ApiDataResponse<PropertySettlement>
+    >(
+      `/property-settlements/${settlementId}`
+    );
+
+  return response.data.data;
+}
+
+async initializePropertyPayment(
+  settlementId: number | string
+): Promise<InitializePropertyPaymentResponse> {
+  const response =
+    await this.post<
+      ApiDataResponse<
+        InitializePropertyPaymentResponse
+      >
+    >(
+      `/property-settlements/${settlementId}/pay`,
+      {}
+    );
+
+  return response.data.data;
+}
+
+async requestPropertyPaymentAccounts(
+  settlementId: number | string
+): Promise<{
+  request_already_sent: boolean;
+}> {
+  const response =
+    await this.post<
+      ApiDataResponse<{
+        request_already_sent: boolean;
+      }>
+    >(
+      `/property-settlements/${settlementId}/request-account-details`,
+      {}
+    );
+
+  return response.data.data;
+}
+
+
+
+async preparePropertyAppointment(
+  propertyId: string | number
+): Promise<AppointmentPreparationResponse> {
+  const response =
+    await this.get<AppointmentPreparationResponse>(
+      `/properties/${propertyId}/appointment-preparation`
+    );
+
+  return response.data;
+}
+
+
+async createAppointmentConversation(
+  appointmentId: string | number
+): Promise<AppointmentConversationResponse> {
+  const response =
+    await this.post<AppointmentConversationResponse>(
+      "/appointment-conversations",
+      {
+        appointment_id: appointmentId,
+      }
+    );
+
+  return response.data;
+}
+
+async getAppointment(
+  appointmentId: string | number
+): Promise<AppointmentDetailResponse> {
+  const response =
+    await this.get<AppointmentDetailResponse>(
+      `/appointments/${appointmentId}`
+    );
+
+  return response.data;
+}
+
+async getAppointmentInspection(
+  appointmentId: string | number
+): Promise<AppointmentInspectionResponse> {
+  const response =
+    await this.get<AppointmentInspectionResponse>(
+      `/appointments/${appointmentId}/inspection`
+    );
+
+  return response.data;
+}
+
+async submitAppointmentInspection(
+  appointmentId: string | number,
+  payload: FormData
+) {
+  const response =
+    await this.post(
+    `/appointments/${appointmentId}/inspection`,
+    payload,
+    {
+      headers: {
+        Accept: "application/json",
+      },
+    }
+  );
+
+  return response.data;
+}
+
+
+
+}
+
+
+
 const apiService = new ApiService();
+
+
 
 export default apiService;

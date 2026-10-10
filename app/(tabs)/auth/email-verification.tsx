@@ -1,43 +1,147 @@
 import React, { useEffect, useState } from "react";
 import {
-  KeyboardAvoidingView,
-  ScrollView,
+
   Text,
   StyleSheet,
   View,
   TextInput,
   TouchableOpacity,
   Platform,
-  Alert,
+ 
   ActivityIndicator,
   
 } from "react-native";
-import { setItemSafe, getItemSafe, removeItemSafe } from "@/utils/storage";
+import { setItemSafe, getItemSafe} from "@/utils/storage";
 import  API  from "@/src/services/api";
-import ApiService from "@/src/services/api";
 import { useRouter } from "expo-router";
 import { useForm, Controller } from "react-hook-form";
 import CustomAlert from "components/CustomAlert";
-import { useAuth } from "@/context/AuthContext";
-import { useRouteHandler }  from "@/hooks/seRouteHandler";
+
+
 import ScreenWrapper from "components/ScreenWrapper";
+import axios from 'axios';
 
 interface User {
-  id: string;
+  id: string | number;
   email: string;
-  [key: string]: any;
+  phonenumber?: string;
+  [key: string]: unknown;
 }
 
 
+function getApiErrorMessage(
+  error: unknown
+): string {
+  /*
+   * Errors normalized by ApiService.request().
+   */
+  if (
+    typeof error === "object" &&
+    error !== null
+  ) {
+    const normalizedError =
+      error as {
+        message?: unknown;
+        errors?: Record<
+          string,
+          string[] | string
+        >;
+        status?: number;
+      };
+
+    if (
+      typeof normalizedError.message ===
+        "string" &&
+      normalizedError.message.trim()
+    ) {
+      return normalizedError.message;
+    }
+
+    if (
+      normalizedError.errors &&
+      typeof normalizedError.errors ===
+        "object"
+    ) {
+      const firstError =
+        Object.values(
+          normalizedError.errors
+        )
+          .flat()
+          .find(
+            (
+              item
+            ): item is string =>
+              typeof item ===
+              "string"
+          );
+
+      if (firstError) {
+        return firstError;
+      }
+    }
+  }
+
+  /*
+   * Raw Axios errors.
+   */
+  if (axios.isAxiosError(error)) {
+    const data =
+      error.response?.data;
+
+    if (
+      typeof data?.message ===
+        "string" &&
+      data.message.trim()
+    ) {
+      return data.message;
+    }
+
+    if (
+      data?.errors &&
+      typeof data.errors ===
+        "object"
+    ) {
+      const firstError =
+        Object.values(
+          data.errors
+        )
+          .flat()
+          .find(
+            (
+              item
+            ): item is string =>
+              typeof item ===
+              "string"
+          );
+
+      if (firstError) {
+        return firstError;
+      }
+    }
+
+    if (!error.response) {
+      return "Network error. Check your internet connection and try again.";
+    }
+  }
+
+  if (
+    error instanceof Error &&
+    error.message
+  ) {
+    return error.message;
+  }
+
+  return "Something went wrong. Please try again.";
+}
 
 const EmailVerificationScreen = () => {
   const [loading, setLoading] = useState(false);
-  const [code, setCode] = useState("");
+  
   const [userId, setUserId] = useState<string | null>(null);
   const router = useRouter();
-  const [isVerifyWithPhoneNumber, setIsVerifyWithPhoneNumber] = useState(false);
-  const { login } = useAuth();
-  const { handleResponse } = useRouteHandler();
+ const [loadingSession, setLoadingSession] = useState(true);
+ 
+ 
   const [ user, setUser] = useState<User | null>(null);
 
   const [showUpdateEmail, setShowUpdateEmail] = useState(false);
@@ -45,13 +149,6 @@ const [newEmail, setNewEmail] = useState("");
 const [updatingEmail, setUpdatingEmail] = useState(false);
  console.log("user", userId);
 
- const {watch, control,
-  formState: { errors },
-  handleSubmit,
-  setValue,
-
- } = useForm();
-//  const isVerifyWithPhoneNumber = watch("isVerifyWithPhoneNumber");
 
 
   const [alertVisible, setAlertVisible] = useState(false);
@@ -77,128 +174,479 @@ function showAlert(title: string, message: string, onClose?: () => void) {
    
   
 
-  useEffect(() => {
-   const loadUserData = async () => {
-    const storedUserId = await getItemSafe("userId");
-    const storedUser = await getItemSafe("user");
+ useEffect(() => {
+  const loadUserData =
+    async (): Promise<void> => {
+      try {
+        const [storedUserId, storedUser, preAuthToken] = await Promise.all([
+          getItemSafe("user_id"),
+          getItemSafe("user"),
+          getItemSafe("pre_auth_token"),
+        ]);
 
-    if (storedUserId) {
-      setUserId(storedUserId);
-    }
+        let parsedUser: User | null = null;
 
-    if (storedUser) {
-      setUser(JSON.parse(storedUser));
-    }
-  };
+        if (storedUser) {
+          try {
+            parsedUser = JSON.parse(storedUser) as User;
+            setUser(parsedUser);
+          } catch (parseError) {
+            console.error("[EMAIL VERIFY] Invalid stored user:", parseError);
+            setUser(null);
+          }
+        }
 
-  loadUserData();
-  }, []);
+        /*
+         * Prefer the dedicated user_id but recover
+         * it from the stored user when necessary.
+         */
+        const resolvedUserId =
+          storedUserId ??
+          (parsedUser?.id !== undefined ? String(parsedUser.id) : null);
+
+        if (resolvedUserId) {
+          setUserId(String(resolvedUserId));
+
+          /*
+           * Repair missing user_id storage.
+           */
+          if (!storedUserId) {
+            await setItemSafe(
+              "user_id",
+              String(
+                resolvedUserId
+              )
+            );
+          }
+        } else {
+          setUserId(null);
+        }
+
+        console.log(
+          "[EMAIL VERIFY] Session loaded:",
+          {
+            userId:
+              resolvedUserId,
+            hasStoredUser:
+              Boolean(
+                parsedUser
+              ),
+            hasPreAuthToken:
+              Boolean(
+                preAuthToken
+              ),
+          }
+        );
+      } catch (loadError) {
+        console.error(
+          "[EMAIL VERIFY] Failed to load session:",
+          loadError
+        );
+
+        setUserId(null);
+        setUser(null);
+      } finally {
+        setLoadingSession(
+          false
+        );}
+    };
+
+  void loadUserData();
+}, []);
+
+
+  type EmailVerificationForm = {
+  code: string;
+};
+
+const { control,
+  formState: { errors },
+  handleSubmit,
+} = useForm<EmailVerificationForm>({
+  defaultValues: {
+    code: "",
+  },
+});
 
 
 
 
-  const verifyUser = async (data) => {
-    const { code } = data; 
-    const userId = await getItemSafe("user_id");
-    const user = await getItemSafe("user");
+type ApiError = {
+  message?: string;
+  status?: number;
+  errors?: Record<string, string[]>;
+};
 
-    setUserId(userId);
-    setUser(user ? JSON.parse(user) : null);
-
-  console.log(["code", code,  "user id", userId]);
-    if (!code.trim()) {
-      showAlert("Error", "Please enter your verification code");
-      return;
-    }
-
-    if (!userId) {
-      showAlert("Error", "User ID missing. Please log in again.");
-      return;
-    }
-
-    setLoading(true);
-    try {
-  const res = await API.verifyEmail({
-    user_id: userId,  
-    code: code.trim(),
-  });
-
-  console.log(res);
- 
-  if (res.status === 200) {
-    const {user_id, user} = res;
-
-  router.push("/auth/phoneNumberVerification");
-
-    showAlert("Email Verified!", res.message, () => {
-      handleResponse(res, {
-        successRoute: res.successRoute,
-        successMessage: res.successMessage,
-      });
-    });
+const verifyUser = async (
+  data: EmailVerificationForm
+): Promise<void> => {
+  if (loading) {
+    return;
   }
-} catch (error) {
-  console.log(error.response || error.message);
 
-  // 👇 handle 422 (or any backend error message)
-  const errorMessage =
-    error.response?.errorMessage || "Verification failed. Please try again.";
+  const verificationCode =
+    data.code.trim();
 
-  showAlert("Failed", errorMessage);
-} finally {
-  setLoading(false);
-}
+  if (
+    !/^\d{6}$/.test(
+      verificationCode
+    )
+  ) {
+    showAlert(
+      "Invalid Code",
+      "Please enter the complete 6-digit verification code."
+    );
 
-  };
+    return;
+  }
 
-  const resendEmailCode = async () => {
+  const storedUserId =
+    await getItemSafe(
+      "user_id"
+    );
+
+  const currentUserId =
+    storedUserId ??
+    userId ??
+    (
+      user?.id !== undefined
+        ? String(user.id)
+        : null
+    );
+
+  if (!currentUserId) {
+    showAlert(
+      "Session Error",
+      "Your registration session is incomplete. Please restart registration."
+    );
+
+    return;
+  }
+
+  setLoading(true);
+
+  try {
+    console.log(
+      "[EMAIL VERIFY] Sending request:",
+      {
+        endpoint:
+          "/verify-email",
+        userId:
+          currentUserId,
+        codeLength:
+          verificationCode.length,
+      }
+    );
+
+    const response =
+      await API.verifyEmail({
+        user_id:
+          currentUserId,
+        code:
+          verificationCode,
+      });
+
+    if (
+      response.user_id !==
+      undefined
+    ) {
+      await setItemSafe(
+        "user_id",
+        String(
+          response.user_id
+        )
+      );
+
+      setUserId(
+        String(
+          response.user_id
+        )
+      );
+    }
+
+    if (response.user) {
+      await setItemSafe(
+        "user",
+        JSON.stringify(
+          response.user
+        )
+      );
+
+      setUser(
+        response.user
+      );
+    }
+
+   await setItemSafe(
+  "registration_step",
+  "phone_verification"
+);
+
+showAlert(
+  "Email Verified",
+  response.message ??
+    "Your email was verified successfully.",
+  () => {
+    router.push(
+      "/(tabs)/auth/phoneNumberVerification"
+    );
+  }
+);
+  } catch (error) {
+    console.error(
+      "[EMAIL VERIFY] Screen error:",
+      error
+    );
+
+    showAlert(
+      "Verification Failed",
+      getApiErrorMessage(
+        error
+      )
+    );
+  } finally {
+    setLoading(false);
+  }
+};
+  const resendEmailCode =
+  async (): Promise<void> => {
+    if (loading) {
+      return;
+    }
+
+    const storedUserId =
+      await getItemSafe(
+        "user_id"
+      );
+
+    const currentUserId =
+      storedUserId ??
+      userId ??
+      (
+        user?.id !== undefined
+          ? String(user.id)
+          : null
+      );
+
+    if (!currentUserId) {
+      showAlert(
+        "Session Error",
+        "Your registration session is incomplete. Please restart registration."
+      );
+
+      return;
+    }
+
     setLoading(true);
-    console.log("Resending code to email");
-    try {
-      // Always fetch the latest userId from storage
-      const currentUserId = await getItemSafe("user_id") || user?.id;
-    
 
-      if (!currentUserId) {
-        showAlert("Error", "User ID missing. Please log in again.");
-        return;
+    try {
+      console.log(
+        "[EMAIL VERIFY] Resending code:",
+        {
+          endpoint:
+            "/resend-email-code",
+          userId:
+            currentUserId,
+        }
+      );
+
+      const response =
+        await API.resendEmailCode({
+          user_id:
+            currentUserId,
+          method: "email",
+        });
+
+      if (response.user) {
+        await setItemSafe(
+          "user",
+          JSON.stringify(
+            response.user
+          )
+        );
+
+        setUser(
+          response.user
+        );
       }
 
-      const res = await API.resendEmailCode({
-        user_id: currentUserId,
-        method: "email"
-      });
-
-   
-     
-
-      if (res.status === 200) {
-         await setItemSafe("user", res.user);
-        showAlert("Sent", res.message || "A new code has been sent to your email.");
-        handleResponse(res, {
-          successRoute: res.successRoute,
-          successMessage: res.successMessage,
-        });
-      } 
-
+      showAlert(
+        "Code Sent",
+        response.message ??
+          "A new verification code has been sent to your email."
+      );
     } catch (error) {
-      
+      console.error(
+        "[EMAIL VERIFY] Resend error:",
+        error
+      );
 
-       console.log(error.response || error.message);
-
-  // 👇 handle 422 (or any backend error message)
-  const errorMessage =
-    error.response?.errorMessage || "Unable to resend code. Please try again.";
-
-  showAlert("Error", errorMessage);
+      showAlert(
+        "Unable to Send Code",
+        getApiErrorMessage(
+          error
+        )
+      );
     } finally {
       setLoading(false);
     }
   };
 
-  
 
+const updateEmailAddress =
+  async (): Promise<void> => {
+    if (updatingEmail) {
+      return;
+    }
 
+    const normalizedEmail =
+      newEmail
+        .trim()
+        .toLowerCase();
+
+    if (
+      !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(
+        normalizedEmail
+      )
+    ) {
+      showAlert(
+        "Invalid Email",
+        "Please enter a valid email address."
+      );
+
+      return;
+    }
+
+    const storedUserId =
+      await getItemSafe(
+        "user_id"
+      );
+
+    const currentUserId =
+      storedUserId ??
+      userId ??
+      (
+        user?.id !== undefined
+          ? String(user.id)
+          : null
+      );
+
+    if (!currentUserId) {
+      showAlert(
+        "Session Error",
+        "Your registration session is incomplete. Please restart registration."
+      );
+
+      return;
+    }
+
+    setUpdatingEmail(true);
+
+    try {
+      console.log(
+        "[EMAIL VERIFY] Updating email:",
+        {
+          endpoint:
+            "/update-email",
+          userId:
+            currentUserId,
+
+          /*
+           * Avoid logging the complete email
+           * in production.
+           */
+        }
+      );
+
+      const response =
+        await API.updateEmail({
+          user_id:
+            currentUserId,
+          email:
+            normalizedEmail,
+        });
+
+      await setItemSafe(
+        "user_email",
+        normalizedEmail
+      );
+
+      if (response.user) {
+        await setItemSafe(
+          "user",
+          JSON.stringify(
+            response.user
+          )
+        );
+
+        setUser(
+          response.user
+        );
+      } else {
+        setUser(
+          (
+            currentUser
+          ) =>
+            currentUser
+              ? {
+                  ...currentUser,
+                  email:
+                    normalizedEmail,
+                }
+              : currentUser
+        );
+      }
+
+      setShowUpdateEmail(
+        false
+      );
+
+      setNewEmail("");
+
+      showAlert(
+        "Email Updated",
+        response.message ??
+          "Email updated. A new verification code was sent."
+      );
+    } catch (error) {
+      console.error(
+        "[EMAIL VERIFY] Update email error:",
+        error
+      );
+
+      showAlert(
+        "Update Failed",
+        getApiErrorMessage(
+          error
+        )
+      );
+    } finally {
+      setUpdatingEmail(
+        false
+      );
+    }
+  };
+
+if (loadingSession) {
+  return (
+    <ScreenWrapper>
+      <View style={styles.card}>
+        <ActivityIndicator
+          size="large"
+        />
+
+        <Text
+          style={{
+            textAlign: "center",
+            marginTop: 12,
+          }}
+        >
+          Loading verification session...
+        </Text>
+      </View>
+    </ScreenWrapper>
+  );
+}
   
 
   return (
@@ -281,34 +729,11 @@ function showAlert(title: string, message: string, onClose?: () => void) {
         style={styles.input}
       />
 
-      <TouchableOpacity
-        style={styles.updateBtn}
-        disabled={updatingEmail}
-        onPress={async () => {
-          if (!newEmail.trim()) {
-            showAlert("Error", "Please enter your new email address.");
-            return;
-          }
-
-          setUpdatingEmail(true);
-
-          try {
-            const res = await API.updateEmail('payload');
-
-            showAlert("Success", res.message || "Email updated. Verification code sent.");
-
-            await setItemSafe("user_email", newEmail.trim());
-
-            setShowUpdateEmail(false);
-            setNewEmail("");
-          } catch (err: any) {
-            console.log("Update email error:", err);
-            showAlert("Error", err.message || "Could not update email.");
-          } finally {
-            setUpdatingEmail(false);
-          }
-        }}
-      >
+     <TouchableOpacity
+  style={styles.updateBtn}
+  disabled={updatingEmail}
+  onPress={updateEmailAddress}
+>
         <Text style={styles.updateBtnText}>
           {updatingEmail ? "Updating..." : "Update Email"}
         </Text>

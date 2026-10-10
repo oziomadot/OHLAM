@@ -40,40 +40,92 @@ export default function RagChatWidget() {
   const scrollRef = useRef<ScrollView>(null);
 
   const askQuestion = async (preset?: string) => {
-    const userQuestion = (preset || question).trim();
-    if (!userQuestion || loading) return;
+  const userQuestion = (preset || question).trim();
 
-    setMessages((prev) => [...prev, { role: "user", content: userQuestion }]);
-    setQuestion("");
-    setLoading(true);
+  if (!userQuestion || loading) {
+    return;
+  }
 
-    try {
-      const res = await API.post("/rag/ask", { question: userQuestion });
+  setMessages((prev) => [
+    ...prev,
+    {
+      role: "user",
+      content: userQuestion,
+    },
+  ]);
 
-      setMessages((prev) => [
-        ...prev,
-        {
-          role: "assistant",
-          content: res.data?.answer || "I could not find a policy answer for that.",
-          sources: res.data?.sources || [],
-        },
-      ]);
-    } catch (error: any) {
-      console.log("RAG error:", error?.response?.data || error);
+  setQuestion("");
+  setLoading(true);
 
-      setMessages((prev) => [
-        ...prev,
-        {
-          role: "assistant",
-          content:
-            "I could not reach the OHLAM assistant right now. Please try again.",
-        },
-      ]);
-    } finally {
-      setLoading(false);
-      setTimeout(() => scrollRef.current?.scrollToEnd({ animated: true }), 200);
-    }
-  };
+  try {
+    const res = await API.post("/rag/ask", {
+      question: userQuestion,
+    });
+
+    console.log(
+      "RAG RESPONSE:",
+      JSON.stringify(res.data, null, 2)
+    );
+
+    /*
+     * Your Laravel controller returns:
+     *
+     * {
+     *   success: true,
+     *   data: {
+     *      answer: "...",
+     *      sources: [...]
+     *   }
+     * }
+     */
+    const payload = res.data?.data ?? res.data;
+
+    const answer =
+      payload?.answer ||
+      payload?.message ||
+      "I could not find a policy answer for that.";
+
+    const sources = Array.isArray(payload?.sources)
+      ? payload.sources
+      : [];
+
+    setMessages((prev) => [
+      ...prev,
+      {
+        role: "assistant",
+        content: answer,
+        sources,
+      },
+    ]);
+  } catch (error: any) {
+    console.log(
+      "RAG ERROR:",
+      error?.response?.data || error
+    );
+
+    const apiMessage =
+      error?.response?.data?.message ||
+      error?.response?.data?.error;
+
+    setMessages((prev) => [
+      ...prev,
+      {
+        role: "assistant",
+        content:
+          apiMessage ||
+          "I could not reach the OHLAM assistant right now. Please try again.",
+      },
+    ]);
+  } finally {
+    setLoading(false);
+
+    setTimeout(() => {
+      scrollRef.current?.scrollToEnd({
+        animated: true,
+      });
+    }, 200);
+  }
+};
 
   return (
     <SafeAreaView style={styles.safe}>

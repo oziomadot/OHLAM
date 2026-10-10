@@ -10,7 +10,6 @@ import {
   Alert,
 } from "react-native";
 import { useForm, Controller } from "react-hook-form";
-import { Picker } from "@react-native-picker/picker";
 import { useRouter, Link } from "expo-router";
 import API from "@/src/services/api";
 import Navbar from "components/Navbar";
@@ -19,16 +18,16 @@ import CustomAlert from "components/CustomAlert";
 import ScreenWrapper from "components/ScreenWrapper";
 import TermsModal from "components/TermsModal";
 import { setItemSafe, getItemSafe } from "@/utils/storage";
-
+import { getFriendlyApiError } from "@/src/utils/apiError";
+import { getReferralCode } from "@/src/services/referralService";
 import { useLocalSearchParams } from "expo-router";
-
 
 
 const RegistrationScreen = () => {
   const router = useRouter();
   const [loading, setLoading] = useState(false);
   
-  const [error, setError] = useState("");
+ 
   const [agreeTerms, setAgreeTerms] = useState(false);
   const [termsModalVisible, setTermsModalVisible] = useState(false);
 
@@ -46,6 +45,7 @@ const RegistrationScreen = () => {
   const [alertVisible, setAlertVisible] = useState(false);
   const [alertMessage, setAlertMessage] = useState("");
   const [alertTitle, setAlertTitle] = useState("");
+  
 
   function showAlert(title: string, message: string) {
     setAlertTitle(title);
@@ -56,78 +56,171 @@ const RegistrationScreen = () => {
   const { ref } = useLocalSearchParams();
 
 
+
+  useEffect(() => {
+  const loadReferral = async () => {
+    try {
+      /*
+       * Priority 1:
+       * Referral coming directly from an Expo/deep link.
+       *
+       * Example:
+       * /auth/register?ref=OHLAM-A92K4
+       */
+      const urlReferral =
+        typeof ref === "string"
+          ? ref.trim()
+          : Array.isArray(ref)
+            ? String(ref[0] ?? "").trim()
+            : "";
+
+      if (urlReferral) {
+        setValue("referral_id", urlReferral, {
+          shouldValidate: true,
+          shouldDirty: false,
+        });
+
+        return;
+      }
+
+      /*
+       * Priority 2:
+       * Referral recovered from Google Play Install Referrer
+       * and stored by referralService.
+       */
+      const savedReferral =
+        await getReferralCode();
+
+      if (savedReferral) {
+        setValue(
+          "referral_id",
+          savedReferral.trim(),
+          {
+            shouldValidate: true,
+            shouldDirty: false,
+          }
+        );
+      }
+    } catch (error) {
+      console.error(
+        "Failed loading referral:",
+        error
+      );
+    }
+  };
+
+  loadReferral();
+}, [ref, setValue]);
   
     
   // ✅ On form submit
   const onSubmit = async (data: any) => {
+
+    console.log("[REGISTER] onSubmit reached");
+
+
+
+
     if (!agreeTerms) {
       showAlert("Terms Required", "You must agree to the Terms and Conditions to register.");
       return;
     }
 
-    setLoading(true);
+   setLoading(true);
     try {
       const payload = { ...data, agree_terms: true };
-
-      let storedRef: string | null = null;
-      if (Platform.OS === "web") {
-        storedRef = window?.localStorage?.getItem("referral_code");
-      } else {
-        storedRef = await getItemSafe("referral_code");
-      }
-      if (storedRef) payload.ref = storedRef;
-
       if (payload.dob instanceof Date) {
         payload.dob = payload.dob.toISOString().split("T")[0];
       }
 
       const res = await API.register(payload);
-      const { verification_required, token, user } = res;
-      console.log("🚀 Registration response:", res);
 
-      if (verification_required) {
-        await setItemSafe("user_id", user.id);
-        await setItemSafe("user", JSON.stringify(user));
-        await setItemSafe("user_email", user.email);
-        await setItemSafe("registration_step", "email-verification");
-        router.push("/auth/email-verification");
-        return;
+      const {verification_required, pre_auth_token, user, next_step} = res;
+
+
+      if (!user?.id || !user?.email) {
+        throw new Error(
+          "Registration succeeded, but the user information is incomplete.");
       }
 
-      if (token) {
-        await setItemSafe("authToken", token);
-        showAlert("Success", "Registered! Token saved securely.");
-      }
-    } catch (err: any) {
-  console.log("🔥 REGISTER ERROR FULL:", err);
-  console.log("🔥 REGISTER ERROR RESPONSE:", err?.response);
-  console.log("🔥 REGISTER ERROR DATA:", err?.response?.data);
-  console.log("🔥 REGISTER ERROR MESSAGE:", err?.message);
+      /*
+ * API.register() should already store this,
+ * but storing it here as a defensive check
+ * is acceptable.
+ */
+   if (
+  typeof pre_auth_token !== "string" ||
+  !pre_auth_token.trim()
+) {
+  throw new Error(
+    "Your account was created, but no verification session was returned. Please log in to continue."
+  );
+}
 
-  const data = err?.response?.data || err?.data || err;
+await setItemSafe("pre_auth_token", pre_auth_token);
 
-  let message = "Something went wrong. Please try again.";
+const savedPreAuthToken =
+  await getItemSafe("pre_auth_token");
 
-  if (data?.errors) {
-    message = Object.values(data.errors).flat().join("\n");
-    showAlert("Validation Error", message);
-    return;
-  }
+if (savedPreAuthToken !== pre_auth_token) {
+  throw new Error(
+    "Your account was created, but the verification session could not be saved. Please log in to continue."
+  );
+}
 
-  if (data?.message) {
-    showAlert("Error", data.message);
-    return;
-  }
+    if (verification_required && pre_auth_token) {
+      await setItemSafe("user_id", String(user.id));
 
-  if (err?.message) {
-    showAlert("Error", err.message);
-    return;
-  }
+      await setItemSafe("user", JSON.stringify(user));
 
-  showAlert("Error", message);
-} finally {
-      setLoading(false);
+      await setItemSafe("user_email", user.email);
+
+      const normalizedNextStep = String(
+  next_step ?? "email_verification"
+)
+  .trim()
+  .toLowerCase()
+  .replace(/-/g, "_");
+
+await setItemSafe(
+  "registration_step",
+  normalizedNextStep
+);
+
+/*
+ * There must not be a normal authenticated token
+ * controlling navigation during pre-auth registration.
+ */
+router.replace(
+  "/(tabs)/auth/email-verification"
+);
+
+      return;
     }
+
+    throw new Error(
+      "Registration was completed, but the verification session was not created."
+    );
+    }
+
+      
+        catch (error: unknown) {
+  if (__DEV__) {
+    console.log("[REGISTER] Error:", error);
+  }
+
+  const friendlyError = getFriendlyApiError(
+    error,
+    "We could not complete your registration. Please try again."
+  );
+
+  showAlert(
+    friendlyError.title,
+    friendlyError.message
+  );
+} finally {
+  setLoading(false);
+}
   };
 
   // ✅ Password strength logic
@@ -159,13 +252,6 @@ const RegistrationScreen = () => {
 
 
 
-  if (error) {
-    return (
-      <View style={styles.center}>
-        <Text style={{ color: "red" }}>{error}</Text>
-      </View>
-    );
-  }
 
   return (
     <ScreenWrapper>
@@ -225,23 +311,39 @@ const RegistrationScreen = () => {
         </FormField>
 
         {/* Email */}
-        <FormField label="Email" required error={errors.email}>
-          <Controller
-            control={control}
-            name="email"
-            rules={{ required: true }}
-            render={({ field: { onChange, value } }) => (
-              <TextInput
-                placeholder="Enter email"
-                keyboardType="email-address"
-                autoCapitalize="none"
-                style={styles.input}
-                value={value}
-                onChangeText={onChange}
-              />
-            )}
-          />
-        </FormField>
+        <FormField label="Email">
+        <Controller
+  control={control}
+  name="email"
+  rules={{
+    required: "Email address is required.",
+    pattern: {
+      value:
+        /^[^\s@]+@[^\s@]+\.[^\s@]+$/,
+      message:
+        "Enter a valid email address.",
+    },
+  }}
+  render={({
+    field: {
+      onChange,
+      onBlur,
+      value,
+    },
+  }) => (
+    <TextInput
+      placeholder="Enter email"
+      keyboardType="email-address"
+      autoCapitalize="none"
+      autoCorrect={false}
+      style={styles.input}
+      value={value ?? ""}
+      onBlur={onBlur}
+      onChangeText={onChange}
+    />
+  )}
+/>
+</FormField>
 
         {/* Password */}
         <FormField label="Password" required error={errors.password}>
@@ -249,7 +351,7 @@ const RegistrationScreen = () => {
             control={control}
             name="password"
             rules={{
-              required: true,
+              required: "Password is required",
               minLength: { value: 8, message: "Password must be at least 8 characters long" },
             }}
             render={({ field: { onChange, value } }) => (
@@ -279,7 +381,7 @@ const RegistrationScreen = () => {
             control={control}
             name="password_confirmation"
             rules={{
-              required: "Confirm Password is required",
+              required: "Please, confirm your password",
               validate: (value) => value === password || "Passwords do not match",
             }}
             render={({ field: { onChange, value } }) => (
@@ -298,39 +400,99 @@ const RegistrationScreen = () => {
         <DOBPicker control={control} setValue={setValue} />
 
         {/* Phone */}
-        <FormField label="Phone Number">
-          <Controller
-            control={control}
-            name="phonenumber"
-            render={({ field: { onChange, value } }) => (
-              <TextInput
-                placeholder="Enter phone number"
-                keyboardType="phone-pad"
-                style={styles.input}
-                value={value}
-                onChangeText={onChange}
-              />
-            )}
-          />
-        </FormField>
+        <FormField
+  label="Phone Number"
+  required
+  error={errors.phonenumber}
+>
+  <Controller
+    control={control}
+    name="phonenumber"
+    rules={{
+      required:
+        "Phone number is required.",
 
+      pattern: {
+        value: /^\+[1-9]\d{7,14}$/,
+        message:
+          "Enter the number with its country code, for example +2348012345678.",
+      },
+    }}
+    render={({
+      field: {
+        onChange,
+        onBlur,
+        value,
+      },
+    }) => (
+      <TextInput
+        placeholder="+2348012345678"
+        keyboardType="phone-pad"
+        autoComplete="tel"
+        style={styles.input}
+        value={value ?? ""}
+        onBlur={onBlur}
+        onChangeText={(text) => {
+          /*
+           * Allow + and digits only.
+           */
+          const cleaned = text.replace(
+            /[^\d+]/g,
+            ""
+          );
+
+          /*
+           * Ensure + can only appear at the start.
+           */
+          const normalized =
+            cleaned.startsWith("+")
+              ? "+"
+                + cleaned
+                    .slice(1)
+                    .replace(/\+/g, "")
+              : cleaned.replace(
+                  /\+/g,
+                  ""
+                );
+
+          onChange(normalized);
+        }}
+      />
+    )}
+  />
+</FormField>
        
 
         {/* Referrer ID (always visible but optional) */}
-        <FormField label="Referrer ID (optional)">
-          <Controller
-            control={control}
-            name="referrer_id"
-            render={({ field: { onChange, value } }) => (
-              <TextInput
-                placeholder="Enter Oramex ID of referrer"
-                style={styles.input}
-                value={value}
-                onChangeText={onChange}
-              />
-            )}
-          />
-        </FormField>
+        <FormField
+  label="Referrer ID (optional)"
+  error={errors.referral_id}
+>
+  <Controller
+    control={control}
+    name="referral_id"
+    defaultValue=""
+    render={({
+      field: {
+        onChange,
+        onBlur,
+        value,
+      },
+    }) => (
+      <TextInput
+        placeholder="OHLAM ID of referrer"
+        style={styles.input}
+        value={value ?? ""}
+        onBlur={onBlur}
+        autoCapitalize="characters"
+        autoCorrect={false}
+        onChangeText={(text) =>
+          onChange(text.trimStart())
+        }
+      />
+    )}
+  />
+</FormField>
 
         {/* Terms */}
         <View style={{ flexDirection: "row", alignItems: "center", marginVertical: 12 }}>
@@ -366,7 +528,7 @@ const RegistrationScreen = () => {
             
 
         {/* Submit */}
-        <TouchableOpacity
+        {/* <TouchableOpacity
           onPress={agreeTerms ? handleSubmit(onSubmit) : null}
           disabled={loading || !agreeTerms}
           style={[styles.button, (loading || !agreeTerms) && { opacity: 0.6 }]}
@@ -374,7 +536,42 @@ const RegistrationScreen = () => {
           <Text style={styles.buttonText}>
             {loading ? "Registering..." : "Register"}
           </Text>
-        </TouchableOpacity>
+          
+        </TouchableOpacity> */}
+
+
+<TouchableOpacity
+  onPress={handleSubmit(
+    onSubmit,
+    validationErrors => {
+      console.log(
+        "[REGISTER] Form validation errors:",
+        validationErrors
+      );
+
+      showAlert(
+        "Form incomplete",
+        "Please complete all required fields correctly."
+      );
+    }
+  )}
+  disabled={loading}
+  style={[
+    styles.button,
+    loading && { opacity: 0.6 },
+  ]}
+>
+  {loading ? (
+    <ActivityIndicator color="#ffffff" />
+  ) : (
+    <Text style={styles.buttonText}>
+      Register
+    </Text>
+  )}
+</TouchableOpacity>
+
+
+
 
         <View style={{ alignItems: "center", marginTop: 20 }}>
           <Text style={{ fontSize: 16 }}>
@@ -448,6 +645,7 @@ const styles = StyleSheet.create({
     padding: 12,
     fontSize: 16,
     backgroundColor: "#fafafa",
+    color: "#333",
   },
   pickerWrapper: {
     borderWidth: 1,

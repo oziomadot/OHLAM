@@ -3,6 +3,7 @@ import { useRouter } from "expo-router";
 import { Linking, Platform } from 'react-native'; 
 import * as LinkingExpo from 'expo-linking'; 
 import API from "@/src/services/api"; 
+import { unregisterPushToken } from "@/src/services/pushNotifications";
 import { getItem, setItem, deleteItem } from "../app/utils/storage";
 
 type AuthContextType = {
@@ -11,7 +12,7 @@ type AuthContextType = {
   user: any | null;
   login: (token: string, userData: any, refreshToken?: string) => void;
   logout: () => void;
-  forgotPassword: (email: string) => Promise<void>;
+  forgotPassword: (email: string) => Promise<{ success: boolean; user_email?: string; message?: string }>;
   handleOramexIntegration: () => void;
   showOramexBanner: boolean;
   setShowOramexBanner: (show: boolean) => void;
@@ -37,7 +38,7 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
           const verifyAuth = async () => {
             try {
               const tokenStr = typeof accessToken === 'string' ? accessToken : accessToken[0];
-              const res = await API.get('/me', {
+              const res = await API.get<{ user: any }>('/me', {
                 headers: { Authorization: `Bearer ${tokenStr}` }
               });
               const data = res.data;
@@ -81,7 +82,7 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
 
   const forgotPassword = async (email: string) => {
     try {
-      await API.forgetpassword(email);
+      return await API.forgetPassword(email);
     } catch (error) {
       console.error('Forgot password error:', error);
       throw error;
@@ -103,6 +104,7 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
 
   const logout = async () => {
     try {
+      await unregisterPushToken();
       await API.logout();
     } catch (error) {
       console.warn("Logout error:", error);

@@ -9,13 +9,17 @@ import {
   ActivityIndicator,
   Platform,
   Alert,
+  Share,
 } from "react-native";
 import { useAuth } from "@/context/AuthContext";
 import { useRouter } from "expo-router";
 import { Ionicons } from "@expo/vector-icons";
 import * as Clipboard from "expo-clipboard";
-import * as Sharing from "expo-sharing";
 import QRCode from "react-native-qrcode-svg";
+
+import { useCallback } from "react";
+import { useFocusEffect } from "expo-router";
+import { ENV } from "@/src/config/env";
 
 import Navbar from "components/Navbar";
 import Protected from "components/Protected";
@@ -28,13 +32,18 @@ export default function ProfileScreen() {
   const [profileData, setProfileData] = useState<any>(null);
   const router = useRouter();
 
-  const BASE_URL = __DEV__
-    ? "http://192.168.1.100:8000"
-    : "https://api.oramexhouseandland.com";
+  const BASE_URL = ENV.API_URL.replace(/\/api\/?$/, "");
+  
+  // __DEV__
+  //   ? "http://192.168.1.100:8000"
+  //   : "https://api.oramexhouseandland.com";
 
-  useEffect(() => {
-    fetchProfile();
-  }, []);
+useFocusEffect(
+  useCallback(() => {
+    void fetchProfile();
+  }, [])
+);
+
 
   const fetchProfile = async () => {
     try {
@@ -61,12 +70,12 @@ export default function ProfileScreen() {
     "Not available";
 
   const referralLink = useMemo(() => {
-    if (!referralCode) return "";
+  if (!referralCode) return "";
 
-    return `https://oramexhouseandland.com/app/register?ref=${encodeURIComponent(
-      referralCode
-    )}`;
-  }, [referralCode]);
+  return `https://api.oramexhouseandland.com/r/${encodeURIComponent(
+    referralCode
+  )}`;
+}, [referralCode]);
 
   const copyReferralLink = async () => {
     if (!referralLink) return;
@@ -76,15 +85,30 @@ export default function ProfileScreen() {
   };
 
   const shareReferralLink = async () => {
-    if (!referralLink) return;
+  if (!referralLink) {
+    Alert.alert("Referral unavailable", "Your referral code is not available.");
+    return;
+  }
 
-    try {
-      await Sharing.shareAsync(referralLink);
-    } catch {
-      await Clipboard.setStringAsync(referralLink);
-      Alert.alert("Copied", "Referral link copied to clipboard.");
-    }
-  };
+  try {
+    await Share.share({
+      title: "Join OHLAM",
+      message:
+        `Join me on OHLAM — a smarter and safer way to find, rent, buy and manage property.\n\n` +
+        `Use my referral code: ${referralCode}\n\n` +
+        `Download OHLAM here:\n${referralLink}`,
+    });
+  } catch (error) {
+    console.error("Referral share error:", error);
+
+    await Clipboard.setStringAsync(referralLink);
+
+    Alert.alert(
+      "Link Copied",
+      "Sharing could not be opened, so the referral link was copied instead."
+    );
+  }
+};
 
   const handleDeleteAccount = () => {
     Alert.alert(
@@ -138,9 +162,16 @@ export default function ProfileScreen() {
     );
   }
 
-  const profilePicture = profileData?.profile_picture
-    ? { uri: `${BASE_URL}/storage/${profileData.profile_picture}` }
-    : require("@/assets/default-avatar.png");
+ const picture = profileData?.profile_picture_url
+  || profileData?.profile_picture;
+
+const profilePicture = picture
+  ? {
+      uri: /^https?:\/\//i.test(picture)
+        ? picture
+        : `${BASE_URL}/storage/${picture.replace(/^\/?(storage\/)?/, "")}`,
+    }
+  : require("@/assets/default-avatar.png");
 
   return (
     <Protected>
@@ -233,6 +264,22 @@ export default function ProfileScreen() {
 
           <View style={styles.section}>
             <Text style={styles.sectionTitle}>Account Actions</Text>
+
+            <TouchableOpacity
+              style={styles.securityButton}
+              onPress={() =>
+                router.push("/(tabs)/profile/login-security" as any)
+              }
+            >
+              <Ionicons
+                name="shield-checkmark-outline"
+                size={20}
+                color="#fff"
+              />
+              <Text style={styles.actionButtonText}>
+                Login & Security
+              </Text>
+          </TouchableOpacity>
 
             <TouchableOpacity
               style={styles.actionButton}
@@ -415,4 +462,15 @@ const styles = StyleSheet.create({
     gap: 8,
   },
   actionButtonText: { color: "#fff", fontWeight: "900" },
+
+  securityButton: {
+  backgroundColor: "#059669",
+  padding: 14,
+  borderRadius: 14,
+  alignItems: "center",
+  justifyContent: "center",
+  flexDirection: "row",
+  gap: 8,
+  marginBottom: 10,
+},
 });
