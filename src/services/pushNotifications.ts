@@ -12,6 +12,7 @@ import { setupNotificationChannels } from "@/src/services/notifications";
 export async function registerForPushNotifications(
   devicePushToken?: Notifications.DevicePushToken
 ) {
+  if (Platform.OS === "web") return null;
   if (!Device.isDevice) {
     console.log(
       "Push notifications require a physical device."
@@ -99,6 +100,7 @@ export async function registerForPushNotifications(
 
 /** Disable this installation's token before API.logout clears authentication. */
 export async function unregisterPushToken(): Promise<void> {
+  if (Platform.OS === "web") return;
   try {
     const projectId =
       Constants.expoConfig?.extra?.eas?.projectId ??
@@ -120,6 +122,7 @@ export async function unregisterPushToken(): Promise<void> {
 export async function setOhlamBadge(
   unreadCount: number
 ) {
+  if (Platform.OS === "web") return;
   const supported =
     await Notifications
       .setBadgeCountAsync(

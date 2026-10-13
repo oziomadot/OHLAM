@@ -1,5 +1,6 @@
 import { Stack } from "expo-router";
 import React, { useEffect,} from "react";
+import { Platform } from "react-native";
 import * as Notifications from "expo-notifications";
 import API from "@/src/services/api";
 import {setOhlamBadge,} from "@/src/services/pushNotifications";
@@ -10,6 +11,7 @@ export default function HomeLayout() {
 
    useEffect(
     () => {
+      if (Platform.OS === "web") return;
 
 
 const hasFullSession = async (): Promise<boolean> => {
