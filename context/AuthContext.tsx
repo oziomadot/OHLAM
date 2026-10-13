@@ -1,9 +1,10 @@
 import React, { createContext, useContext, useEffect, useState } from "react";
 import { useRouter } from "expo-router";
-import { Linking, Platform } from 'react-native'; 
+import { AppState, Linking, Platform } from 'react-native';
 import * as LinkingExpo from 'expo-linking'; 
 import API from "@/src/services/api"; 
-import { unregisterPushToken } from "@/src/services/pushNotifications";
+import { registerForPushNotifications, unregisterPushToken } from "@/src/services/pushNotifications";
+import * as Notifications from "expo-notifications";
 import { getItem, setItem, deleteItem } from "../app/utils/storage";
 
 type AuthContextType = {
@@ -26,6 +27,29 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
   const router = useRouter();
   const [user, setUser] = useState(null);
   const [showOramexBanner, setShowOramexBanner] = useState(true);
+
+  useEffect(() => {
+    if (loading || !isAuthenticated || Platform.OS === "web") return;
+    let active = true;
+    let registering = false;
+    const register = async (token?: Notifications.DevicePushToken) => {
+      if (!active || registering || await getItem("pre_auth_token")) return;
+      registering = true;
+      try {
+        await registerForPushNotifications(token);
+      } catch (error) {
+        console.warn("Unable to register push notifications; retrying on next foreground.");
+      } finally {
+        registering = false;
+      }
+    };
+    void register();
+    const foreground = AppState.addEventListener("change", state => {
+      if (state === "active") void register();
+    });
+    const tokens = Notifications.addPushTokenListener(token => void register(token));
+    return () => { active = false; foreground.remove(); tokens.remove(); };
+  }, [loading, isAuthenticated]);
 
   useEffect(() => {
     const handleDeepLink = ({ url }: { url: string }) => {
