@@ -16,6 +16,7 @@ import {
 import { captureInstallReferral } from "@/src/services/referralService";
 import { setupNotificationChannels } from "@/src/services/notifications";
 import API from "@/src/services/api";
+import { notificationRoute } from "@/src/services/notificationRoute";
 
 /*
  * Controls notifications received while OHLAM is open.
@@ -95,12 +96,7 @@ export default function RootLayout() {
       if (handledNotificationId.current === id) return;
       handledNotificationId.current = id;
       const data = response.notification.request.content.data;
-      const conversationId = String(data?.conversation_id ?? "");
-      if (data?.type === "chat_message" && /^\d+$/.test(conversationId)) {
-        router.push(`/(tabs)/chat/${conversationId}`);
-      } else {
-        router.push("/(tabs)/dashboard/notifications");
-      }
+      router.push(notificationRoute(data ?? {}) as never);
       void Notifications.clearLastNotificationResponseAsync();
     };
     const responseSubscription =
