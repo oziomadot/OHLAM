@@ -4,6 +4,7 @@ import {
   AppState,
   ActivityIndicator,
   View,
+  Platform,
 } from "react-native";
 import { useEffect, useRef, useState } from "react";
 import * as Notifications from "expo-notifications";
@@ -16,6 +17,7 @@ import {
 import { captureInstallReferral } from "@/src/services/referralService";
 import { setupNotificationChannels } from "@/src/services/notifications";
 import API from "@/src/services/api";
+import { getItemSafe } from "@/utils/storage";
 
 /*
  * Controls notifications received while OHLAM is open.
@@ -35,8 +37,29 @@ Notifications.setNotificationHandler({
  * and apply it to the OHLAM launcher icon.
  */
 async function syncAppIconBadge(): Promise<void> {
+  if (Platform.OS === "web") return;
+
   try {
+    const [authToken, preAuthToken, registrationStep] =
+      await Promise.all([
+        getItemSafe("auth_token"),
+        getItemSafe("pre_auth_token"),
+        getItemSafe("registration_step"),
+      ]);
+
+    const step = registrationStep?.trim().toLowerCase();
+
+    if (
+      !authToken?.trim() ||
+      preAuthToken?.trim() ||
+      (step && step !== "completed")
+    ) {
+      return;
+    }
+
     const response = await API.getNotifications();
+
+    // Keep your existing unread-count, badge and catch code below.
 
     const unreadCount = Math.max(
       0,
@@ -88,7 +111,7 @@ export default function RootLayout() {
 
   /* Route notification taps from foreground, background and cold launch. */
   useEffect(() => {
-    if (!isReady) return;
+     if (!isReady || Platform.OS === "web") return;
 
     const openNotifications = (response: Notifications.NotificationResponse) => {
       const id = response.notification.request.identifier;
