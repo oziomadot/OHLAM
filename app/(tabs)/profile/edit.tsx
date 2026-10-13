@@ -20,7 +20,7 @@ import * as ImagePicker from "expo-image-picker";
 // API_BASE_URL is now defined in the API service
 import { useRouter } from "expo-router";
 import { ENV } from "@/src/config/env";
-import { setItemSafe } from "@/utils/storage";
+import { profilePictureSource } from "@/src/utils/profilePicture";
 
 
 import CustomAlert from "components/CustomAlert";
@@ -31,7 +31,7 @@ import mime from "mime"; // Install this: npm i mime
 
 const EditProfileScreen = () => {
   const [loading, setLoading] = useState(false);
-  const { user, logout } = useAuth();
+  const { user, updateUser } = useAuth();
   const [form, setForm] = useState({});
   const [alertVisible, setAlertVisible] = useState(false);
    const [alertTitle, setAlertTitle] = useState("");
@@ -114,21 +114,26 @@ const [originalData, setOriginalData] = useState<Record<string, any>>({});
       if (!result.canceled && result.assets?.length > 0) {
         const asset = result.assets[0];
         const uri = asset.uri;
+        if (asset.fileSize && asset.fileSize > 2 * 1024 * 1024) {
+          throw new Error("Choose an image smaller than 2 MB.");
+        }
 
         // 👇 For Web, use fetch+blob; for native, direct file reference
         let imageToUpload: any;
 
         if (Platform.OS === "web") {
           const response = await fetch(uri);
+          if (!response.ok) throw new Error("The selected image could not be read.");
           const blob = await response.blob();
-          imageToUpload = new File([blob], "profile_picture.jpg", {
+          if (blob.size > 2 * 1024 * 1024) throw new Error("Choose an image smaller than 2 MB.");
+          imageToUpload = new File([blob], `profile_picture.${mime.getExtension(blob.type) || "jpg"}`, {
             type: blob.type || "image/jpeg",
           });
         } else {
           imageToUpload = {
             uri,
             name: uri.split("/").pop() || "profile_picture.jpg",
-            type: mime.getType(uri) || "image/jpeg",
+            type: asset.mimeType || mime.getType(uri) || "image/jpeg",
           };
         }
 
@@ -140,9 +145,8 @@ setSelectedImageFile(imageToUpload);
       //     profile_picture: imageToUpload,
       //   }));
       }
-    } catch (error) {
-      console.error("Error picking image:", error);
-      Alert.alert("Error", "Failed to pick image");
+    } catch (error: any) {
+      showAlert("Unable to select image", error?.message || "Failed to pick image");
     }
   };
 
@@ -195,6 +199,7 @@ setSelectedImageFile(imageToUpload);
 
 
   const onSubmit = async (data: any) => {
+  if (loading || !user?.id) return;
   setLoading(true);
   const payload = new FormData();
 
@@ -223,7 +228,7 @@ if (!res?.user?.id) {
   );
 }
 
-await setItemSafe("user", JSON.stringify(res.user));
+await updateUser({ ...user, ...res.user });
 
 showAlert("Success", "Profile updated!");
 router.back();
@@ -278,9 +283,9 @@ const fields = [
               {/* Column 2: Current User Data */}
               <View style={styles.cell}>
                 {field.name === "profile_picture" ? (
-                  user?.profile_picture ? (
+                  (user?.profile_picture_url || user?.profile_picture) ? (
                     <Image
-                      source={{ uri: `${BASE_URL}/storage/${user.profile_picture}` }}
+                      source={profilePictureSource(user)}
                       style={styles.profileImage}
                     />
                   ) : (
