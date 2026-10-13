@@ -3,7 +3,7 @@ import React, { useEffect,} from "react";
 import { Platform } from "react-native";
 import * as Notifications from "expo-notifications";
 import API from "@/src/services/api";
-import {registerForPushNotifications, setOhlamBadge,} from "@/src/services/pushNotifications";
+import {setOhlamBadge,} from "@/src/services/pushNotifications";
 import { getItemSafe } from "@/utils/storage";
 
 export default function HomeLayout() {
@@ -45,7 +45,7 @@ const initializeNotifications = async () => {
       return;
     }
 
-    await registerForPushNotifications();
+    // AuthProvider owns push registration across all screens.
 
     if (!active || !(await hasFullSession())) {
       return;
@@ -125,16 +125,10 @@ void initializeNotifications();
             }
           );
 
-      const tokenSubscription = Notifications.addPushTokenListener((devicePushToken) => {
-        if (active) {
-          void registerForPushNotifications(devicePushToken).catch(() => null);
-        }
-      });
-
       return () => {
         active = false;
         receivedSubscription.remove();
-        tokenSubscription.remove();
+
       };
     },
     []

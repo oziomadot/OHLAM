@@ -2,6 +2,7 @@ import axios, { AxiosError, AxiosInstance, AxiosRequestConfig,} from "axios";
 import { getItemSafe, setItemSafe, removeItemSafe } from "@/utils/storage";
 import { getDeviceDetails } from "@/utils/device";
 import { ENV } from '@/src/config/env';
+import { Platform } from "react-native";
 
 
 
@@ -1866,7 +1867,7 @@ async verifyIdCard(formData: FormData) {
 
         Accept: "application/json",
 
-        "Content-Type": "multipart/form-data",
+        ...(Platform.OS !== "web" ? { "Content-Type": "multipart/form-data" } : {}),
 
       },
 
