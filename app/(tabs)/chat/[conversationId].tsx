@@ -1,3 +1,4 @@
+import ChatKeyboardAvoidingView from "components/ChatKeyboardAvoidingView";
 import API from "@/src/services/api";
 import { Ionicons } from "@expo/vector-icons";
 import {
@@ -16,9 +17,6 @@ import {
   ActivityIndicator,
   Alert,
   FlatList,
-  KeyboardAvoidingView,
-  Platform,
-  SafeAreaView,
   StyleSheet,
   Text,
   TextInput,
@@ -934,7 +932,7 @@ usePreventScreenCapture(true);
 
   if (loading) {
     return (
-      <SafeAreaView
+      <View
         style={styles.center}
       >
         <ActivityIndicator
@@ -947,13 +945,13 @@ usePreventScreenCapture(true);
         >
           Loading conversation...
         </Text>
-      </SafeAreaView>
+      </View>
     );
   }
 
   if (errorMessage) {
     return (
-      <SafeAreaView
+      <View
         style={styles.center}
       >
         <Ionicons
@@ -1007,12 +1005,12 @@ usePreventScreenCapture(true);
             Go back
           </Text>
         </TouchableOpacity>
-      </SafeAreaView>
+      </View>
     );
   }
 
   return (
-    <SafeAreaView
+    <View
       style={styles.safeArea}
     >
       <Stack.Screen
@@ -1050,18 +1048,8 @@ usePreventScreenCapture(true);
         }}
       />
 
-      <KeyboardAvoidingView
+      <ChatKeyboardAvoidingView
         style={styles.container}
-        behavior={
-          Platform.OS === "ios"
-            ? "padding"
-            : undefined
-        }
-        keyboardVerticalOffset={
-          Platform.OS === "ios"
-            ? 90
-            : 0
-        }
       >
         <View
           style={
@@ -1126,6 +1114,7 @@ usePreventScreenCapture(true);
               styles.emptyMessagesList,
           ]}
           keyboardShouldPersistTaps="handled"
+          style={{ flex: 1 }}
           showsVerticalScrollIndicator={
             false
           }
@@ -1243,8 +1232,8 @@ usePreventScreenCapture(true);
             </TouchableOpacity>
           </View>
         )}
-      </KeyboardAvoidingView>
-    </SafeAreaView>
+      </ChatKeyboardAvoidingView>
+    </View>
   );
 }
 
