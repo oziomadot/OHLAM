@@ -17,13 +17,14 @@ import {
 import { captureInstallReferral } from "@/src/services/referralService";
 import { setupNotificationChannels } from "@/src/services/notifications";
 import API from "@/src/services/api";
+import { getItemSafe } from "@/utils/storage";
 import { notificationRoute } from "@/src/services/notificationRoute";
 
 /*
  * Controls notifications received while OHLAM is open.
  * This must be outside RootLayout so it is registered immediately.
  */
-Notifications.setNotificationHandler({
+if (Platform.OS !== "web") Notifications.setNotificationHandler({
   handleNotification: async () => ({
     shouldShowBanner: true,
     shouldShowList: true,
@@ -242,7 +243,7 @@ export default function RootLayout() {
             screenOptions={{
               headerShown: false,
               contentStyle: {
-                padding: 20,
+                padding: 0,
               },
             }}
           >

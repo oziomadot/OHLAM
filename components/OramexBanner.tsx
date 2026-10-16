@@ -67,7 +67,7 @@ const handleDownload = async () => {
         <TouchableOpacity style={styles.button} onPress={isInstalled ? handleOpen : handleDownload}>
           <Text style={styles.buttonText}>{isInstalled ? 'Open App' : 'Download'}</Text>
         </TouchableOpacity>
-        <TouchableOpacity style={styles.dismissButton} onPress={dismissBanner}>
+        <TouchableOpacity accessibilityRole="button" accessibilityLabel="Dismiss game banner" hitSlop={8} style={styles.dismissButton} onPress={dismissBanner}>
           <Text style={styles.dismissText}>×</Text>
         </TouchableOpacity>
       </View>
@@ -78,17 +78,18 @@ const handleDownload = async () => {
 const styles = StyleSheet.create({
   banner: {
     backgroundColor: '#4CAF50', // Green theme for Oramex
-    padding: 12,
+    paddingHorizontal: 10,
+    paddingVertical: 6,
     alignItems: 'center',
     justifyContent: 'space-between',
     flexDirection: 'row',
-    marginBottom: 16,
+    marginBottom: 0,
   },
   text: {
     color: 'white',
-    fontSize: 14,
+    fontSize: 12,
     flex: 1,
-    textAlign: 'center',
+    textAlign: 'left',
   },
   buttons: {
     flexDirection: 'row',
