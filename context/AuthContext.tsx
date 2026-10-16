@@ -1,4 +1,4 @@
-import React, { createContext, useContext, useEffect, useState } from "react";
+import React, { createContext, useContext, useEffect, useState, useCallback } from "react";
 import { useRouter } from "expo-router";
 import { AppState, Linking, Platform } from 'react-native';
 import * as LinkingExpo from 'expo-linking'; 
@@ -11,6 +11,7 @@ type AuthContextType = {
   isAuthenticated: boolean;
   loading: boolean;
   user: any | null;
+  updateUser: (userData: any) => Promise<void>;
   login: (token: string, userData: any, refreshToken?: string) => void;
   logout: () => void;
   forgotPassword: (email: string) => Promise<{ success: boolean; user_email?: string; message?: string }>;
@@ -25,8 +26,13 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
   const [isAuthenticated, setIsAuthenticated] = useState(false);
   const [loading, setLoading] = useState(true);
   const router = useRouter();
-  const [user, setUser] = useState(null);
+  const [user, setUser] = useState<any | null>(null);
   const [showOramexBanner, setShowOramexBanner] = useState(true);
+
+  const updateUser = useCallback(async (userData: any) => {
+    await setItem("user", JSON.stringify(userData));
+    setUser(userData);
+  }, []);
 
   useEffect(() => {
     if (loading || !isAuthenticated || Platform.OS === "web") return;
@@ -166,6 +172,7 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
       isAuthenticated, 
       loading, 
       user, 
+      updateUser,
       login, 
       logout, 
       forgotPassword, 

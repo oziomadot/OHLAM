@@ -17,36 +17,57 @@ import { Ionicons } from "@expo/vector-icons";
 import * as Clipboard from "expo-clipboard";
 import QRCode from "react-native-qrcode-svg";
 
+import { useCallback } from "react";
+import { useFocusEffect } from "expo-router";
+import { ENV } from "@/src/config/env";
+
 import Navbar from "components/Navbar";
 import Protected from "components/Protected";
 import API from "@/src/services/api";
 import { getItem } from "../../utils/storage";
+import { profilePictureSource, profilePictureUrl } from "@/src/utils/profilePicture";
 
 export default function ProfileScreen() {
-  const { user, logout } = useAuth();
+  const { user, logout, updateUser } = useAuth();
   const [loading, setLoading] = useState(true);
   const [profileData, setProfileData] = useState<any>(null);
   const router = useRouter();
 
-  const BASE_URL = __DEV__
-    ? "http://192.168.1.100:8000"
-    : "https://api.oramexhouseandland.com";
+  const BASE_URL = ENV.API_URL.replace(/\/api\/?$/, "");
+  
+  // __DEV__
+  //   ? "http://192.168.1.100:8000"
+  //   : "https://api.oramexhouseandland.com";
 
-  useEffect(() => {
-    fetchProfile();
-  }, []);
+useFocusEffect(
+  useCallback(() => {
+    let active = true;
+    const fetchProfile = async () => {
+      try {
+        const savedUser = await getItem("user");
+        const cached = savedUser ? JSON.parse(savedUser) : user;
+        if (active && cached?.id === user?.id) setProfileData(cached);
+        if (!user?.id) return;
+        const response = await API.get<{ user: any }>("/me");
+        if (!active) return;
+        if (!response.data.user?.id) throw new Error("Profile response is incomplete.");
+        const updated = { ...cached, ...user, ...response.data.user };
+        await updateUser(updated);
+        if (active) setProfileData(updated);
+      } catch (error) {
+        console.warn("Unable to refresh profile:", error);
+      } finally {
+        if (active) setLoading(false);
+      }
+    };
+    void fetchProfile();
+    return () => { active = false; };
+  }, [user?.id, updateUser])
+);
 
-  const fetchProfile = async () => {
-    try {
-      const savedUser = await getItem("user");
-      const parsedUser = savedUser ? JSON.parse(savedUser) : user;
-      setProfileData(parsedUser);
-    } catch (error) {
-      console.error("Error fetching profile:", error);
-    } finally {
-      setLoading(false);
-    }
-  };
+const [imageFailed, setImageFailed] = useState(false);
+const pictureUrl = profilePictureUrl(profileData);
+useEffect(() => { setImageFailed(false); }, [pictureUrl]);
 
   const referralCode =
     profileData?.referral_code ||
@@ -153,9 +174,9 @@ export default function ProfileScreen() {
     );
   }
 
-  const profilePicture = profileData?.profile_picture
-    ? { uri: `${BASE_URL}/storage/${profileData.profile_picture}` }
-    : require("@/assets/default-avatar.png");
+ const profilePicture = imageFailed
+  ? require("@/assets/default-avatar.png")
+  : profilePictureSource(profileData);
 
   return (
     <Protected>
@@ -165,7 +186,7 @@ export default function ProfileScreen() {
         <ScrollView style={styles.scrollView} contentContainerStyle={{ paddingBottom: 40 }}>
           <View style={styles.header}>
             <View style={styles.avatarContainer}>
-              <Image source={profilePicture} style={styles.avatar} />
+              <Image source={profilePicture} style={styles.avatar} onError={() => setImageFailed(true)} />
 
               <TouchableOpacity
                 style={styles.editAvatarButton}

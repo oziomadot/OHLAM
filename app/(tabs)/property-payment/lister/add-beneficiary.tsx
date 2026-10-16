@@ -212,14 +212,14 @@ export default function BeneficiaryScreen() {
               <Text style={{ color: "#0f172a" }}>Bank</Text>
               <Picker
                 style={styles.picker}
-                dropdownIconColor="#334155"
+                dropdownIconColor="#383a3c"
                 selectedValue={bankCode}
                 onValueChange={setBankCode}
                 enabled={!busy && !data.locked}
               >
                 <Picker.Item label="Choose bank" value="" color="#0F172A" />
                 {banks.map((b) => (
-                  <Picker.Item key={b.code} label={b.name} value={b.code} color="#0F172A" />
+                  <Picker.Item key={b.code} label={b.name} value={b.code} color="#f5f7fc" />
                 ))}
               </Picker>
               {banks.length === 0 && (
