@@ -52,7 +52,6 @@ const EditProfileScreen = () => {
     phonenumber: user?.phonenumber ?? "",
     whatsapp: user?.whatsapp ?? "",
     profile_picture: "",
-    registration_status_id: user?.registration_status?.id?.toString() ?? "",
    
     dob: user?.dob ?? "",
     referral_id: user?.referral_id ?? "",
@@ -90,7 +89,6 @@ const [originalData, setOriginalData] = useState<Record<string, any>>({});
         phonenumber: user.phonenumber || "",
         whatsapp: user.whatsapp || "",
         profile_picture: user.profile_picture || "",
-        registration_status_id: user.registration_status?.id?.toString() || "",
         linkedlntwitter: user.linkedlntwitter || "",
         philosophy: user.philosophy || ""
       }
@@ -249,7 +247,6 @@ const fields = [
   { label: "Phone Number", name: "phonenumber" },
   { label: "WhatsApp Number", name: "whatsapp" },
   { label: "Date of Birth", name: "dob" },
-  { label: "Registration Status", name: "registration_status_id" },
  
   { label: "Profile Picture", name: "profile_picture" },
 ];
