@@ -1,4 +1,4 @@
-import React, { useEffect, useMemo, useState } from "react";
+import React, { useCallback, useMemo, useState } from "react";
 import {
   View,
   Text,
@@ -9,7 +9,7 @@ import {
   ScrollView,
   RefreshControl,
 } from "react-native";
-import { useRouter } from "expo-router";
+import { useRouter, useFocusEffect } from "expo-router";
 import { MaterialCommunityIcons } from "@expo/vector-icons";
 import Protected from "components/Protected";
 import ScreenWrapper from "components/ScreenWrapper";
@@ -60,10 +60,14 @@ export default function Dashboard() {
       const access = await HttpAPI.get("/management/access");
       setPermissions(access.data.permissions ?? []);
       setRole(access.data.role ?? "User");
+    } catch {
+      setPermissions([]);
+      setRole("User");
+    }
+    try {
       const res = await API.getDashboardSummary();
       setSummary(res.dashboard || res.data || res);
     } catch (error: any) {
-      setPermissions([]);
       Alert.alert(
         "Error",
         error?.response?.data?.message ||
@@ -76,9 +80,9 @@ export default function Dashboard() {
     }
   };
 
-  useEffect(() => {
-    loadDashboard();
-  }, []);
+  useFocusEffect(useCallback(() => {
+    void loadDashboard();
+  }, []));
 
   const onRefresh = () => {
     setRefreshing(true);
@@ -159,11 +163,15 @@ export default function Dashboard() {
   ];
 
   const staffSections = [
+    ["Search Property", "Find a property by property or agent number", "home-search", "/(tabs)/management?kind=property"],
+    ["Search Agent", "Find an agent by agent number or Oramex ID", "account-search", "/(tabs)/management?kind=agent"],
     ["Management Workspace", "Search agents, properties and inspection status", "account-search", "/(tabs)/management"],
     ["User Support", "Read and reply to user-management conversations", "message-text-lock", "/(tabs)/chat"],
   ];
 
   const adminSections = [
+    ["Suspensions & Deletions", "Review status, reasons and the staff member responsible", "shield-search", "/(tabs)/management"],
+    ["Manage Policies", "Add and publish OHLAM policies", "file-document-edit", "/(tabs)/management/policies"],
     ["Admin Workspace", "Staff directory and management audit log", "account-tie", "/(tabs)/management"],
   ];
 

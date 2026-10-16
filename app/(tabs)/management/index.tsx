@@ -1,6 +1,6 @@
-import React, { useCallback, useState } from "react";
+import React, { useCallback, useEffect, useState } from "react";
 import { ActivityIndicator, ScrollView, StyleSheet, Text, TextInput, TouchableOpacity, View } from "react-native";
-import { Stack, useFocusEffect, useRouter } from "expo-router";
+import { Stack, useFocusEffect, useRouter, useLocalSearchParams } from "expo-router";
 import { API } from "@/src/services/api";
 
 type Access = { role: string; permissions: string[] };
@@ -8,6 +8,8 @@ type Kind = "agent" | "property" | "appointments";
 
 export default function ManagementScreen() {
   const router = useRouter();
+  const params = useLocalSearchParams<{ kind?: string }>();
+  useEffect(() => { if (params.kind === "agent" || params.kind === "property") setKind(params.kind); }, [params.kind]);
   const [access, setAccess] = useState<Access | null>(null);
   const [kind, setKind] = useState<Kind>("agent");
   const [reference, setReference] = useState("");
@@ -17,6 +19,7 @@ export default function ManagementScreen() {
   const [searched, setSearched] = useState(false);
   const [nextPage, setNextPage] = useState<string | null>(null);
   const [resultTitle, setResultTitle] = useState("");
+  const [resultKind, setResultKind] = useState<"agent" | "property" | null>(null);
 
   useFocusEffect(useCallback(() => {
     let active = true;
@@ -43,6 +46,8 @@ export default function ManagementScreen() {
       const base = url.replace(/([?&])page=\d+(&?)/, (_all, separator, tail) => tail ? separator : "").replace(/[?&]$/, "");
       setNextPage(match ? base + (base.includes("?") ? "&" : "?") + `page=${match[1]}` : null);
       setResultTitle(title); setSearched(true);
+      const entity = url.match(/[?&]kind=(agent|property)(?:&|$)/)?.[1];
+      setResultKind(entity === "agent" || entity === "property" ? entity : null);
     } catch (e: any) {
       setRows([]); setNextPage(null);
       setError(e?.response?.status === 403 ? "You do not have permission for this action." : e?.response?.data?.message ?? "Unable to load results. Please try again.");
@@ -78,11 +83,18 @@ export default function ManagementScreen() {
         </TouchableOpacity>
         {can("staff.read") ? <TouchableOpacity style={styles.tab} disabled={busy} onPress={() => void load("/management/staff", "Staff directory")}><Text>View staff directory</Text></TouchableOpacity> : null}
         {can("audit.read") ? <TouchableOpacity style={styles.tab} disabled={busy} onPress={() => void load("/management/audit", "Management audit log")}><Text>View audit log</Text></TouchableOpacity> : null}
+        {can("moderation.history") ? <>
+          <Text style={styles.heading}>Admin moderation review</Text>
+          {(["property", "agent"] as const).flatMap(entity => (["suspended", "deleted"] as const).map(state => <TouchableOpacity key={`${entity}-${state}`} style={styles.tab} disabled={busy} onPress={() => void load(`/management/moderation-records?kind=${entity}&state=${state}`, `${state} ${entity} records`)}><Text>{state === "suspended" ? "Suspended" : "Deleted"} {entity === "property" ? "properties" : "agents"}</Text></TouchableOpacity>))}
+          <TouchableOpacity style={styles.tab} disabled={busy} onPress={() => void load("/management/moderation-history", "Suspension and deletion history")}><Text>History — including permanently deleted records</Text></TouchableOpacity>
+        </> : null}
+        {can("policies.manage") ? <TouchableOpacity style={styles.tab} onPress={() => router.push("/(tabs)/management/policies" as never)}><Text>Add / view policies</Text></TouchableOpacity> : null}
         {busy ? <ActivityIndicator /> : null}
         {searched ? <Text style={styles.heading}>{resultTitle}</Text> : null}
         {searched && !busy && !rows.length && !error ? <Text>No matching records found.</Text> : null}
         {rows.map((row, index) => <View key={`${row.id ?? index}-${index}`} style={styles.card}>
           {Object.entries(row).filter(([, value]) => value != null).map(([key, value]) => <Text selectable key={key}><Text style={styles.label}>{key.replace(/_/g, " ")}: </Text>{String(value)}</Text>)}
+          {resultKind && can(resultKind === "agent" ? "agents.suspend" : "properties.suspend") ? <TouchableOpacity style={styles.tab} onPress={() => router.push({ pathname: "/(tabs)/management/moderate", params: { kind: resultKind, id: String(row.id) } } as never)}><Text>Suspend / review {resultKind}</Text></TouchableOpacity> : null}
         </View>)}
         {nextPage ? <TouchableOpacity disabled={busy} style={styles.tab} onPress={() => void load(nextPage, resultTitle, true)}><Text>Load more</Text></TouchableOpacity> : null}
       </> : null}
