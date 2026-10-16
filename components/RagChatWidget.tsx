@@ -1,3 +1,4 @@
+import ChatKeyboardAvoidingView from "components/ChatKeyboardAvoidingView";
 import React, { useRef, useState } from "react";
 import {
   View,
@@ -7,9 +8,6 @@ import {
   ScrollView,
   ActivityIndicator,
   StyleSheet,
-  KeyboardAvoidingView,
-  Platform,
-  SafeAreaView,
 } from "react-native";
 import { MaterialCommunityIcons } from "@expo/vector-icons";
 import API from "@/src/services/api";
@@ -128,10 +126,9 @@ export default function RagChatWidget() {
 };
 
   return (
-    <SafeAreaView style={styles.safe}>
-      <KeyboardAvoidingView
+    <View style={styles.safe}>
+      <ChatKeyboardAvoidingView
         style={styles.wrapper}
-        behavior={Platform.OS === "ios" ? "padding" : undefined}
       >
         <View style={styles.header}>
           <View style={styles.avatar}>
@@ -276,8 +273,8 @@ export default function RagChatWidget() {
             )}
           </TouchableOpacity>
         </View>
-      </KeyboardAvoidingView>
-    </SafeAreaView>
+      </ChatKeyboardAvoidingView>
+    </View>
   );
 }
 
