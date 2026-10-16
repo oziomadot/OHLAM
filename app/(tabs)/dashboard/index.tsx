@@ -13,7 +13,7 @@ import { useRouter } from "expo-router";
 import { MaterialCommunityIcons } from "@expo/vector-icons";
 import Protected from "components/Protected";
 import ScreenWrapper from "components/ScreenWrapper";
-import API from "@/src/services/api";
+import API, { API as HttpAPI } from "@/src/services/api";
 import { useAuth } from "@/context/AuthContext";
 
 type DashboardSummary = {
@@ -48,22 +48,22 @@ export default function Dashboard() {
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
 
-  const role =
-    user?.staff?.role?.name ||
-    user?.role?.name ||
-    user?.registration_status?.name ||
-    "Customer";
-
-  const isStaff = role === "Staff";
-  const isAdmin = role === "Admin";
+  const [permissions, setPermissions] = useState<string[]>([]);
+  const [role, setRole] = useState("User");
+  const isStaff = permissions.includes("support.view");
+  const isAdmin = permissions.includes("admin.access");
 
   const goTo = (route: string) => router.push(route as any);
 
   const loadDashboard = async () => {
     try {
+      const access = await HttpAPI.get("/management/access");
+      setPermissions(access.data.permissions ?? []);
+      setRole(access.data.role ?? "User");
       const res = await API.getDashboardSummary();
       setSummary(res.dashboard || res.data || res);
     } catch (error: any) {
+      setPermissions([]);
       Alert.alert(
         "Error",
         error?.response?.data?.message ||
@@ -159,65 +159,12 @@ export default function Dashboard() {
   ];
 
   const staffSections = [
-    [
-      "All Users",
-      `${summary?.counts?.users || 0} registered users`,
-      "account-group",
-      "/staff/users",
-    ],
-    [
-      "Management Chat",
-      "Open management group chat",
-      "message-text-lock",
-      summary?.management_group_id
-        ? `/staff/chat/${summary.management_group_id}`
-        : "/staff/chat/management",
-    ],
-    [
-      "Search Users",
-      "Search by ID, phone, name or email",
-      "account-search",
-      "/staff/users/search",
-    ],
-    [
-      "Flagged Properties",
-      `${summary?.counts?.flagged_properties || 0} flagged properties`,
-      "home-alert",
-      "/staff/flagged-properties",
-    ],
-    [
-      "Flagged Users",
-      `${summary?.counts?.flagged_users || 0} flagged users`,
-      "account-alert",
-      "/staff/flagged-users",
-    ],
-    [
-      "Complaints",
-      `${summary?.counts?.complaints || 0} complaints`,
-      "alert-circle",
-      "/staff/complaints",
-    ],
+    ["Management Workspace", "Search agents, properties and inspection status", "account-search", "/(tabs)/management"],
+    ["User Support", "Read and reply to user-management conversations", "message-text-lock", "/(tabs)/chat"],
   ];
 
   const adminSections = [
-    [
-      "All Staff",
-      `${summary?.counts?.staff || 0} staff members`,
-      "account-tie",
-      "/admin/staff",
-    ],
-    [
-      "Property Delete Requests",
-      `${summary?.counts?.property_delete_requests || 0} pending requests`,
-      "home-remove",
-      "/admin/property-delete-requests",
-    ],
-    [
-      "Account Delete Requests",
-      `${summary?.counts?.account_delete_requests || 0} pending requests`,
-      "account-remove",
-      "/admin/account-delete-requests",
-    ],
+    ["Admin Workspace", "Staff directory and management audit log", "account-tie", "/(tabs)/management"],
   ];
 
   const Card = ({
