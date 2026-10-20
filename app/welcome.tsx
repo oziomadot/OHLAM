@@ -1,5 +1,5 @@
 import React, { useRef, useState } from "react";
-import { Dimensions, FlatList, ImageBackground, NativeScrollEvent, NativeSyntheticEvent, StatusBar, StyleSheet, Text, TouchableOpacity, View } from "react-native";
+import { Dimensions, FlatList, Image, ImageBackground, NativeScrollEvent, NativeSyntheticEvent, StatusBar, StyleSheet, Text, TouchableOpacity, View } from "react-native";
 import { router } from "expo-router";
 import AsyncStorage from "@react-native-async-storage/async-storage";
 import { MaterialCommunityIcons } from "@expo/vector-icons";
@@ -49,7 +49,7 @@ export default function WelcomeScreen() {
               <View style={styles.heroShade}>
                 <View style={styles.topBar}>
                   <View style={styles.brand}>
-                    <MaterialCommunityIcons name="home-city" size={27} color="#FFFFFF" />
+                    <Image source={require("../assets/images/adaptive-icon.png")} style={styles.brandLogo} resizeMode="contain" />
                     <Text style={styles.brandName}>OHLAM</Text>
                   </View>
                   <TouchableOpacity accessibilityRole="button" accessibilityLabel="Skip introduction" onPress={() => void finish()} style={styles.skipTop} disabled={leaving}>
@@ -68,8 +68,8 @@ export default function WelcomeScreen() {
             <View style={styles.details}>
               <Text style={styles.description}>{item.subtitle}</Text>
               <View style={styles.featureRow}>
-                <MaterialCommunityIcons name="check-decagram-outline" size={20} color="#0B706C" />
-                <Text style={styles.featureText}>An Oramex Globals Limited property platform</Text>
+                <MaterialCommunityIcons name="check-decagram-outline" size={20} color="#176A9C" />
+                <Text style={styles.featureText}>Oramex House and Land Agency Management</Text>
               </View>
             </View>
           </View>
@@ -97,11 +97,12 @@ const styles = StyleSheet.create({
   heroShade: { flex: 1, justifyContent: "space-between", backgroundColor: "rgba(3, 24, 32, 0.46)", paddingTop: 26, paddingBottom: 38, paddingHorizontal: 25 },
   topBar: { flexDirection: "row", alignItems: "center", justifyContent: "space-between" },
   brand: { flexDirection: "row", alignItems: "center", gap: 8 },
+  brandLogo: { width: 38, height: 38 },
   brandName: { color: "#FFFFFF", fontSize: 24, fontWeight: "900", letterSpacing: 2 },
   skipTop: { backgroundColor: "rgba(0,0,0,0.27)", paddingVertical: 10, paddingHorizontal: 14, borderRadius: 20 },
   skipTopText: { color: "#FFFFFF", fontWeight: "700", fontSize: 13 },
   heroBottom: { gap: 16 },
-  pill: { alignSelf: "flex-start", flexDirection: "row", alignItems: "center", gap: 7, backgroundColor: "#087D75", paddingVertical: 9, paddingHorizontal: 13, borderRadius: 30 },
+  pill: { alignSelf: "flex-start", flexDirection: "row", alignItems: "center", gap: 7, backgroundColor: "#176A9C", paddingVertical: 9, paddingHorizontal: 13, borderRadius: 30 },
   pillText: { color: "#FFFFFF", fontSize: 11, fontWeight: "800", letterSpacing: 1 },
   heroTitle: { color: "#FFFFFF", fontSize: 36, lineHeight: 43, fontWeight: "900", maxWidth: 350 },
   details: { flex: 1, paddingHorizontal: 27, paddingTop: 19, justifyContent: "center", gap: 12 },
@@ -111,8 +112,8 @@ const styles = StyleSheet.create({
   footer: { paddingHorizontal: 25, paddingBottom: 20, paddingTop: 6, backgroundColor: "#F7FAF8" },
   indicators: { flexDirection: "row", gap: 8, justifyContent: "center", marginBottom: 9 },
   dot: { height: 7, width: 7, borderRadius: 4, backgroundColor: "#BACCCA" },
-  activeDot: { width: 25, backgroundColor: "#087D75" },
+  activeDot: { width: 25, backgroundColor: "#176A9C" },
   swipeHint: { textAlign: "center", color: "#6A7B80", fontSize: 12, marginBottom: 14 },
-  button: { backgroundColor: "#087D75", borderRadius: 14, paddingVertical: 17, flexDirection: "row", alignItems: "center", justifyContent: "center", gap: 12 },
+  button: { backgroundColor: "#176A9C", borderRadius: 14, paddingVertical: 17, flexDirection: "row", alignItems: "center", justifyContent: "center", gap: 12 },
   buttonText: { color: "#FFFFFF", fontWeight: "800", fontSize: 17 },
 });
