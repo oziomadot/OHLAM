@@ -163,6 +163,7 @@ export default function Dashboard() {
   ];
 
   const staffSections = [
+    ["Verification Requests", "Review customer property verification requests", "shield-search", "/(tabs)/dashboard/verification"],
     ["Search Property", "Find a property by property or agent number", "home-search", "/(tabs)/management?kind=property"],
     ["Search Agent", "Find an agent by agent number or Oramex ID", "account-search", "/(tabs)/management?kind=agent"],
     ["Management Workspace", "Search agents, properties and inspection status", "account-search", "/(tabs)/management"],
@@ -170,6 +171,7 @@ export default function Dashboard() {
   ];
 
   const adminSections = [
+    ["Verification Setup", "Draft regional service prices and professional coverage", "cog-outline", "/(tabs)/dashboard/verification/configuration"],
     ["Suspensions & Deletions", "Review status, reasons and the staff member responsible", "shield-search", "/(tabs)/management"],
     ["Manage Policies", "Add and publish OHLAM policies", "file-document-edit", "/(tabs)/management/policies"],
     ["Admin Workspace", "Staff directory and management audit log", "account-tie", "/(tabs)/management"],
