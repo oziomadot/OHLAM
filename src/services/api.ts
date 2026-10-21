@@ -84,10 +84,13 @@ API.interceptors.response.use(
 
 
 
-    console.error(
-      "[API ERROR]",
-      JSON.stringify(diagnostic, null, 2)
-    );
+    // Expected for a guest or expired session; caller handles the 401.
+    const guestNotificationRequest =
+      error.response?.status === 401 &&
+      (error.config?.url?.startsWith("/notifications/") ?? false);
+    if (!guestNotificationRequest) {
+      console.error("[API ERROR]", JSON.stringify(diagnostic, null, 2));
+    }
 
 
 
