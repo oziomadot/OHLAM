@@ -58,9 +58,7 @@ async function syncAppIconBadge(): Promise<void> {
       return;
     }
 
-    const response = await API.getNotifications();
-
-    // Keep your existing unread-count, badge and catch code below.
+    const response = await API.getUnreadNotificationCount();
 
     const unreadCount = Math.max(
       0,
