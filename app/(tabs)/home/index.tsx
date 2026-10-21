@@ -323,6 +323,18 @@ const IndexScreen = () => {
 const loadUnreadNotificationCount =
   async () => {
     try {
+      // The marketplace is public: do not request protected notification data as a guest.
+      const { getItemSafe } = await import("@/utils/storage");
+      const [token, preAuthToken, registrationStep] = await Promise.all([
+        getItemSafe("auth_token"),
+        getItemSafe("pre_auth_token"),
+        getItemSafe("registration_step"),
+      ]);
+      const step = registrationStep?.trim().toLowerCase();
+      if (!token?.trim() || preAuthToken?.trim() || (step && step !== "completed")) {
+        setUnreadNotificationCount(0);
+        return;
+      }
       const response =
         await API
           .getUnreadNotificationCount();
