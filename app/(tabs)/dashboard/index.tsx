@@ -171,6 +171,7 @@ export default function Dashboard() {
   ];
 
   const adminSections = [
+    ["Verification Setup", "Draft regional service prices and professional coverage", "cog-outline", "/(tabs)/dashboard/verification/configuration"],
     ["Suspensions & Deletions", "Review status, reasons and the staff member responsible", "shield-search", "/(tabs)/management"],
     ["Manage Policies", "Add and publish OHLAM policies", "file-document-edit", "/(tabs)/management/policies"],
     ["Admin Workspace", "Staff directory and management audit log", "account-tie", "/(tabs)/management"],
