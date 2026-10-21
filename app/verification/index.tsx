@@ -1,6 +1,7 @@
 import React, { useEffect, useState } from "react";
 import { ActivityIndicator, Alert, ScrollView, StyleSheet, Text, TextInput, TouchableOpacity, View } from "react-native";
 import { router } from "expo-router";
+import { useAuth } from "@/context/AuthContext";
 import { MaterialCommunityIcons } from "@expo/vector-icons";
 import API from "@/src/services/api";
 import { getItemSafe } from "@/utils/storage";
@@ -8,6 +9,7 @@ import { getItemSafe } from "@/utils/storage";
 type Service = { id:number; code:string; name:string; description?:string };
 type Lookup = {status:string;message?:string;candidates?:{place_id:string|null;formatted_address:string;latitude:number|null;longitude:number|null;partial_match:boolean}[]};
 export default function VerificationRequestScreen() {
+  const { isAuthenticated, loading: authLoading } = useAuth();
   const [services,setServices] = useState<Service[]>([]);
   const [loading,setLoading] = useState(true);
   const [busy,setBusy] = useState(false);
@@ -21,7 +23,10 @@ export default function VerificationRequestScreen() {
   const [assistance,setAssistance] = useState(false);
   const [signedIn,setSignedIn] = useState(false);
 
-  useEffect(()=>{let mounted=true;(async()=>{
+  useEffect(()=>{
+    if (authLoading) return;
+    if (!isAuthenticated) { router.replace("/auth/LoginScreen"); return; }
+    let mounted=true;(async()=>{
     try {
       const token=await getItemSafe("auth_token");
       if(mounted)setSignedIn(Boolean(token?.trim()));
@@ -29,7 +34,7 @@ export default function VerificationRequestScreen() {
       if(mounted)setServices(Array.isArray(response.data?.data)?response.data.data:[]);
     }catch {if(mounted)Alert.alert("Service unavailable","We couldn't load verification services. Please try again.");}
     finally {if(mounted)setLoading(false);}
-  })();return()=>{mounted=false};},[]);
+  })();return()=>{mounted=false};},[authLoading,isAuthenticated]);
 
   const checkAddress=async()=>{
     if(address.trim().length<8 || !state.trim()){Alert.alert("Address required","Enter a detailed address and state first.");return;}
@@ -61,6 +66,7 @@ export default function VerificationRequestScreen() {
       Alert.alert("Request not submitted",e?.response?.data?.message||"Please check your information and try again.");
     }finally{setBusy(false);}
   };
+  if (authLoading || !isAuthenticated) return <View style={{flex:1,justifyContent:"center"}}><ActivityIndicator size="large"/></View>;
   return <ScrollView style={styles.page} contentContainerStyle={styles.content} keyboardShouldPersistTaps="handled">
     <TouchableOpacity onPress={()=>router.back()} style={styles.back}><MaterialCommunityIcons name="arrow-left" size={22} color="#17365a"/><Text style={styles.backText}>Back</Text></TouchableOpacity>
     <MaterialCommunityIcons name="shield-home-outline" size={42} color="#176A9C"/>
