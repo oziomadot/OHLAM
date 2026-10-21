@@ -163,6 +163,7 @@ export default function Dashboard() {
   ];
 
   const staffSections = [
+    ["Verification Requests", "Review customer property verification requests", "shield-search", "/(tabs)/dashboard/verification"],
     ["Search Property", "Find a property by property or agent number", "home-search", "/(tabs)/management?kind=property"],
     ["Search Agent", "Find an agent by agent number or Oramex ID", "account-search", "/(tabs)/management?kind=agent"],
     ["Management Workspace", "Search agents, properties and inspection status", "account-search", "/(tabs)/management"],
