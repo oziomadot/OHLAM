@@ -22,7 +22,7 @@ export default function VerificationConfiguration(){
  let active=true;(async()=>{try{
    const access=await API.get("/management/access");if(!(access.data?.permissions??[]).includes("verification.quotes.prepare")){setAllowed(false);return;}
    setAllowed(true);
-   const [loc,srv]=await Promise.all([API.getPropertyDropdowns(),API.get("/verification/services")]);
+   const [loc,srv]=await Promise.all([API.getPropertyDropdowns(),API.get("/management/verification/configuration/services")]);
    if(active){setStates(loc.data?.data?.states??loc.data?.states??[]);setServices(srv.data?.data??[]);}
  }catch(e:any){if(active)Alert.alert("Configuration unavailable",e?.response?.data?.message??"Unable to load configuration.");}
  finally{if(active)setLoading(false);}
