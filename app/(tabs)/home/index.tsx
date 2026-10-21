@@ -323,6 +323,18 @@ const IndexScreen = () => {
 const loadUnreadNotificationCount =
   async () => {
     try {
+      // The marketplace is public: do not request protected notification data as a guest.
+      const { getItemSafe } = await import("@/utils/storage");
+      const [token, preAuthToken, registrationStep] = await Promise.all([
+        getItemSafe("auth_token"),
+        getItemSafe("pre_auth_token"),
+        getItemSafe("registration_step"),
+      ]);
+      const step = registrationStep?.trim().toLowerCase();
+      if (!token?.trim() || preAuthToken?.trim() || (step && step !== "completed")) {
+        setUnreadNotificationCount(0);
+        return;
+      }
       const response =
         await API
           .getUnreadNotificationCount();
@@ -1196,6 +1208,20 @@ const loadUnreadNotificationCount =
             />
           }
         >
+          <TouchableOpacity
+            accessibilityRole="button"
+            accessibilityLabel="Explore OHLAM Property Verification Services"
+            onPress={() => router.push("/verification" as never)}
+            style={{ marginHorizontal: 18, marginTop: 12, marginBottom: 10, backgroundColor: "#eaf3fc", borderColor: "#b6d5eb", borderWidth: 1, borderRadius: 18, padding: 18, flexDirection: "row", alignItems: "center", gap: 12 }}
+          >
+            <MaterialCommunityIcons name="shield-check" size={32} color="#176A9C" />
+            <View style={{ flex: 1 }}>
+              <Text style={{ color: "#123a59", fontWeight: "900", fontSize: 16 }}>Property Verification Services</Text>
+              <Text style={{ color: "#3f6079", marginTop: 4 }}>Explore property visits, document checks and free Google Maps address assistance where available.</Text>
+            </View>
+            <MaterialCommunityIcons name="chevron-right" size={23} color="#176A9C" />
+          </TouchableOpacity>
+
           {/*
           ==========================================================
           HERO
