@@ -71,6 +71,7 @@ export default function Navbar() {
    */
   const protectedRoutes = [
     "/upload",
+    "/verification",
 
     "/(tabs)/appointment",
     "/(tabs)/profile",
@@ -165,6 +166,7 @@ export default function Navbar() {
 
   const AUTH_MENU:
     MenuItem[] = [
+    { label: "Property Verification", path: "/verification" },
     {
       label: "Dashboard",
       path:
