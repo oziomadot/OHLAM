@@ -69,7 +69,8 @@ export default function VerificationRequestScreen(){
         map_assistance_details:p.map_assistance_requested?{building_name:p.building_name,street_name:p.street_name,landmark:p.landmark,postal_code:p.postal_code}:null,
         note:p.note.trim()||null,request_mode:p.request_mode,
       }))});
-      Alert.alert("Request received",`Reference #${r.data?.data?.id??""}. OHLAM will check coverage and pricing before asking for any payment.`,[{text:"OK",onPress:()=>router.replace("/(tabs)/home")}]);
+      const propertyIds=r.data?.data?.property_ids??[];
+      Alert.alert("Request received",`Reference #${r.data?.data?.id??""}. Please upload supporting documents for each property.`,[{text:"Continue to documents",onPress:()=>router.replace({pathname:"/verification/documents",params:{propertyIds:propertyIds.join(",")}})}]);
     }catch(e:any){Alert.alert("Unable to submit",e?.response?.data?.message??"Please check your entries and try again.");}
     finally{setSending(false);}
   };
