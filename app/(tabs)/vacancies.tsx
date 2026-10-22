@@ -231,7 +231,8 @@ export default function Vacancies() {
                   <View style={styles.cardBody}>
                     <View style={styles.divider} />
                     <Text style={styles.descLabel}>Job Description</Text>
-                    <Text style={styles.descText}>{v.jobdesc}</Text>\n                    {!!v.requirements && <><Text style={styles.descLabel}>Requirements</Text><Text style={styles.descText}>{v.requirements}</Text></>}
+                    <Text style={styles.descText}>{v.jobdesc}</Text>
+                    {!!v.requirements && <><Text style={styles.descLabel}>Requirements</Text><Text style={styles.descText}>{v.requirements}</Text></>}
                     <TouchableOpacity
                       style={styles.applyBtn}
                       onPress={() => { setApplying(v); setForm(EMPTY_FORM); }}
