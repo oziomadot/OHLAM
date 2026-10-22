@@ -6,9 +6,9 @@ import { useAuth } from "@/context/AuthContext";
 import { MaterialCommunityIcons } from "@expo/vector-icons";
 
 type Option={id:number;name:string};
-type Service={id:number;name:string;description?:string;coverage_status:"local_available"|"outside_lga_review_required"|"wishlist_only";message:string};
-type RequestProperty={key:number;state_id:number|null;area_id:number|null;address:string;service_ids:number[];services:Service[];areas:Option[];lookup_status:string;lookup_message:string;is_owner:boolean;map_assistance_requested:boolean;building_name:string;street_name:string;landmark:string;postal_code:string;note:string;request_mode:"review"|"wishlist";};
-const blank=(key:number):RequestProperty=>({key,state_id:null,area_id:null,address:"",service_ids:[],services:[],areas:[],lookup_status:"unchecked",lookup_message:"",is_owner:false,map_assistance_requested:false,building_name:"",street_name:"",landmark:"",postal_code:"",note:"",request_mode:"review"});
+type Service={id:number;name:string;description?:string;coverage_status:"local_available"|"outside_lga_review_required"|"wishlist_only";message:string;estimated_service_price?:string|null};
+type RequestProperty={key:number;state_id:number|null;area_id:number|null;address:string;service_ids:number[];services:Service[];areas:Option[];lookup_status:string;lookup_message:string;is_owner:boolean;map_assistance_requested:boolean;building_name:string;street_name:string;landmark:string;postal_code:string;note:string;request_mode:"review"|"wishlist";service_modes:Record<number,"review"|"wishlist"|"special_search">;};
+const blank=(key:number):RequestProperty=>({key,state_id:null,area_id:null,address:"",service_ids:[],services:[],areas:[],lookup_status:"unchecked",lookup_message:"",is_owner:false,map_assistance_requested:false,building_name:"",street_name:"",landmark:"",postal_code:"",note:"",request_mode:"review",service_modes:{}});
 export default function VerificationRequestScreen(){
   const {isAuthenticated,loading:authLoading}=useAuth();
   const [states,setStates]=useState<Option[]>([]);
@@ -27,13 +27,13 @@ export default function VerificationRequestScreen(){
     return()=>{active=false;Object.values(timers.current).forEach(clearTimeout)};
   },[authLoading,isAuthenticated]);
   const chooseState=async(p:RequestProperty,s:Option)=>{
-    update(p.key,{state_id:s.id,area_id:null,areas:[],address:"",services:[],service_ids:[],lookup_status:"unchecked",lookup_message:""});
+    update(p.key,{state_id:s.id,area_id:null,areas:[],address:"",services:[],service_ids:[],service_modes:{},lookup_status:"unchecked",lookup_message:""});
     setExpanded(null);
     try{const response=await API.getPropertyArea(s.id);const areas=response.data?.data?.areas??response.data?.data??[];update(p.key,{areas:Array.isArray(areas)?areas:[]});}
     catch{Alert.alert("Location unavailable","Could not load LGAs for this state.");}
   };
   const chooseArea=async(p:RequestProperty,a:Option)=>{
-    update(p.key,{area_id:a.id,services:[],service_ids:[],lookup_status:"unchecked",lookup_message:""});setExpanded(null);
+    update(p.key,{area_id:a.id,services:[],service_ids:[],service_modes:{},lookup_status:"unchecked",lookup_message:""});setExpanded(null);
     try{const r=await API.get("/verification/available-services",{params:{state_id:p.state_id,area_id:a.id}});
       update(p.key,{services:r.data?.data?.services??[]});
     }catch{Alert.alert("Services unavailable","Unable to load available verification services for this location.");}
@@ -67,7 +67,7 @@ export default function VerificationRequestScreen(){
         state_id:p.state_id,area_id:p.area_id,address:p.address.trim(),service_ids:p.service_ids,
         is_owner:p.is_owner,map_assistance_requested:p.map_assistance_requested,
         map_assistance_details:p.map_assistance_requested?{building_name:p.building_name,street_name:p.street_name,landmark:p.landmark,postal_code:p.postal_code}:null,
-        note:p.note.trim()||null,request_mode:p.request_mode,
+        note:p.note.trim()||null,request_mode:p.request_mode,service_modes:p.service_modes,
       }))});
       const propertyIds=r.data?.data?.property_ids??[];
       Alert.alert("Request received",`Reference #${r.data?.data?.id??""}. Please upload supporting documents for each property.`,[{text:"Continue to documents",onPress:()=>router.replace({pathname:"/verification/documents",params:{propertyIds:propertyIds.join(",")}})}]);
@@ -81,7 +81,7 @@ export default function VerificationRequestScreen(){
     <Text style={styles.muted}>Add multiple properties. Select the verification services you need for each location.</Text>
     {loading?<ActivityIndicator/>:items.map((p,index)=>{
       const state=states.find(x=>x.id===p.state_id),area=p.areas.find(x=>x.id===p.area_id);
-      const unstaffed=p.service_ids.some(id=>p.services.find(s=>s.id===id)?.coverage_status!=="local_available");
+      
       return <View key={p.key} style={styles.property}>
         <View style={styles.headingRow}><Text style={styles.heading}>Property {index+1}</Text>{items.length>1&&<TouchableOpacity onPress={()=>setItems(old=>old.filter(x=>x.key!==p.key))}><Text style={styles.remove}>Remove</Text></TouchableOpacity>}</View>
         <Text style={styles.label}>State *</Text>
@@ -106,16 +106,28 @@ export default function VerificationRequestScreen(){
           </>}
         </>}
         <Text style={styles.label}>Requested services * (select multiple)</Text>
-        {p.area_id&&p.services.length===0&&<Text style={styles.muted}>No enabled services for this area yet.</Text>}
+        {p.area_id&&p.services.length===0&&<Text style={styles.muted}>Service catalogue is empty. Try refreshing or contact OHLAM.</Text>}
         {p.services.map(s=><TouchableOpacity key={s.id} style={styles.service} onPress={()=>update(p.key,{service_ids:p.service_ids.includes(s.id)?p.service_ids.filter(x=>x!==s.id):[...p.service_ids,s.id]})}>
           <Text style={styles.serviceName}>{p.service_ids.includes(s.id)?"☑":"☐"} {s.name}</Text><Text style={styles.muted}>{s.message}</Text>
         </TouchableOpacity>)}
-        {unstaffed&&<View style={styles.notice}><Text style={styles.status}>Professional coverage requires confirmation</Text><Text style={styles.muted}>No active professional is confirmed in this LGA for all selected services. OHLAM may contact another professional in the state. Acceptance, travel and price remain subject to review.</Text><TouchableOpacity style={styles.checkbox} onPress={()=>update(p.key,{request_mode:"review"})}><Text>{p.request_mode==="review"?"◉":"◯"} Proceed with manual assessment</Text></TouchableOpacity><TouchableOpacity style={styles.checkbox} onPress={()=>update(p.key,{request_mode:"wishlist"})}><Text>{p.request_mode==="wishlist"?"◉":"◯"} Add to wishlist for future coverage</Text></TouchableOpacity></View>}
+        {p.service_ids.map(id=>{const svc=p.services.find(x=>x.id===id);if(!svc)return null;
+          const local=svc.coverage_status==="local_available",mode=p.service_modes[id]??(local?"review":"special_search");
+          return <View key={id} style={styles.notice}>
+            <Text style={styles.status}>{local?"✓ "+svc.name+" — Local professional available":"! "+svc.name+" — No confirmed local professional"}</Text>
+            {local?<Text style={styles.muted}>{svc.estimated_service_price!==null&&svc.estimated_service_price!==undefined?"Estimated service price: ₦"+Number(svc.estimated_service_price).toLocaleString("en-NG")+". Travel and official costs pending.":"Service available; final quote pending pricing and availability checks."}</Text>:
+            <Text style={styles.muted}>We do not currently have an available professional for this service in the requested LGA. OHLAM can search further afield; acceptance and cost may differ from the standard rate.</Text>}
+            {!local&&<View>
+              <TouchableOpacity style={styles.checkbox} onPress={()=>update(p.key,{service_modes:{...p.service_modes,[id]:"wishlist"}})}><Text>{mode==="wishlist"?"◉":"◯"} Add service to wishlist — notify me when coverage opens</Text></TouchableOpacity>
+              <TouchableOpacity style={styles.checkbox} onPress={()=>update(p.key,{service_modes:{...p.service_modes,[id]:"special_search"}})}><Text>{mode==="special_search"?"◉":"◯"} Request anyway — OHLAM will look for a professional elsewhere</Text></TouchableOpacity>
+              <TouchableOpacity style={styles.checkbox} onPress={()=>update(p.key,{service_ids:p.service_ids.filter(x=>x!==id)})}><Text style={styles.remove}>Cancel this service</Text></TouchableOpacity>
+            </View>}
+          </View>;
+        })}
         <TextInput style={styles.input} multiline placeholder="Other notes (optional)" value={p.note} onChangeText={v=>update(p.key,{note:v})}/>
       </View>;
     })}
     <TouchableOpacity style={styles.add} onPress={()=>setItems(old=>[...old,blank(keyRef.current++)])} disabled={items.length>=10}><MaterialCommunityIcons name="plus-circle-outline" color="#176A9C" size={22}/><Text style={styles.link}>Add another property ({items.length}/10)</Text></TouchableOpacity>
-    <View style={styles.notice}><Text style={styles.muted}>Prices will be shown only after admin pricing and personnel coverage are configured. No automatic charges or guaranteed personnel assignments are made by this form.</Text></View>
+    <View style={styles.notice}><Text style={styles.muted}>Prices will be shown only after admin pricing and personnel coverage are configured. Shown amounts are provisional. Special-search requests and wishlists create demand records, not confirmed appointments or payment obligations.</Text></View>
     <TouchableOpacity style={[styles.submit,sending&&{opacity:.5}]} disabled={sending||loading} onPress={()=>void submit()}><Text style={styles.white}>{sending?"Submitting...":"Submit properties for assessment"}</Text></TouchableOpacity>
   </ScrollView>;
 }
