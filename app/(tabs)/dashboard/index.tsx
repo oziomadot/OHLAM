@@ -173,7 +173,7 @@ export default function Dashboard() {
   ];
 
   const adminSections = [
-    ["Verification Vacancies", "Create and publish verification recruitment roles", "briefcase-outline", "/(tabs)/dashboard/verification/vacancies"],
+    ["OHLAM Recruitment", "Create vacancies across all departments", "briefcase-outline", "/(tabs)/dashboard/verification/vacancies"],
     ["Verification Setup", "Draft regional service prices and professional coverage", "cog-outline", "/(tabs)/dashboard/verification/configuration"],
     ["Suspensions & Deletions", "Review status, reasons and the staff member responsible", "shield-search", "/(tabs)/management"],
     ["Manage Policies", "Add and publish OHLAM policies", "file-document-edit", "/(tabs)/management/policies"],
