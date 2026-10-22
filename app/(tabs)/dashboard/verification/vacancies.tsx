@@ -4,17 +4,18 @@ import {router,useFocusEffect} from "expo-router";
 import API from "@/src/services/api";
 import {useAuth} from "@/context/AuthContext";
 
-type Item={id:number;title:string;description:string;requirements:string;status:string;service_id:number;state_id:number;area_id:number|null;service_name:string;state_name:string;area_name:string|null;closes_at:string|null};
+type Item={department:string;verification_service_id:number|null;engagement_type:string;id:number;title:string;description:string;requirements:string;status:string;service_id:number;state_id:number;area_id:number|null;service_name:string;state_name:string;area_name:string|null;closes_at:string|null};
 type Option={id:number;name:string};
 export default function VerificationVacancies(){
  const {isAuthenticated,loading:authLoading}=useAuth();
  const [permitted,setPermitted]=useState(false),[loading,setLoading]=useState(true),[busy,setBusy]=useState(false);
  const [items,setItems]=useState<Item[]>([]),[services,setServices]=useState<Option[]>([]),[states,setStates]=useState<Option[]>([]),[areas,setAreas]=useState<Option[]>([]);
+ const [department,setDepartment]=useState("verification"),[engagement,setEngagement]=useState("assignment_based");
  const [service,setService]=useState<number|null>(null),[state,setState]=useState<number|null>(null),[area,setArea]=useState<number|null>(null),[picker,setPicker]=useState("");
  const [title,setTitle]=useState(""),[description,setDescription]=useState(""),[requirements,setRequirements]=useState(""),[closing,setClosing]=useState("");
  const [editing,setEditing]=useState<number|null>(null);
  const refresh=useCallback(async()=>{
-  const response=await API.get("/management/verification/vacancies");
+  const response=await API.get("/management/recruitment/vacancies");
   setItems(response.data?.data??[]);
  },[]);
  useFocusEffect(useCallback(()=>{let live=true;if(authLoading)return;
@@ -38,12 +39,12 @@ export default function VerificationVacancies(){
   catch{setAreas([]);}
  };
  const save=async()=>{
-  if(!service||!state||!title.trim()||!description.trim()||!requirements.trim()){Alert.alert("Missing information","Select service and state and provide title, duties, and qualifications.");return;}
+  if((department==="verification"&&!service)||!title.trim()||!description.trim()||!requirements.trim()){Alert.alert("Missing information","Select service and state and provide title, duties, and qualifications.");return;}
   setBusy(true);
   try{
-   const fields={title:title.trim(),description:description.trim(),requirements:requirements.trim(),closes_at:closing.trim()||null};
-   if(editing)await API.patch(`/management/verification/vacancies/${editing}`,fields);
-   else await API.post("/management/verification/vacancies",{...fields,service_id:service,state_id:state,area_id:area});
+   const fields={department,verification_service_id:department==="verification"?service:null,engagement_type:engagement,state_id:state,area_id:area,title:title.trim(),description:description.trim(),requirements:requirements.trim(),closes_at:closing.trim()||null};
+   if(editing)await API.patch(`/management/recruitment/vacancies/${editing}`,fields);
+   else await API.post("/management/recruitment/vacancies",{...fields,});
    Alert.alert("Draft saved","You can review the vacancy and publish it when recruitment is ready.");
    setEditing(null);setTitle("");setDescription("");setRequirements("");setClosing("");
    await refresh();
@@ -53,7 +54,7 @@ export default function VerificationVacancies(){
  const transition=(item:Item,action:"publish"|"close")=>{
   Alert.alert(action==="publish"?"Publish vacancy?":"Close vacancy?",action==="publish"?"This advert will become publicly visible and accept applications.":"This vacancy will stop accepting applications.",[
    {text:"Cancel",style:"cancel"},{text:"Confirm",onPress:async()=>{try{
-    await API.post(`/management/verification/vacancies/${item.id}/transition`,{action});await refresh();
+    await API.post(`/management/recruitment/vacancies/${item.id}/transition`,{action});await refresh();
    }catch(e:any){Alert.alert("Action failed",e?.response?.data?.message||"Please retry.");}}}
   ]);
  };
@@ -68,7 +69,11 @@ export default function VerificationVacancies(){
   <Text style={styles.title}>Verification recruitment</Text>
   <Text style={styles.muted}>Create location-specific vacancies for field verifiers and qualified professionals. Review drafts before publication.</Text>
   <Text style={styles.heading}>{editing?"Edit draft vacancy":"Create vacancy"}</Text>
-  {selector("Verification service",services,service,setService)}
+  <Text style={styles.label}>Department</Text>
+  <View style={styles.actions}>{["verification","operations","customer_support","marketing","technology","finance","administration","other"].map(d=><TouchableOpacity key={d} onPress={()=>setDepartment(d)} style={[styles.choice,department===d&&{backgroundColor:"#d7ecfa"}]}><Text>{d.replace(/_/g," ")}</Text></TouchableOpacity>)}</View>
+  {department==="verification"&&selector("Verification service",services,service,setService)}
+  <Text style={styles.label}>Engagement type</Text>
+  <View style={styles.actions}>{["assignment_based","part_time","full_time","contract","internship"].map(d=><TouchableOpacity key={d} style={[styles.choice,engagement===d&&{backgroundColor:"#d7ecfa"}]} onPress={()=>setEngagement(d)}><Text>{d.replace(/_/g," ")}</Text></TouchableOpacity>)}</View>
   {selector("State",states,state,id=>{void chooseState(id);})}
   {selector("LGA (optional, statewide role)",areas,area,setArea)}
   {area!==null&&<TouchableOpacity onPress={()=>setArea(null)}><Text style={styles.link}>Clear LGA</Text></TouchableOpacity>}
@@ -80,14 +85,14 @@ export default function VerificationVacancies(){
   <Text style={styles.heading}>Vacancy register</Text>
   {items.map(x=><View style={styles.card} key={x.id}>
     <Text style={styles.name}>{x.title}</Text>
-    <Text style={styles.muted}>{x.service_name} · {x.area_name??"Statewide"}, {x.state_name}</Text>
+    <Text style={styles.muted}>{x.department.replace(/_/g," ")} · {x.engagement_type.replace(/_/g," ")} · {x.state_id ? `State #${x.state_id}` : "Remote/unspecified"}</Text>
     <Text style={styles.muted}>Status: {x.status}</Text>
     <View style={styles.actions}>
-     {x.status==="draft"&&<><TouchableOpacity onPress={()=>{setEditing(x.id);setService(x.service_id);void chooseState(x.state_id);setArea(x.area_id);setTitle(x.title);setDescription(x.description);setRequirements(x.requirements);setClosing(x.closes_at??"");}}><Text style={styles.link}>Edit</Text></TouchableOpacity><TouchableOpacity onPress={()=>transition(x,"publish")}><Text style={styles.link}>Publish</Text></TouchableOpacity></>}
+     {x.status==="draft"&&<><TouchableOpacity onPress={()=>{setEditing(x.id);setDepartment(x.department);setEngagement(x.engagement_type);setService(x.verification_service_id);void chooseState(x.state_id);setArea(x.area_id);setTitle(x.title);setDescription(x.description);setRequirements(x.requirements);setClosing(x.closes_at??"");}}><Text style={styles.link}>Edit</Text></TouchableOpacity><TouchableOpacity onPress={()=>transition(x,"publish")}><Text style={styles.link}>Publish</Text></TouchableOpacity></>}
      {x.status==="published"&&<TouchableOpacity onPress={()=>transition(x,"close")}><Text style={styles.danger}>Close applications</Text></TouchableOpacity>}
     </View>
   </View>)}
   {!items.length&&<Text style={styles.muted}>No vacancies created yet.</Text>}
  </ScrollView>;
 }
-const styles=StyleSheet.create({page:{flex:1,backgroundColor:"#f7faff"},content:{padding:20,paddingBottom:75,gap:12},center:{flex:1,justifyContent:"center",alignItems:"center"},title:{fontSize:25,fontWeight:"900",color:"#17384f"},heading:{fontSize:19,fontWeight:"800",color:"#17384f",marginTop:10},muted:{color:"#566c7e",lineHeight:21},label:{fontWeight:"700",color:"#243f53"},field:{gap:7},input:{backgroundColor:"#fff",borderWidth:1,borderColor:"#cad9e5",padding:13,borderRadius:11,color:"#1b3449"},multi:{minHeight:85,textAlignVertical:"top"},choices:{maxHeight:190,backgroundColor:"#fff",borderWidth:1,borderColor:"#ccdce8"},choice:{padding:12,borderBottomWidth:1,borderBottomColor:"#e8eef4"},primary:{backgroundColor:"#176A9C",padding:16,alignItems:"center",borderRadius:11},white:{color:"#fff",fontWeight:"800"},link:{fontWeight:"800",color:"#176A9C"},danger:{fontWeight:"800",color:"#a52820"},card:{backgroundColor:"#fff",borderRadius:12,borderWidth:1,borderColor:"#dce8f1",padding:14,gap:8},name:{fontSize:16,fontWeight:"800",color:"#193b51"},actions:{flexDirection:"row",gap:22,paddingTop:8}});
+const styles=StyleSheet.create({page:{flex:1,backgroundColor:"#f7faff"},content:{padding:20,paddingBottom:75,gap:12},center:{flex:1,justifyContent:"center",alignItems:"center"},title:{fontSize:25,fontWeight:"900",color:"#17384f"},heading:{fontSize:19,fontWeight:"800",color:"#17384f",marginTop:10},muted:{color:"#566c7e",lineHeight:21},label:{fontWeight:"700",color:"#243f53"},field:{gap:7},input:{backgroundColor:"#fff",borderWidth:1,borderColor:"#cad9e5",padding:13,borderRadius:11,color:"#1b3449"},multi:{minHeight:85,textAlignVertical:"top"},choices:{maxHeight:190,backgroundColor:"#fff",borderWidth:1,borderColor:"#ccdce8"},choice:{padding:12,borderBottomWidth:1,borderBottomColor:"#e8eef4"},primary:{backgroundColor:"#176A9C",padding:16,alignItems:"center",borderRadius:11},white:{color:"#fff",fontWeight:"800"},link:{fontWeight:"800",color:"#176A9C"},danger:{fontWeight:"800",color:"#a52820"},card:{backgroundColor:"#fff",borderRadius:12,borderWidth:1,borderColor:"#dce8f1",padding:14,gap:8},name:{fontSize:16,fontWeight:"800",color:"#193b51"},actions:{flexDirection:"row",gap:8,paddingTop:8,flexWrap:"wrap"}});
