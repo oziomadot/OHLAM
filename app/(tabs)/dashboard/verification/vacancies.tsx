@@ -25,7 +25,7 @@ export default function VerificationVacancies(){
    if(!(access.data?.permissions??[]).includes("verification.quotes.prepare"))return;
    if(!live)return;setPermitted(true);
    const [v,s,l]=await Promise.all([
-    API.get("/management/verification/vacancies"),
+    API.get("/management/recruitment/vacancies"),
     API.get("/management/verification/configuration/services"),
     API.getPropertyDropdowns()
    ]);
@@ -39,7 +39,7 @@ export default function VerificationVacancies(){
   catch{setAreas([]);}
  };
  const save=async()=>{
-  if((department==="verification"&&!service)||!title.trim()||!description.trim()||!requirements.trim()){Alert.alert("Missing information","Select service and state and provide title, duties, and qualifications.");return;}
+  if((department==="verification"&&!service)||!title.trim()||!description.trim()||!requirements.trim()){Alert.alert("Missing information","Provide a title, description and requirements. Verification vacancies also need a service.");return;}
   setBusy(true);
   try{
    const fields={department,verification_service_id:department==="verification"?service:null,engagement_type:engagement,state_id:state,area_id:area,title:title.trim(),description:description.trim(),requirements:requirements.trim(),closes_at:closing.trim()||null};
@@ -66,8 +66,8 @@ export default function VerificationVacancies(){
  if(!permitted)return <View style={styles.center}><Text>Admin access required.</Text></View>;
  return <ScrollView style={styles.page} contentContainerStyle={styles.content} keyboardShouldPersistTaps="handled">
   <TouchableOpacity onPress={()=>router.back()}><Text style={styles.link}>← Admin dashboard</Text></TouchableOpacity>
-  <Text style={styles.title}>Verification recruitment</Text>
-  <Text style={styles.muted}>Create location-specific vacancies for field verifiers and qualified professionals. Review drafts before publication.</Text>
+  <Text style={styles.title}>OHLAM recruitment</Text>
+  <Text style={styles.muted}>Create and manage vacancies for any OHLAM department. Verification vacancies also specify a verification service.</Text>
   <Text style={styles.heading}>{editing?"Edit draft vacancy":"Create vacancy"}</Text>
   <Text style={styles.label}>Department</Text>
   <View style={styles.actions}>{["verification","operations","customer_support","marketing","technology","finance","administration","other"].map(d=><TouchableOpacity key={d} onPress={()=>setDepartment(d)} style={[styles.choice,department===d&&{backgroundColor:"#d7ecfa"}]}><Text>{d.replace(/_/g," ")}</Text></TouchableOpacity>)}</View>
