@@ -10,13 +10,13 @@ export default function VerificationApplicants(){
  const load=useCallback(async()=>{if(authLoading)return;if(!isAuthenticated){router.replace("/auth/LoginScreen");return;}
   setBusy(true);setError("");
   try{const auth=await API.get("/management/access");if(!(auth.data?.permissions??[]).includes("verification.orders.read")){setAllowed(false);return;}
-   setAllowed(true);const res=await API.get("/management/verification/applications");setItems(res.data?.data??[]);
+   setAllowed(true);const res=await API.get("/management/recruitment/applications");setItems(res.data?.data??[]);
   }catch(e:any){setError(e?.response?.data?.message??"Unable to load applications.");}finally{setBusy(false);}
  },[authLoading,isAuthenticated]);
  useFocusEffect(useCallback(()=>{void load();},[load]));
  return <View style={styles.page}>
    <TouchableOpacity onPress={()=>router.back()}><Text style={styles.link}>← Verification management</Text></TouchableOpacity>
-   <Text style={styles.title}>Verification applications</Text>
+   <Text style={styles.title}>OHLAM applications</Text>
    <Text style={styles.muted}>Applicant information is confidential. A submitted application does not grant verification permissions.</Text>
    {busy?<ActivityIndicator/>:!allowed?<Text>Management permission required.</Text>:<FlatList data={items} keyExtractor={x=>String(x.id)}
      refreshControl={<RefreshControl refreshing={busy} onRefresh={()=>void load()}/>}
