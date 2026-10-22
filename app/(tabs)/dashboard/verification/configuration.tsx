@@ -18,6 +18,7 @@ export default function VerificationConfiguration(){
  const [start,setStart]=useState(new Date().toISOString().slice(0,10)),[end,setEnd]=useState("");
  const [userId,setUserId]=useState(""),[fee,setFee]=useState(""),[qualification,setQualification]=useState<"pending"|"approved">("pending");
  const [records,setRecords]=useState<any[]>([]);
+ const [editingPriceId,setEditingPriceId]=useState<number|null>(null);
  useEffect(()=>{if(authLoading)return;if(!isAuthenticated){router.replace("/auth/LoginScreen");return;}
  let active=true;(async()=>{try{
    const access=await API.get("/management/access");if(!(access.data?.permissions??[]).includes("verification.quotes.prepare")){setAllowed(false);return;}
@@ -45,11 +46,14 @@ export default function VerificationConfiguration(){
   try {
    const common={service_id:serviceId,state_id:stateId,area_id:areaId,valid_from:start,valid_until:end||null};
    if(mode==="pricing"){
-     await API.post("/management/verification/configuration/prices",{...common,customer_base_price:base,platform_fee:platform,transport_rate_per_km:transport||null,is_active:false});
+     const payload={customer_base_price:base,platform_fee:platform,transport_rate_per_km:transport||null,valid_from:start,valid_until:end||null};
+     if(editingPriceId){await API.patch(`/management/verification/configuration/prices/${editingPriceId}`,payload);}
+     else{await API.post("/management/verification/configuration/prices",{...common,...payload,is_active:false});}
    }else{
      await API.post("/management/verification/configuration/professionals",{...common,user_id:Number(userId),contracted_fee:fee,qualification_status:qualification,is_active:false});
    }
    Alert.alert("Saved as inactive","A record has been created, but it does not activate a live price or professional. Approval and activation require a separate controlled process.");
+   setEditingPriceId(null);
    await refresh();
   }catch(e:any){const errors=e?.response?.data?.errors;Alert.alert("Could not save",errors?Object.values(errors).flat().join("\n"):e?.response?.data?.message??"Please retry.");}
   finally{setBusy(false);}
@@ -68,9 +72,9 @@ export default function VerificationConfiguration(){
   <View style={styles.tabs}>
    {(["pricing","personnel"] as Mode[]).map(m=><TouchableOpacity key={m} style={[styles.tab,mode===m&&styles.activeTab]} onPress={()=>setMode(m)}><Text style={mode===m?styles.white:styles.link}>{m==="pricing"?"Service prices":"Professionals"}</Text></TouchableOpacity>)}
   </View>
-  {pickerBox("Service",services.map(s=>({id:s.id,name:s.name})),services.find(s=>s.id===serviceId),o=>setServiceId(o.id))}
-  {pickerBox("State",states,states.find(s=>s.id===stateId),o=>{setStateId(o.id);setAreaId(null);})}
-  {pickerBox("LGA (optional; blank = state-wide)",areas,areas.find(s=>s.id===areaId),o=>setAreaId(o.id))}
+  {pickerBox("Service",services.map(s=>({id:s.id,name:s.name})),services.find(s=>s.id===serviceId),o=>{setServiceId(o.id);setEditingPriceId(null);})}
+  {pickerBox("State",states,states.find(s=>s.id===stateId),o=>{setStateId(o.id);setAreaId(null);setEditingPriceId(null);})}
+  {pickerBox("LGA (optional; blank = state-wide)",areas,areas.find(s=>s.id===areaId),o=>{setAreaId(o.id);setEditingPriceId(null);})}
   {areaId!==null&&<TouchableOpacity onPress={()=>setAreaId(null)}><Text style={styles.link}>Clear LGA — use state-wide coverage</Text></TouchableOpacity>}
   {mode==="pricing"?<>
    <Text style={styles.label}>Customer base price (NGN)</Text><TextInput style={styles.input} keyboardType="decimal-pad" value={base} onChangeText={setBase} placeholder="0.00"/>
@@ -84,11 +88,12 @@ export default function VerificationConfiguration(){
   <Text style={styles.label}>Valid from (YYYY-MM-DD)</Text><TextInput style={styles.input} value={start} onChangeText={setStart}/>
   <Text style={styles.label}>Valid until (optional)</Text><TextInput style={styles.input} value={end} onChangeText={setEnd} placeholder="YYYY-MM-DD"/>
   <View style={styles.notice}><Text style={styles.muted}>New records are inactive by default. Verification of professional credentials and an agreed fee must be documented before an authorised activation process is implemented.</Text></View>
-  <TouchableOpacity disabled={busy} style={[styles.save,busy&&{opacity:.5}]} onPress={()=>void submit()}><Text style={styles.white}>{busy?"Saving...":"Save inactive draft"}</Text></TouchableOpacity>
+  <TouchableOpacity disabled={busy} style={[styles.save,busy&&{opacity:.5}]} onPress={()=>void submit()}><Text style={styles.white}>{busy?"Saving...":editingPriceId?"Update selected inactive draft":"Save inactive draft"}</Text></TouchableOpacity>
   <Text style={styles.section}>Existing records</Text>
   {records.length===0?<Text style={styles.muted}>No records for this selection.</Text>:records.slice(0,30).map(x=><View key={x.id} style={styles.record}>
    <Text style={styles.recordTitle}>#{x.id} · {x.is_active?"Active":"Inactive"}</Text>
    <Text style={styles.muted}>{mode==="pricing"?`Base ₦${x.customer_base_price} · Platform ₦${x.platform_fee}`:`Professional #${x.user_id} · ${x.qualification_status} · ₦${x.contracted_fee??"not set"}`}</Text>
+   {mode==="pricing"&&!x.is_active&&<TouchableOpacity onPress={()=>{setEditingPriceId(x.id);setBase(String(x.customer_base_price));setPlatform(String(x.platform_fee));setTransport(x.transport_rate_per_km===null?"":String(x.transport_rate_per_km));setStart(x.valid_from);setEnd(x.valid_until??"");setAreaId(x.area_id);}}><Text style={styles.link}>Edit this inactive price</Text></TouchableOpacity>}
    <Text style={styles.muted}>State #{x.state_id}{x.area_id?` · LGA #${x.area_id}`:" · all LGAs"} · {x.valid_from??"unset"}–{x.valid_until??"open"}</Text>
   </View>)}
  </ScrollView>;
