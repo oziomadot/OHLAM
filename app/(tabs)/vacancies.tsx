@@ -128,7 +128,7 @@ export default function Vacancies() {
         });
         const reference = response.data?.data?.reference;
         Alert.alert("Application received",
-          `Your application was recorded.${reference ? "\\nReference: " + reference : ""} OHLAM will provide instructions for supporting documents if needed.`);
+          `Your application was recorded.${reference ? `\nReference: ${reference}` : ""}\nOHLAM will provide instructions for supporting documents if needed.`);
       } else {
         const data = new FormData();
         data.append("full_name", form.full_name);
