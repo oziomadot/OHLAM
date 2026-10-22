@@ -67,7 +67,7 @@ export default function VerificationRequestScreen(){
         state_id:p.state_id,area_id:p.area_id,address:p.address.trim(),service_ids:p.service_ids,
         is_owner:p.is_owner,map_assistance_requested:p.map_assistance_requested,
         map_assistance_details:p.map_assistance_requested?{building_name:p.building_name,street_name:p.street_name,landmark:p.landmark,postal_code:p.postal_code}:null,
-        note:p.note.trim()||null,request_mode:p.request_mode,service_modes:p.service_modes,
+        note:p.note.trim()||null,request_mode:p.request_mode,service_modes:Object.fromEntries(p.service_ids.map(id=>[id,p.service_modes[id]??(p.services.find(s=>s.id===id)?.coverage_status==="local_available"?"review":"special_search")])),
       }))});
       const propertyIds=r.data?.data?.property_ids??[];
       Alert.alert("Request received",`Reference #${r.data?.data?.id??""}. Please upload supporting documents for each property.`,[{text:"Continue to documents",onPress:()=>router.replace({pathname:"/verification/documents",params:{propertyIds:propertyIds.join(",")}})}]);
