@@ -12,6 +12,8 @@ const blank=(key:number):RequestProperty=>({key,state_id:null,area_id:null,addre
 export default function VerificationRequestScreen(){
   const {isAuthenticated,loading:authLoading}=useAuth();
   const [states,setStates]=useState<Option[]>([]);
+  const [catalogue,setCatalogue]=useState<Service[]>([]);
+  const [catalogueError,setCatalogueError]=useState(false);
   const [items,setItems]=useState<RequestProperty[]>([blank(1)]);
   const [expanded,setExpanded]=useState<string|null>(null);
   const [loading,setLoading]=useState(true),[sending,setSending]=useState(false);
@@ -20,10 +22,11 @@ export default function VerificationRequestScreen(){
   useEffect(()=>{if(authLoading)return;if(!isAuthenticated){router.replace("/auth/LoginScreen");return;}
     let active=true;
     (async()=>{try{
-      const response=await API.getPropertyDropdowns();
+      const [response,serviceResponse]=await Promise.all([API.getPropertyDropdowns(),API.get("/verification/services")]);
       const options=response.data?.data?.states??response.data?.states??[];
-      if(active)setStates(Array.isArray(options)?options:[]);
-    }catch{Alert.alert("Location list unavailable","Unable to load state list. Try again shortly.");}finally{if(active)setLoading(false);}})();
+      const offered=serviceResponse.data?.data??[];
+      if(active){setStates(Array.isArray(options)?options:[]);setCatalogue(Array.isArray(offered)?offered:[]);setCatalogueError(false);}
+    }catch{setCatalogueError(true);Alert.alert("Service list unavailable","Could not load all OHLAM verification services. Please refresh the screen.");}finally{if(active)setLoading(false);}})();
     return()=>{active=false;Object.values(timers.current).forEach(clearTimeout)};
   },[authLoading,isAuthenticated]);
   const chooseState=async(p:RequestProperty,s:Option)=>{
@@ -55,8 +58,8 @@ export default function VerificationRequestScreen(){
     if(value.trim().length>=8&&p.state_id&&p.area_id)timers.current[p.key]=setTimeout(()=>void checkAddress(p,value),1200);
   };
   const submit=async()=>{
-    if(items.some(p=>!p.state_id||!p.area_id||p.address.trim().length<8||!p.service_ids.length)){
-      Alert.alert("Complete properties","Every property needs a state, LGA, full address, and at least one service.");return;
+    if(items.some(p=>!p.state_id||!p.area_id||p.address.trim().length<8||!p.service_ids.length||p.service_ids.some(id=>!p.services.some(s=>s.id===id)))){
+      Alert.alert("Complete properties","Every property needs a state, LGA, full address, and at least one selected service with coverage information loaded.");return;
     }
     if(items.some(p=>p.map_assistance_requested&&!p.is_owner)){
       Alert.alert("Owner confirmation","Only owners or authorised representatives may request help contributing an address to Google Maps.");return;
@@ -111,11 +114,32 @@ export default function VerificationRequestScreen(){
             <Text style={styles.muted}>Google reviews submissions independently; OHLAM cannot guarantee an address will be published.</Text>
           </>}
         </>}
-        <Text style={styles.label}>Requested services * (select multiple)</Text>
-        {p.area_id&&p.services.length===0&&<Text style={styles.muted}>Service catalogue is empty. Try refreshing or contact OHLAM.</Text>}
-        {p.services.map(s=><TouchableOpacity key={s.id} style={styles.service} onPress={()=>update(p.key,{service_ids:p.service_ids.includes(s.id)?p.service_ids.filter(x=>x!==s.id):[...p.service_ids,s.id]})}>
-          <Text style={styles.serviceName}>{p.service_ids.includes(s.id)?"☑":"☐"} {s.name}</Text><Text style={styles.muted}>{s.message}</Text>
-        </TouchableOpacity>)}
+        <Text style={styles.label}>Requested verification services *</Text>
+        <TouchableOpacity accessibilityRole="button" accessibilityLabel="Select verification services" style={styles.select} onPress={()=>setExpanded(expanded===`services-${p.key}`?null:`services-${p.key}`)}>
+          <Text style={styles.serviceName}>{p.service_ids.length ? `${p.service_ids.length} service(s) selected` : "Select services (multiple choices)"}</Text>
+          <MaterialCommunityIcons name={expanded===`services-${p.key}`?"chevron-up":"chevron-down"} size={22} color="#176A9C"/>
+        </TouchableOpacity>
+        {p.service_ids.length>0&&<View style={styles.selectedServices}>
+          {p.service_ids.map(id=><TouchableOpacity key={id} style={styles.selectedChip} onPress={()=>update(p.key,{service_ids:p.service_ids.filter(x=>x!==id)})}>
+            <Text style={styles.link}>{(p.services.find(x=>x.id===id)??catalogue.find(x=>x.id===id))?.name??"Service"}  ×</Text>
+          </TouchableOpacity>)}
+        </View>}
+        {expanded===`services-${p.key}`&&<View style={styles.serviceDropdown}>
+          <Text style={styles.muted}>All OHLAM verification services. Tick as many as you need, then tap Done.</Text>
+          {catalogueError?<Text style={styles.remove}>Unable to load services. Refresh the screen.</Text>:catalogue.length===0?<Text style={styles.muted}>No verification services are currently activated in the catalogue.</Text>:
+          <ScrollView nestedScrollEnabled style={{maxHeight:290}} keyboardShouldPersistTaps="handled">
+            {catalogue.map(s=><TouchableOpacity key={s.id} accessibilityRole="checkbox" accessibilityState={{checked:p.service_ids.includes(s.id)}} style={styles.service} onPress={()=>{
+              const selected=p.service_ids.includes(s.id);
+              if(!selected&&p.service_ids.length>=15){Alert.alert("Selection limit","Select up to 15 services for one property.");return;}
+              update(p.key,{service_ids:selected?p.service_ids.filter(x=>x!==s.id):[...p.service_ids,s.id]});
+            }}>
+              <Text style={styles.serviceName}>{p.service_ids.includes(s.id)?"☑":"☐"} {s.name}</Text>
+              {!!s.description&&<Text style={styles.muted}>{s.description}</Text>}
+            </TouchableOpacity>)}
+          </ScrollView>}
+          <TouchableOpacity style={styles.add} onPress={()=>setExpanded(null)}><Text style={styles.link}>Done selecting services</Text></TouchableOpacity>
+        </View>}
+        {!!p.area_id&&p.service_ids.length>0&&p.services.length===0&&<Text style={styles.muted}>Coverage checking is unavailable. Please retry selecting the LGA before submitting.</Text>}
         {p.service_ids.map(id=>{const svc=p.services.find(x=>x.id===id);if(!svc)return null;
           const local=svc.coverage_status==="local_available",mode=p.service_modes[id]??(local?"review":"special_search");
           return <View key={id} style={styles.notice}>
@@ -138,5 +162,8 @@ export default function VerificationRequestScreen(){
   </ScrollView>;
 }
 const styles=StyleSheet.create({
+  serviceDropdown:{borderWidth:1,borderColor:"#c5d9e8",borderRadius:12,padding:12,backgroundColor:"#fff",gap:9},
+  selectedServices:{flexDirection:"row",flexWrap:"wrap",gap:7},
+  selectedChip:{paddingHorizontal:11,paddingVertical:8,backgroundColor:"#e8f4fb",borderRadius:18,borderWidth:1,borderColor:"#bed7e8"},
   page:{flex:1,backgroundColor:"#f6faff"},content:{padding:18,paddingBottom:60,gap:13},center:{flex:1,justifyContent:"center",alignItems:"center"},back:{flexDirection:"row",alignItems:"center",gap:7},link:{fontWeight:"700",color:"#176A9C"},title:{fontSize:26,color:"#18344c",fontWeight:"900"},muted:{color:"#536b7f",lineHeight:21},property:{backgroundColor:"#fff",borderColor:"#dbe7f1",borderWidth:1,borderRadius:17,padding:16,gap:10},headingRow:{flexDirection:"row",justifyContent:"space-between"},heading:{fontSize:19,fontWeight:"800",color:"#1a3a54"},remove:{color:"#b42318",fontWeight:"700"},label:{fontSize:14,fontWeight:"800",color:"#294358"},select:{borderWidth:1,borderColor:"#bfd0df",borderRadius:11,padding:13,flexDirection:"row",justifyContent:"space-between",backgroundColor:"#f8fbff"},dropdown:{maxHeight:180,borderColor:"#cadaea",borderWidth:1,borderRadius:10},option:{padding:12,borderBottomWidth:1,borderBottomColor:"#edf2f7"},input:{borderWidth:1,borderColor:"#bfd0df",borderRadius:11,padding:13,color:"#18344c",minHeight:48,textAlignVertical:"top"},notice:{padding:13,borderRadius:11,backgroundColor:"#eaf3fc",gap:8},status:{fontWeight:"800",color:"#1a4769"},checkbox:{paddingVertical:7},service:{padding:12,borderRadius:10,backgroundColor:"#f4f8fc",gap:3},serviceName:{fontSize:15,fontWeight:"700",color:"#223d54"},add:{padding:16,borderRadius:12,borderWidth:1,borderColor:"#176A9C",flexDirection:"row",alignItems:"center",justifyContent:"center",gap:8},submit:{backgroundColor:"#176A9C",padding:17,alignItems:"center",borderRadius:12},white:{color:"#fff",fontWeight:"800",fontSize:16}
 });
