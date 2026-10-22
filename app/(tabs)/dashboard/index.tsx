@@ -163,6 +163,7 @@ export default function Dashboard() {
   ];
 
   const staffSections = [
+    ["Verification Applicants", "Review incoming professional applications", "account-multiple-check-outline", "/(tabs)/dashboard/verification/applications"],
     ["Verification Demand", "Wishlist and special-search requests by LGA", "chart-bar", "/(tabs)/dashboard/verification/demand"],
     ["Verification Requests", "Review customer property verification requests", "shield-search", "/(tabs)/dashboard/verification"],
     ["Search Property", "Find a property by property or agent number", "home-search", "/(tabs)/management?kind=property"],
