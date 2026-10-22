@@ -121,7 +121,7 @@ export default function Dashboard() {
     [
       "Interested Properties",
       `${summary?.counts?.interested_properties || 0} interested properties`,
-      "heart-home",
+      "heart-outline",
       "/(tabs)/properties/interested",
     ],
     [
@@ -163,6 +163,7 @@ export default function Dashboard() {
   ];
 
   const staffSections = [
+    ["Recruitment Applicants", "Review applications across OHLAM", "account-multiple-check-outline", "/(tabs)/dashboard/verification/applications"],
     ["Verification Demand", "Wishlist and special-search requests by LGA", "chart-bar", "/(tabs)/dashboard/verification/demand"],
     ["Verification Requests", "Review customer property verification requests", "shield-search", "/(tabs)/dashboard/verification"],
     ["Search Property", "Find a property by property or agent number", "home-search", "/(tabs)/management?kind=property"],
@@ -172,6 +173,7 @@ export default function Dashboard() {
   ];
 
   const adminSections = [
+    ["OHLAM Recruitment", "Create vacancies across all departments", "briefcase-outline", "/(tabs)/dashboard/verification/vacancies"],
     ["Verification Setup", "Draft regional service prices and professional coverage", "cog-outline", "/(tabs)/dashboard/verification/configuration"],
     ["Suspensions & Deletions", "Review status, reasons and the staff member responsible", "shield-search", "/(tabs)/management"],
     ["Manage Policies", "Add and publish OHLAM policies", "file-document-edit", "/(tabs)/management/policies"],
