@@ -52,7 +52,7 @@ export default function VerificationVacancies(){
  };
  const transition=(item:Item,action:"publish"|"close")=>{
   Alert.alert(action==="publish"?"Publish vacancy?":"Close vacancy?",action==="publish"?"This advert will become publicly visible and accept applications.":"This vacancy will stop accepting applications.",[
-   {text:"Cancel",style:"cancelled"},{text:"Confirm",onPress:async()=>{try{
+   {text:"Cancel",style:"cancel"},{text:"Confirm",onPress:async()=>{try{
     await API.post(`/management/verification/vacancies/${item.id}/transition`,{action});await refresh();
    }catch(e:any){Alert.alert("Action failed",e?.response?.data?.message||"Please retry.");}}}
   ]);
