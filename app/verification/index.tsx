@@ -70,7 +70,13 @@ export default function VerificationRequestScreen(){
         note:p.note.trim()||null,request_mode:p.request_mode,service_modes:Object.fromEntries(p.service_ids.map(id=>[id,p.service_modes[id]??(p.services.find(s=>s.id===id)?.coverage_status==="local_available"?"review":"special_search")])),
       }))});
       const propertyIds=r.data?.data?.property_ids??[];
-      Alert.alert("Request received",`Reference #${r.data?.data?.id??""}. Please upload supporting documents for each property.`,[{text:"Continue to documents",onPress:()=>router.replace({pathname:"/verification/documents",params:{propertyIds:propertyIds.join(",")}})}]);
+      const selectedModes=items.flatMap(p=>p.service_ids.map(id=>p.service_modes[id]??(p.services.find(s=>s.id===id)?.coverage_status==="local_available"?"review":"special_search")));
+      router.replace({pathname:"/verification/request-outcome",params:{
+        requestId:String(r.data?.data?.id??""),propertyIds:propertyIds.join(","),
+        hasSpecial:selectedModes.includes("special_search")?"1":"0",
+        hasWishlist:selectedModes.includes("wishlist")?"1":"0",
+      }});
+
     }catch(e:any){Alert.alert("Unable to submit",e?.response?.data?.message??"Please check your entries and try again.");}
     finally{setSending(false);}
   };
