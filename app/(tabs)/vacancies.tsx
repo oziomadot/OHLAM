@@ -324,7 +324,12 @@ export default function Vacancies() {
                 <Ionicons name="close-circle" size={18} color="#ef4444" />
               </TouchableOpacity>
             )}
-          </TouchableOpacity>
+          </TouchableOpacity></>}
+          {applying?.source === "recruitment" && (
+            <Text style={styles.fieldLabel}>
+              CV and certificates may be requested through a secure upload process after submission.
+            </Text>
+          )}
 
           <TouchableOpacity
             style={[styles.submitBtn, submitting && styles.submitBtnDisabled]}
