@@ -51,6 +51,10 @@ export default function PendingUploadsScreen(){
       <Text style={styles.heading}>{String(item.form.address||"Property draft")}</Text>
       <Text style={styles.body}>Saved: {new Date(item.createdAt).toLocaleString()}</Text>
       <Text style={styles.body}>Files preserved: {Object.keys(item.files).length}</Text>
+      <Text style={styles.body}>Upload state: {item.state === "blocked" ? "Needs your attention" : "Waiting for network / retry"}</Text>
+      <Text style={styles.body}>Attempts: {item.attempts ?? 0}</Text>
+      {item.lastError ? <Text style={styles.warning}>{item.lastError}</Text> : null}
+      {item.nextAttemptAt && item.state !== "blocked" ? <Text style={styles.body}>Next eligible retry: {new Date(item.nextAttemptAt).toLocaleString()}</Text> : null}
       <Text style={styles.warning}>Saved on this device. Retrying uses the same submission ID so the server can recognize duplicates.</Text>
       <TouchableOpacity disabled={busy} style={styles.button} onPress={()=>void retry(item)}>
         <Text style={styles.buttonText}>{busy?"Uploading...":"Retry upload"}</Text>
