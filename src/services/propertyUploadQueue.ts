@@ -37,10 +37,11 @@ export async function listPendingPropertyUploads(ownerId: string): Promise<Pendi
 }
 export async function savePendingPropertyUpload(
  ownerId: string, form: Record<string, unknown>, suppliedFiles: Record<string, any>,
- state: "pending" | "needs_review" = "pending"
+ state: "pending" | "needs_review" = "pending",
+ suppliedId?: string
 ): Promise<string> {
   if (!ownerId) throw new Error("Sign in before saving a pending upload.");
-  const id = Crypto.randomUUID();
+  const id = suppliedId || Crypto.randomUUID();
   const destination = pathFor(id);
   await FileSystem.makeDirectoryAsync(destination, { intermediates: true });
   const files: Record<string, QueueFile> = {};
@@ -71,4 +72,29 @@ export async function deletePendingPropertyUpload(id: string, ownerId: string): 
   if (!entries.some(entry=>entry.id===id)) throw new Error("Upload not found for this account.");
   await AsyncStorage.setItem(INDEX_KEY,JSON.stringify((await readIndex()).filter(x=>x!==id)));
   await FileSystem.deleteAsync(pathFor(id),{idempotent:true});
+}
+
+export function pendingPropertyToFormData(item: PendingPropertyUpload): FormData {
+  const data = new FormData();
+  for (const [key,value] of Object.entries(item.form)) {
+    if (key === "additional_fee_items" || key === "additional_expenses") continue;
+    if (item.form.propertyTypes === 3 && ["access_road","survey_plan","c_of_o"].includes(key)) {
+      data.append(key, value ? "1" : "0");
+      continue;
+    }
+    if (value == null || typeof value === "object") continue;
+    data.append(key, typeof value === "boolean" ? (value ? "1":"0") : String(value).replace(/,/g,""));
+  }
+  for (const [index,fee] of ((item.form.additional_fee_items as any[])||[]).entries()) {
+    data.append(`additional_fee_items[${index}][reason]`,String(fee.reason||""));
+    data.append(`additional_fee_items[${index}][amount]`,String(fee.amount||""));
+  }
+  for (const [index,expense] of ((item.form.additional_expenses as any[])||[]).entries()) {
+    data.append(`additional_expenses[${index}][description]`,String(expense.description||""));
+  }
+  for(const [key,file] of Object.entries(item.files)){
+    data.append(key,{uri:file.uri,name:file.name,type:file.type} as any);
+  }
+  data.set("client_submission_id",item.id);
+  return data;
 }
