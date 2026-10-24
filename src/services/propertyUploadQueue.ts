@@ -9,7 +9,10 @@ export type PendingPropertyUpload = {
   id: string;
   ownerId: string;
   createdAt: string;
-  state: "pending" | "needs_review";
+  state: "pending" | "needs_review" | "blocked";
+  attempts?: number;
+  nextAttemptAt?: string;
+  lastError?: string;
   form: Record<string, unknown>;
   files: Record<string, QueueFile>;
 };
@@ -97,4 +100,10 @@ export function pendingPropertyToFormData(item: PendingPropertyUpload): FormData
   }
   data.set("client_submission_id",item.id);
   return data;
+}
+
+export async function updatePendingPropertyUpload(id: string, ownerId: string, patch: Partial<Pick<PendingPropertyUpload, "state" | "attempts" | "nextAttemptAt" | "lastError">>): Promise<void> {
+  const record = (await listPendingPropertyUploads(ownerId)).find(item => item.id === id);
+  if (!record) throw new Error("Saved upload not found.");
+  await FileSystem.writeAsStringAsync(pathFor(id) + "draft.json", JSON.stringify({ ...record, ...patch }));
 }
