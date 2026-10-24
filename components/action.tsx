@@ -35,8 +35,6 @@ type ActionProps = {
 const actions: { label: string; value: ActionType }[] = [
   { label: "View Details", value: "view" },
   { label: "Edit Property", value: "edit" },
-  { label: "Mark as Rented", value: "rented" },
-  { label: "Mark as Sold", value: "sold" },
   { label: "Request Delete", value: "delete" },
 ];
 
@@ -67,7 +65,7 @@ export default function PropertyAction({ property, onStatusChanged }: ActionProp
     status === "pending_delete";
 
   const submitStatusChange = async (newStatus: "sold" | "rented") => {
-    await API.propertyStatus(propertyId);
+    throw new Error("Changing sale or rental status requires a supported authenticated backend endpoint.");
 
     Alert.alert(
       "Success",
@@ -196,16 +194,19 @@ export default function PropertyAction({ property, onStatusChanged }: ActionProp
       <View style={styles.pickerWrapper}>
         <Picker
           selectedValue={selectedAction}
+          style={{ color: "#0f172a", backgroundColor: "#f8fafc" }}
+          dropdownIconColor="#0f172a"
           onValueChange={(itemValue) =>
             setSelectedAction(itemValue as ActionType | "")
           }
         >
-          <Picker.Item label="Select an action" value="" color="#999" />
+          <Picker.Item label="Select an action" value="" color="#334155" />
           {actions.map((action) => (
             <Picker.Item
               key={action.value}
               label={action.label}
               value={action.value}
+              color="#0f172a"
             />
           ))}
         </Picker>
