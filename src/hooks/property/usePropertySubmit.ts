@@ -1,3 +1,5 @@
+import { submitQueuedProperty } from "@/src/services/submitQueuedProperty";
+import { listPendingPropertyUploads } from "@/src/services/propertyUploadQueue";
 import { savePendingPropertyUpload, deletePendingPropertyUpload } from "@/src/services/propertyUploadQueue";
 import * as Crypto from "expo-crypto";
 import API from "@/src/services/api";
@@ -596,10 +598,10 @@ const validateMedia = (): boolean => {
       }
 
       data.set("client_submission_id", submissionId);
-      const res =
-        await API.createProperty(
-          data
-        );
+      const queued = (await listPendingPropertyUploads(String(formData.user_id || "")))
+        .find(entry => entry.id === submissionId);
+      if (!queued) throw new Error("Saved property submission is missing.");
+      const res = await submitQueuedProperty(queued);
       if (savedLocally) await deletePendingPropertyUpload(submissionId, String(formData.user_id || "")).catch(()=>{});
 
       reset();
