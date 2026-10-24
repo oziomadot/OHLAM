@@ -9,7 +9,6 @@ import {
   Modal,
   TextInput,
 } from "react-native";
-import { Picker } from "@react-native-picker/picker";
 import { useRouter } from "expo-router";
 import API from "@/src/services/api";
 
@@ -35,6 +34,8 @@ type ActionProps = {
 const actions: { label: string; value: ActionType }[] = [
   { label: "View Details", value: "view" },
   { label: "Edit Property", value: "edit" },
+  { label: "Mark as Rented", value: "rented" },
+  { label: "Mark as Sold", value: "sold" },
   { label: "Request Delete", value: "delete" },
 ];
 
@@ -42,6 +43,7 @@ export default function PropertyAction({ property, onStatusChanged }: ActionProp
   const router = useRouter();
 
   const [selectedAction, setSelectedAction] = useState<ActionType | "">("");
+  const [showActionOptions, setShowActionOptions] = useState(false);
   const [loading, setLoading] = useState(false);
   const [deleteSubmitted, setDeleteSubmitted] = useState(false);
   const [showDeleteModal, setShowDeleteModal] = useState(false);
@@ -65,7 +67,7 @@ export default function PropertyAction({ property, onStatusChanged }: ActionProp
     status === "pending_delete";
 
   const submitStatusChange = async (newStatus: "sold" | "rented") => {
-    throw new Error("Changing sale or rental status requires a supported authenticated backend endpoint.");
+    await API.patch(`/my-properties/${propertyId}/status`, { status: newStatus });
 
     Alert.alert(
       "Success",
@@ -191,27 +193,33 @@ export default function PropertyAction({ property, onStatusChanged }: ActionProp
     <View style={styles.container}>
       {/* <Text style={styles.label}>Property Action</Text> */}
 
-      <View style={styles.pickerWrapper}>
-        <Picker
-          selectedValue={selectedAction}
-          style={{ color: "#0f172a", backgroundColor: "#f8fafc" }}
-          dropdownIconColor="#0f172a"
-          onValueChange={(itemValue) =>
-            setSelectedAction(itemValue as ActionType | "")
-          }
-        >
-          <Picker.Item label="Select an action" value="" color="#334155" />
-          {actions.map((action) => (
-            <Picker.Item
+      <TouchableOpacity
+        accessibilityRole="button"
+        accessibilityLabel="Choose property action"
+        style={styles.pickerWrapper}
+        onPress={() => setShowActionOptions(current => !current)}
+      >
+        <Text style={{ color: "#0f172a", fontWeight: "700", fontSize: 15 }}>
+          {actions.find(action => action.value === selectedAction)?.label ?? "Select an action"}
+        </Text>
+        <Text style={{ color: "#0f172a" }}>{showActionOptions ? "▲" : "▼"}</Text>
+      </TouchableOpacity>
+      {showActionOptions && (
+        <View style={styles.actionChoices}>
+          {actions.map(action => (
+            <TouchableOpacity
               key={action.value}
-              label={action.label}
-              value={action.value}
-              color="#0f172a"
-            />
+              accessibilityRole="button"
+              style={[styles.actionChoice, selectedAction === action.value && styles.actionChoiceSelected]}
+              onPress={() => { setSelectedAction(action.value); setShowActionOptions(false); }}
+            >
+              <Text style={{ color: "#0f172a", fontWeight: selectedAction === action.value ? "800" : "500" }}>
+                {action.label}
+              </Text>
+            </TouchableOpacity>
           ))}
-        </Picker>
-      </View>
-
+        </View>
+      )}
       <TouchableOpacity
         style={[styles.button, loading && styles.buttonDisabled]}
         onPress={handleSubmit}
@@ -313,9 +321,15 @@ const styles = StyleSheet.create({
     borderColor: "#e2e8f0",
     borderRadius: 10,
     marginBottom: 12,
-    overflow: "hidden",
     backgroundColor: "#f8fafc",
+    flexDirection: "row",
+    justifyContent: "space-between",
+    alignItems: "center",
+    padding: 13,
   },
+  actionChoices: { borderWidth: 1, borderColor: "#cbd5e1", borderRadius: 10, backgroundColor: "#ffffff", marginBottom: 12 },
+  actionChoice: { padding: 14, borderBottomWidth: 1, borderBottomColor: "#e2e8f0" },
+  actionChoiceSelected: { backgroundColor: "#dbeafe" },
   button: {
     backgroundColor: "#2563eb",
     paddingVertical: 12,
