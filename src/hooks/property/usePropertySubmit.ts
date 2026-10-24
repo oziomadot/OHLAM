@@ -1,4 +1,5 @@
-import { savePendingPropertyUpload } from "@/src/services/propertyUploadQueue";
+import { savePendingPropertyUpload, deletePendingPropertyUpload } from "@/src/services/propertyUploadQueue";
+import * as Crypto from "expo-crypto";
 import API from "@/src/services/api";
 import { router } from "expo-router";
 
@@ -375,6 +376,29 @@ const validateMedia = (): boolean => {
     }
 
     setLoading(true);
+    const submissionId = Crypto.randomUUID();
+    let savedLocally = false;
+    const pendingFiles: Record<string, any> = {...(images || {})};
+    if (video?.uri) pendingFiles.video = video;
+    if (proofDocument?.uri) pendingFiles.proof_document = proofDocument;
+    if (floorPlan?.uri) pendingFiles.floor_plan = floorPlan;
+    if (threeSixtyVideo?.uri) pendingFiles.three_sixty_video = threeSixtyVideo;
+
+    try {
+      await savePendingPropertyUpload(
+        String(formData.user_id || ""),
+        {...formData, propertyTypes: selectedPropertyType},
+        pendingFiles,
+        "pending",
+        submissionId
+      );
+      savedLocally = true;
+    } catch (error) {
+      console.error("Could not save pending property securely:", error);
+      showAlert("Unable to save draft", "Could not preserve property files on this device. Free storage and try again.");
+      setLoading(false);
+      return;
+    }
 
     try {
       const data =
@@ -571,10 +595,12 @@ const validateMedia = (): boolean => {
         );
       }
 
+      data.set("client_submission_id", submissionId);
       const res =
         await API.createProperty(
           data
         );
+      if (savedLocally) await deletePendingPropertyUpload(submissionId, String(formData.user_id || "")).catch(()=>{});
 
       reset();
       resetFiles();
@@ -611,29 +637,9 @@ const validateMedia = (): boolean => {
       const responseData =
         err.response?.data;
 
-      // A connection failure may occur AFTER Laravel accepted the request.
-      // Preserve files but require reconciliation before any retry.
-      if (!err.response && (err.code === "ERR_NETWORK" || err.code === "ECONNABORTED" || err.message === "Network Error")) {
-        try {
-          const pendingFiles: Record<string, any> = {...(images || {})};
-          if (video?.uri) pendingFiles.video = video;
-          if (proofDocument?.uri) pendingFiles.proof_document = proofDocument;
-          if (floorPlan?.uri) pendingFiles.floor_plan = floorPlan;
-          if (threeSixtyVideo?.uri) pendingFiles.three_sixty_video = threeSixtyVideo;
-          await savePendingPropertyUpload(
-            String(formData.user_id || ""),
-            {...formData, propertyTypes: selectedPropertyType},
-            pendingFiles,
-            "needs_review"
-          );
-          showAlert(
-            "Submission needs checking",
-            "The connection was interrupted. Your details and media have been saved on this device under Pending Uploads. Check My Properties before resubmitting to avoid duplicates."
-          );
-          return;
-        } catch (saveError) {
-          console.error("Could not preserve interrupted property submission:", saveError);
-        }
+      if (!err.response || err.code === "ERR_NETWORK" || err.code === "ECONNABORTED") {
+        showAlert("Upload saved", "Connection interrupted. Your property and files are saved under Pending Uploads. You can retry safely with the same submission ID.");
+        return;
       }
 
       console.error(
