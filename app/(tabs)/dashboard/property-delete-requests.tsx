@@ -24,7 +24,26 @@ export default function PropertyDeleteRequests(){
     await API.post(`/management/property-delete-requests/${id}/decision`,{decision,reason:message});
     await load();
     Alert.alert("Recorded","Decision saved to the management audit log.");
-   }catch(e:any){Alert.alert("Failed",e?.response?.data?.message??"Decision could not be saved.");}finally{setBusy(null);}}}
+   }catch(e:any){
+     const data=e?.response?.data;
+     const status=e?.response?.status;
+     if(status===409 && data?.code==="PROPERTY_DELETION_PAYMENT_REVIEW_REQUIRED"){
+       Alert.alert(
+         "Payment review required",
+         `Property #${id} cannot be removed yet because it has payment records requiring review.\\n\\n${data.next_step || "Review its payment and settlement records before deciding."}`
+       );
+     }else if(status===409){
+       Alert.alert("Request needs attention", data?.message || "This property has an unresolved item. Review it before deciding.");
+     }else if(status===422){
+       Alert.alert("Check your decision", data?.message || "Review the reason you entered and try again.");
+     }else if(status===403){
+       Alert.alert("Permission required", "Your account does not have permission to make this decision.");
+     }else if(!e?.response){
+       Alert.alert("Connection problem", "OHLAM could not contact the server. Check your connection and retry; your decision was not confirmed.");
+     }else{
+       Alert.alert("Unable to save decision", "Please try again. If the problem continues, contact OHLAM management.");
+     }
+   }finally{setBusy(null);}}}
   ]);
  };
  return <ScrollView contentContainerStyle={styles.page}>
