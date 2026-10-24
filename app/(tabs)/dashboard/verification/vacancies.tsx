@@ -77,10 +77,15 @@ export default function VerificationVacancies(){
   {selector("State",states,state,id=>{void chooseState(id);})}
   {selector("LGA (optional, statewide role)",areas,area,setArea)}
   {area!==null&&<TouchableOpacity onPress={()=>setArea(null)}><Text style={styles.link}>Clear LGA</Text></TouchableOpacity>}
-  <TextInput style={styles.input} placeholder="Vacancy title" value={title} onChangeText={setTitle} maxLength={160}/>
-  <TextInput style={[styles.input,styles.multi]} placeholder="Responsibilities, assignment type and contractor terms" value={description} onChangeText={setDescription} multiline maxLength={10000}/>
-  <TextInput style={[styles.input,styles.multi]} placeholder="Requirements: smartphone, training or professional registration, as applicable" value={requirements} onChangeText={setRequirements} multiline maxLength={10000}/>
-  <TextInput style={styles.input} placeholder="Closing date/time (optional, ISO 8601)" value={closing} onChangeText={setClosing}/>
+  <Text style={styles.label}>Job title *</Text>
+  <TextInput accessibilityLabel="Job title" style={styles.input} placeholder="e.g. Property Verification Officer" value={title} onChangeText={setTitle} maxLength={160}/>
+  <Text style={styles.label}>Job description and responsibilities *</Text>
+  <TextInput accessibilityLabel="Job description and responsibilities" style={[styles.input,styles.multi]} placeholder="Describe the duties, location and contract terms" value={description} onChangeText={setDescription} multiline maxLength={10000}/>
+  <Text style={styles.label}>Applicant qualifications and requirements *</Text>
+  <TextInput accessibilityLabel="Applicant qualifications and requirements" style={[styles.input,styles.multi]} placeholder="List qualifications, experience and tools required" value={requirements} onChangeText={setRequirements} multiline maxLength={10000}/>
+  <Text style={styles.label}>Application closing date and time (optional)</Text>
+  <TextInput accessibilityLabel="Application closing date and time" style={styles.input} placeholder="e.g. 2026-11-30T17:00:00+01:00" value={closing} onChangeText={setClosing} autoCapitalize="none"/>
+  <Text style={styles.muted}>Fields marked * are required. Leave the closing date empty if recruitment is ongoing.</Text>
   <TouchableOpacity disabled={busy} style={styles.primary} onPress={()=>void save()}><Text style={styles.white}>{busy?"Saving...":editing?"Update draft":"Save draft vacancy"}</Text></TouchableOpacity>
   <Text style={styles.heading}>Vacancy register</Text>
   {items.map(x=><View style={styles.card} key={x.id}>

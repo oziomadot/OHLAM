@@ -587,103 +587,30 @@ export default function EditProperty() {
    *
    * {...}
    */
-const extractPropertyFromResponse = (
-  response: any
-) => {
-  /*
-   * Remove Axios response wrapper.
-   */
-  let payload =
-    response?.data ?? response;
-
-  /*
-   * Support:
-   * {
-   *   data: {
-   *     property: {...}
-   *   }
-   * }
-   */
-  if (
-    payload?.data?.property
-  ) {
-    return payload.data.property;
+const extractPropertyFromResponse = (response: any) => {
+  const body = response?.data ?? response;
+  const property = body?.property ?? body?.data?.property ?? body?.data?.data?.property ??
+    body?.data?.data ?? body?.data ?? body;
+  if (!property || typeof property !== "object" || Array.isArray(property) || !property.id) {
+    throw new Error("The server did not return an editable property.");
   }
-
-  /*
-   * Support:
-   * {
-   *   data: {...property fields}
-   * }
-   */
-  if (
-    payload?.data &&
-    typeof payload.data ===
-      "object"
-  ) {
-    payload = payload.data;
-  }
-
-  /*
-   * Support:
-   * {
-   *   property: {...}
-   * }
-   */
-  if (
-    payload?.property
-  ) {
-    return payload.property;
-  }
-
-  /*
-   * Support Laravel resource:
-   * {
-   *   data: {
-   *     data: {...}
-   *   }
-   * }
-   */
-  if (
-    payload?.data?.data
-  ) {
-    return payload.data.data;
-  }
-
-  /*
-   * Support a property returned directly.
-   */
-  return payload;
+  return property;
 };
 
 const getProperty = async (
   id: string
 ) => {
   const response: any =
-    await API.getProperty(id);
+    await API.get(`/my-properties/${encodeURIComponent(id)}`);
 
   const property =
     extractPropertyFromResponse(
       response
     );
 
-  console.log(
-    "EDIT PROPERTY API RESPONSE:",
-    JSON.stringify(
-      response,
-      null,
-      2
-    )
-  );
+  // Avoid logging private property and ownership records to the device console.
 
-  console.log(
-    "EXTRACTED PROPERTY:",
-    JSON.stringify(
-      property,
-      null,
-      2
-    )
-  );
+  
 
   if (
     !property ||

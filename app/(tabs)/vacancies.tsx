@@ -22,6 +22,11 @@ type Vacancy = {
   jobdesc: string;
   deadline: string;
   created_at: string;
+  source: "legacy" | "recruitment";
+  requirements?: string;
+  department?: string;
+  engagement_type?: string;
+  closes_at?: string | null;
 };
 
 type AppForm = {
@@ -43,24 +48,47 @@ const EMPTY_FORM: AppForm = {
 export default function Vacancies() {
   const [vacancies, setVacancies] = useState<Vacancy[]>([]);
   const [loading, setLoading] = useState(true);
-  const [expanded, setExpanded] = useState<number | null>(null);
+  const [expanded, setExpanded] = useState<string | null>(null);
   const [applying, setApplying] = useState<Vacancy | null>(null);
   const [form, setForm] = useState<AppForm>(EMPTY_FORM);
   const [submitting, setSubmitting] = useState(false);
 
-  useEffect(() => {
-    const load = async () => {
-      try {
-        const res = await API.getVacancies();
-        setVacancies(res.data ?? []);
-      } catch (e: any) {
-        Alert.alert("Error", e?.response?.data?.message || "Failed to load vacancies");
-      } finally {
-        setLoading(false);
+  const loadVacancies = async () => {
+    setLoading(true);
+    try {
+      const results = await Promise.allSettled([
+        API.get("/recruitment/vacancies"),
+        API.getVacancies(),
+      ]);
+      if (results.every(r => r.status === "rejected")) {
+        throw (results[0] as PromiseRejectedResult).reason;
       }
-    };
-    load();
-  }, []);
+      const modern = results[0].status === "fulfilled"
+        ? (results[0].value.data?.data ?? [])
+        : [];
+      const legacyResponse = results[1].status === "fulfilled" ? results[1].value : null;
+      const old = legacyResponse ? (legacyResponse.data?.data ?? legacyResponse.data ?? []) : [];
+      const combined: Vacancy[] = [
+        ...(Array.isArray(modern) ? modern : []).map((v: any) => ({
+          ...v,
+          source: "recruitment" as const,
+          jobdesc: v.description ?? "",
+          deadline: v.closes_at ?? "",
+          created_at: v.created_at ?? "",
+        })),
+        ...(Array.isArray(old) ? old : []).map((v: any) => ({
+          ...v,
+          source: "legacy" as const,
+        })),
+      ];
+      setVacancies(combined);
+    } catch (e: any) {
+      Alert.alert("Error", e?.response?.data?.message || "Failed to load vacancies");
+    } finally {
+      setLoading(false);
+    }
+  };
+  useEffect(() => { void loadVacancies(); }, []);
 
   const pickCV = async () => {
     const result = await DocumentPicker.getDocumentAsync({
@@ -85,21 +113,32 @@ export default function Vacancies() {
       Alert.alert("Validation", "Full name, email, and phone are required.");
       return;
     }
-    if (!form.cv) {
+    if (applying.source === "legacy" && !form.cv) {
       Alert.alert("Validation", "Please attach your CV.");
       return;
     }
-    const data = new FormData();
-    data.append("full_name", form.full_name);
-    data.append("email", form.email);
-    data.append("phone", form.phone);
-    if (form.cover_letter.trim()) data.append("cover_letter", form.cover_letter);
-    data.append("cv", { name: form.cv.name, uri: form.cv.uri, type: form.cv.mimeType } as any);
-
     setSubmitting(true);
     try {
-      await API.applyVacancy(applying.id, data);
-      Alert.alert("Success", "Your application has been submitted successfully!");
+      if (applying.source === "recruitment") {
+        const response = await API.post(`/recruitment/vacancies/${applying.id}/apply`, {
+          name: form.full_name.trim(),
+          email: form.email.trim(),
+          phone: form.phone.trim(),
+          experience: form.cover_letter.trim() || null,
+        });
+        const reference = response.data?.data?.reference;
+        Alert.alert("Application received",
+          `Your application was recorded.${reference ? `\nReference: ${reference}` : ""}\nOHLAM will provide instructions for supporting documents if needed.`);
+      } else {
+        const data = new FormData();
+        data.append("full_name", form.full_name);
+        data.append("email", form.email);
+        data.append("phone", form.phone);
+        if (form.cover_letter.trim()) data.append("cover_letter", form.cover_letter);
+        if (form.cv) data.append("cv", { name: form.cv.name, uri: form.cv.uri, type: form.cv.mimeType } as any);
+        await API.applyVacancy(applying.id, data);
+        Alert.alert("Success", "Your application has been submitted successfully!");
+      }
       setApplying(null);
       setForm(EMPTY_FORM);
     } catch (e: any) {
@@ -160,12 +199,13 @@ export default function Vacancies() {
           </Text>
 
           {vacancies.map((v) => {
-            const isOpen = expanded === v.id;
+            const cardKey = `${v.source}-${v.id}`;
+            const isOpen = expanded === cardKey;
             return (
-              <View key={v.id} style={styles.card}>
+              <View key={cardKey} style={styles.card}>
                 <TouchableOpacity
                   style={styles.cardHeader}
-                  onPress={() => setExpanded(isOpen ? null : v.id)}
+                  onPress={() => setExpanded(isOpen ? null : cardKey)}
                   activeOpacity={0.75}
                 >
                   <View style={styles.cardIconBox}>
@@ -173,7 +213,7 @@ export default function Vacancies() {
                   </View>
                   <View style={styles.cardMeta}>
                     <Text style={styles.cardTitle}>{v.title}</Text>
-                    <Text style={styles.cardDate}>Posted {formatDate(v.created_at)}</Text>
+                    <Text style={styles.cardDate}>{v.department ? v.department.replace(/_/g, " ") + " · " : ""}{v.created_at ? "Posted " + formatDate(v.created_at) : "Open position"}</Text>
                     <Text style={styles.cardDeadline}>
                       <Ionicons name="time-outline" size={11} /> Deadline: {formatDate(v.deadline)}
                     </Text>
@@ -192,6 +232,7 @@ export default function Vacancies() {
                     <View style={styles.divider} />
                     <Text style={styles.descLabel}>Job Description</Text>
                     <Text style={styles.descText}>{v.jobdesc}</Text>
+                    {!!v.requirements && <><Text style={styles.descLabel}>Requirements</Text><Text style={styles.descText}>{v.requirements}</Text></>}
                     <TouchableOpacity
                       style={styles.applyBtn}
                       onPress={() => { setApplying(v); setForm(EMPTY_FORM); }}
@@ -269,7 +310,7 @@ export default function Vacancies() {
             onChangeText={(v) => setForm((f) => ({ ...f, cover_letter: v }))}
           />
 
-          <Text style={styles.fieldLabel}>CV / Resume * (PDF, DOC, DOCX — max 5MB)</Text>
+          {applying?.source === "legacy" && <><Text style={styles.fieldLabel}>CV / Resume * (PDF, DOC, DOCX — max 5MB)</Text>
           <TouchableOpacity style={styles.cvPicker} onPress={pickCV}>
             <Ionicons
               name={form.cv ? "document-text" : "cloud-upload-outline"}
@@ -284,7 +325,12 @@ export default function Vacancies() {
                 <Ionicons name="close-circle" size={18} color="#ef4444" />
               </TouchableOpacity>
             )}
-          </TouchableOpacity>
+          </TouchableOpacity></>}
+          {applying?.source === "recruitment" && (
+            <Text style={styles.fieldLabel}>
+              CV and certificates may be requested through a secure upload process after submission.
+            </Text>
+          )}
 
           <TouchableOpacity
             style={[styles.submitBtn, submitting && styles.submitBtnDisabled]}
