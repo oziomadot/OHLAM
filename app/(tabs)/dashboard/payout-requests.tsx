@@ -36,6 +36,21 @@ export default function PayoutRequests(){
     setResults(response.data?.data??[]);
   }catch(e:any){Alert.alert("Search unavailable",errorText(e));}finally{setBusy(false);}
  };
+ const notifyUser=async(user:User)=>{
+  Alert.alert("Request bank details",`Send ${user.name} an in-app notification asking them to add verified bank details for a pending payout?`,[
+   {text:"Cancel",style:"cancel"},
+   {text:"Notify user",onPress:async()=>{
+    setBusy(true);
+    try {
+      const response=await API.post(`/management/payout-beneficiaries/${user.id}/request-bank-details`);
+      Alert.alert(response.data?.already_notified?"Already notified":"Notification sent",
+        response.data?.message||"The user has been asked to add their bank details.");
+    } catch(e:any) {
+      Alert.alert("Notification not sent",errorText(e));
+    } finally {setBusy(false);}
+   }}
+  ]);
+ };
  const select=(user:User,bank:Bank)=>{
   if(selected.some(s=>s.user_id===user.id)){
     Alert.alert("Beneficiary already selected","Each beneficiary can only be added once per batch.");return;
@@ -108,7 +123,13 @@ export default function PayoutRequests(){
     {results.map(user=><View key={user.id} style={styles.result}>
       <Text style={styles.name}>{user.name} · {user.oramex_id}</Text>
       <Text style={styles.text}>{user.email} · {user.phone}</Text>
-      {!user.bank_accounts.length?<Text style={styles.warning}>No active verified bank account. Ask beneficiary to add or verify their account.</Text>:user.bank_accounts.map(bank=>
+      {!user.bank_accounts.some(bank=>bank.ready)?<View>
+        <Text style={styles.warning}>This beneficiary does not yet have an active verified bank account ready for payout.</Text>
+        <TouchableOpacity disabled={busy||!permissions.includes("payouts.create")} style={styles.button} onPress={()=>void notifyUser(user)}>
+          <Text style={styles.buttonText}>Notify user to add bank details</Text>
+        </TouchableOpacity>
+      </View>:null}
+      {user.bank_accounts.map(bank=>
       <TouchableOpacity key={bank.id} disabled={busy||!bank.ready||selected.some(x=>x.user_id===user.id)}
        style={[styles.bank,!bank.ready&&styles.disabled]} onPress={()=>select(user,bank)}>
        <Text style={styles.text}>{bank.account_name} · Bank {bank.bank_code} · ••••{bank.account_last4}</Text>
