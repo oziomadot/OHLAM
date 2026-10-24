@@ -38,7 +38,7 @@ export default {
 
       googleServicesFile,
 
-      versionCode: 4,
+      versionCode: 5,
 
       permissions: [
         "CAMERA",
@@ -59,7 +59,7 @@ export default {
       bundleIdentifier:
         "com.oramexglobal.ohlam",
 
-      buildNumber: "1.0.0",
+      buildNumber: "1.0.1",
 
       supportsTablet: true,
 
