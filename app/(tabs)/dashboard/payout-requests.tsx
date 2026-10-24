@@ -7,7 +7,7 @@ import {getItemSafe} from "@/utils/storage";
 import API from "@/src/services/api";
 import {BASE_URL} from "@/src/services/api";
 
-type Bank={id:number;bank_code:string;account_name:string;account_last4:string;ready:boolean};
+type Bank={id:number;bank_code:string;account_name:string;account_last4:string;ready:boolean;is_verified:boolean;is_active:boolean;has_paystack_recipient:boolean};
 type User={id:number;oramex_id:string;name:string;email:string;phone:string;bank_accounts:Bank[]};
 type Choice={user_id:number;bank_account_id:number;name:string;bank:string};
 type Item={id:number;reference:string;batch_id?:string;purpose:string;description:string;amount_kobo:number;currency:string;recipient_name:string;status:string;requested_by:number;provider_reference?:string};
@@ -124,16 +124,16 @@ export default function PayoutRequests(){
       <Text style={styles.name}>{user.name} · {user.oramex_id}</Text>
       <Text style={styles.text}>{user.email} · {user.phone}</Text>
       {!user.bank_accounts.some(bank=>bank.ready)?<View>
-        <Text style={styles.warning}>This beneficiary does not yet have an active verified bank account ready for payout.</Text>
+        <Text style={styles.warning}>This beneficiary has no payout-ready bank account. Existing bank details may need verification or Paystack setup.</Text>
         <TouchableOpacity disabled={busy||!permissions.includes("payouts.create")} style={styles.button} onPress={()=>void notifyUser(user)}>
-          <Text style={styles.buttonText}>Notify user to add bank details</Text>
+          <Text style={styles.buttonText}>Notify user to add / verify bank details</Text>
         </TouchableOpacity>
       </View>:null}
       {user.bank_accounts.map(bank=>
       <TouchableOpacity key={bank.id} disabled={busy||!bank.ready||selected.some(x=>x.user_id===user.id)}
        style={[styles.bank,!bank.ready&&styles.disabled]} onPress={()=>select(user,bank)}>
        <Text style={styles.text}>{bank.account_name} · Bank {bank.bank_code} · ••••{bank.account_last4}</Text>
-       <Text style={styles.hint}>{bank.ready?"Tap to add beneficiary":"Paystack recipient not yet configured"}</Text>
+       <Text style={styles.hint}>{bank.ready?"Verified · Ready for payout":!bank.is_verified?"Saved · Awaiting verification":!bank.is_active?"Inactive bank account":"Verified · Paystack recipient setup pending"}</Text>
       </TouchableOpacity>)}
     </View>)}
    </View>
