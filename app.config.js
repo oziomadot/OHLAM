@@ -12,7 +12,7 @@ export default {
     name: isTesting ? "OHLAM Test" : "OHLAM",
     slug: "OHLAM",
     scheme: isTesting ? "ohlam-test" : "ohlam",
-    version: "1.1.0",
+    version: "1.0.15",
 
     icon: "./assets/ohlam_adaptive_logo_1.png",
 
