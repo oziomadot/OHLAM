@@ -1,4 +1,5 @@
-import React, { useCallback, useMemo, useState } from "react";
+import { retryPendingPropertiesWhileActive } from "@/src/services/propertyUploadRetry";
+import React, { useCallback, useMemo, useState, useEffect } from "react";
 import {
   View,
   Text,
@@ -8,6 +9,7 @@ import {
   Alert,
   ScrollView,
   RefreshControl,
+  AppState,
 } from "react-native";
 import { useRouter, useFocusEffect } from "expo-router";
 import { MaterialCommunityIcons } from "@expo/vector-icons";
@@ -52,6 +54,23 @@ export default function Dashboard() {
   const [role, setRole] = useState("User");
   const isStaff = permissions.includes("support.view");
   const isAdmin = permissions.includes("admin.access");
+
+  // Retry only while the app is active, with a single worker per JS runtime.
+  useEffect(() => {
+    const ownerId = String(user?.id || "");
+    if (!ownerId) return;
+    const run = () => {
+      if (AppState.currentState === "active") {
+        void retryPendingPropertiesWhileActive(ownerId).catch(() => {});
+      }
+    };
+    run();
+    const interval = setInterval(run, 60_000);
+    const subscription = AppState.addEventListener("change", state => {
+      if (state === "active") run();
+    });
+    return () => { clearInterval(interval); subscription.remove(); };
+  }, [user?.id]);
 
   const goTo = (route: string) => router.push(route as any);
 

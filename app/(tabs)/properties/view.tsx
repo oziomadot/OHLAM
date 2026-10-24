@@ -231,6 +231,14 @@ export default function MyProperties() {
             </TouchableOpacity>
           </View>
 
+          <TouchableOpacity
+            style={{marginHorizontal:16,marginBottom:12,padding:14,borderWidth:1,borderColor:"#93c5fd",borderRadius:10,backgroundColor:"#eff6ff",flexDirection:"row",alignItems:"center",justifyContent:"space-between"}}
+            onPress={() => router.push("/(tabs)/properties/pending-uploads" as any)}
+          >
+            <Text style={{color:"#1e40af",fontWeight:"800"}}>Pending Uploads (saved on this phone)</Text>
+            <Ionicons name="chevron-forward" size={20} color="#1e40af" />
+          </TouchableOpacity>
+
           {/* Summary */}
           {!loading && (
             <View style={styles.summaryCard}>
