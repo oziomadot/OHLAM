@@ -163,6 +163,7 @@ export default function Dashboard() {
   ];
 
   const staffSections = [
+    ["Property Delete Requests", "Review pending requests and reasons", "file-document-remove-outline", "/(tabs)/dashboard/property-delete-requests"],
     ["Recruitment Applicants", "Review applications across OHLAM", "account-multiple-check-outline", "/(tabs)/dashboard/verification/applications"],
     ["Verification Demand", "Wishlist and special-search requests by LGA", "chart-bar", "/(tabs)/dashboard/verification/demand"],
     ["Verification Requests", "Review customer property verification requests", "shield-search", "/(tabs)/dashboard/verification"],
@@ -173,6 +174,7 @@ export default function Dashboard() {
   ];
 
   const adminSections = [
+    ["Admin Payout Requests", "Propose and approve prize or contractor payments", "bank-transfer", "/(tabs)/dashboard/payout-requests"],
     ["OHLAM Recruitment", "Create vacancies across all departments", "briefcase-outline", "/(tabs)/dashboard/verification/vacancies"],
     ["Verification Setup", "Draft regional service prices and professional coverage", "cog-outline", "/(tabs)/dashboard/verification/configuration"],
     ["Suspensions & Deletions", "Review status, reasons and the staff member responsible", "shield-search", "/(tabs)/management"],
