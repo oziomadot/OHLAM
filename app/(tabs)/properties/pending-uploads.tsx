@@ -2,7 +2,8 @@ import React, {useCallback,useState} from "react";
 import {ActivityIndicator,Alert,ScrollView,StyleSheet,Text,TouchableOpacity,View} from "react-native";
 import {router,useFocusEffect} from "expo-router";
 import {useAuth} from "@/context/AuthContext";
-import {deletePendingPropertyUpload,listPendingPropertyUploads,PendingPropertyUpload} from "@/src/services/propertyUploadQueue";
+import API from "@/src/services/api";
+import {deletePendingPropertyUpload,listPendingPropertyUploads,pendingPropertyToFormData,PendingPropertyUpload} from "@/src/services/propertyUploadQueue";
 
 export default function PendingUploadsScreen(){
  const {user}=useAuth();
@@ -17,6 +18,21 @@ export default function PendingUploadsScreen(){
   finally{setLoading(false);}
  },[owner]);
  useFocusEffect(useCallback(()=>{void refresh();},[refresh]));
+ const retry=async(item:PendingPropertyUpload)=>{
+   if(busy) return;
+   setBusy(true);
+   try {
+     const result=await API.createProperty(pendingPropertyToFormData(item));
+     if(result?.success===false) throw new Error(result.message||"Property was not accepted.");
+     await deletePendingPropertyUpload(item.id,owner);
+     await refresh();
+     Alert.alert("Property received","OHLAM has received this listing. It may still require moderation.");
+   } catch(e:any) {
+     const status=e?.response?.status;
+     Alert.alert(status===422?"Validation failed":status===413?"Media too large":"Upload not confirmed",
+       e?.response?.data?.message || (status===413?"Reduce the media size before resubmitting.":"Your saved copy remains on this phone. Retry after checking your connection."));
+   }finally{setBusy(false);}
+ };
  const remove=(id:string)=>{
   Alert.alert("Delete local draft?","This removes the saved form and files from this phone. It does not delete a listing on OHLAM.",[
    {text:"Cancel",style:"cancel"},
@@ -35,7 +51,10 @@ export default function PendingUploadsScreen(){
       <Text style={styles.heading}>{String(item.form.address||"Property draft")}</Text>
       <Text style={styles.body}>Saved: {new Date(item.createdAt).toLocaleString()}</Text>
       <Text style={styles.body}>Files preserved: {Object.keys(item.files).length}</Text>
-      <Text style={styles.warning}>Connection interrupted — verify whether the listing exists online before submitting again.</Text>
+      <Text style={styles.warning}>Saved on this device. Retrying uses the same submission ID so the server can recognize duplicates.</Text>
+      <TouchableOpacity disabled={busy} style={styles.button} onPress={()=>void retry(item)}>
+        <Text style={styles.buttonText}>{busy?"Uploading...":"Retry upload"}</Text>
+      </TouchableOpacity>
       <TouchableOpacity style={styles.button} onPress={()=>router.push("/(tabs)/properties/view" as any)}>
        <Text style={styles.buttonText}>Check My Properties</Text>
       </TouchableOpacity>
