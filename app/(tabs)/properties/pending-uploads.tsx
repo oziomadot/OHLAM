@@ -1,3 +1,4 @@
+import { submitQueuedProperty } from "@/src/services/submitQueuedProperty";
 import React, {useCallback,useState} from "react";
 import {ActivityIndicator,Alert,ScrollView,StyleSheet,Text,TouchableOpacity,View} from "react-native";
 import {router,useFocusEffect} from "expo-router";
@@ -22,7 +23,7 @@ export default function PendingUploadsScreen(){
    if(busy) return;
    setBusy(true);
    try {
-     const result=await API.createProperty(pendingPropertyToFormData(item));
+     const result=await submitQueuedProperty(item);
      if(result?.success===false) throw new Error(result.message||"Property was not accepted.");
      await deletePendingPropertyUpload(item.id,owner);
      await refresh();
