@@ -10,6 +10,16 @@ type PrepareResponse = {
 };
 
 export async function submitQueuedProperty(item: PendingPropertyUpload): Promise<any> {
+  // The property may have been created even if the previous success response was lost.
+  // Check first to avoid uploading duplicate media to staging.
+  try {
+    const existing = await API.get(`/property-uploads/submissions/${item.id}`);
+    if (existing.data?.success && existing.data?.property_id) return existing.data;
+  } catch (error:any) {
+    if (error?.response?.status !== 404) {
+      throw error;
+    }
+  }
   const files = Object.entries(item.files);
   if (!files.length) throw new Error("This draft has no saved media.");
 

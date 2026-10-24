@@ -81,7 +81,7 @@ export function pendingPropertyToFormData(item: PendingPropertyUpload): FormData
   const data = new FormData();
   for (const [key,value] of Object.entries(item.form)) {
     if (key === "additional_fee_items" || key === "additional_expenses") continue;
-    if (item.form.propertyTypes === 3 && ["access_road","survey_plan","c_of_o"].includes(key)) {
+    if (Number(item.form.propertyTypes) === 3 && ["access_road","survey_plan","c_of_o"].includes(key)) {
       data.append(key, value ? "1" : "0");
       continue;
     }
