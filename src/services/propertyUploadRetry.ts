@@ -1,3 +1,4 @@
+import { submitQueuedProperty } from "@/src/services/submitQueuedProperty";
 import API from "@/src/services/api";
 import {
   deletePendingPropertyUpload,
@@ -27,7 +28,7 @@ export async function retryPendingPropertiesWhileActive(ownerId: string): Promis
 
     for (const entry of ready) {
       try {
-        const result = await API.createProperty(pendingPropertyToFormData(entry));
+        const result = await submitQueuedProperty(entry);
         if (result?.success === false || !result?.property_id) {
           throw new Error("Server response did not confirm a property ID.");
         }
