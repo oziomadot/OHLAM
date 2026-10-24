@@ -601,7 +601,7 @@ const getProperty = async (
   id: string
 ) => {
   const response: any =
-    await API.getProperty(id);
+    await API.get(`/my-properties/${encodeURIComponent(id)}`);
 
   const property =
     extractPropertyFromResponse(
