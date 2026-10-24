@@ -1,3 +1,4 @@
+import { savePendingPropertyUpload } from "@/src/services/propertyUploadQueue";
 import API from "@/src/services/api";
 import { router } from "expo-router";
 
@@ -609,6 +610,31 @@ const validateMedia = (): boolean => {
     ) {
       const responseData =
         err.response?.data;
+
+      // A connection failure may occur AFTER Laravel accepted the request.
+      // Preserve files but require reconciliation before any retry.
+      if (!err.response && (err.code === "ERR_NETWORK" || err.code === "ECONNABORTED" || err.message === "Network Error")) {
+        try {
+          const pendingFiles: Record<string, any> = {...(images || {})};
+          if (video?.uri) pendingFiles.video = video;
+          if (proofDocument?.uri) pendingFiles.proof_document = proofDocument;
+          if (floorPlan?.uri) pendingFiles.floor_plan = floorPlan;
+          if (threeSixtyVideo?.uri) pendingFiles.three_sixty_video = threeSixtyVideo;
+          await savePendingPropertyUpload(
+            String(formData.user_id || ""),
+            {...formData, propertyTypes: selectedPropertyType},
+            pendingFiles,
+            "needs_review"
+          );
+          showAlert(
+            "Submission needs checking",
+            "The connection was interrupted. Your details and media have been saved on this device under Pending Uploads. Check My Properties before resubmitting to avoid duplicates."
+          );
+          return;
+        } catch (saveError) {
+          console.error("Could not preserve interrupted property submission:", saveError);
+        }
+      }
 
       console.error(
         "Upload error:",
