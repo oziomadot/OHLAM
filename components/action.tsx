@@ -21,7 +21,8 @@ type Property = {
   category?: string;
   amount?: number | string;
   created_at?: string;
-  status?: PropertyStatus | { name?: string };
+  status?: PropertyStatus | { name?: string; code?: string };
+  status_id?: number;
 };
 
 type ActionType = "rented" | "sold" | "delete" | "edit" | "view";
@@ -52,19 +53,20 @@ export default function PropertyAction({ property, onStatusChanged }: ActionProp
   const propertyId = property?.id;
 
   const status = useMemo(() => {
-    if (typeof property?.status === "object") {
-      return String(property.status?.name || "").toLowerCase();
-    }
+    const raw = typeof property?.status === "object" && property.status !== null
+      ? (property.status.code || property.status.name || "")
+      : (property?.status || "");
+    return String(raw).trim().toLowerCase().replace(/[\s-]+/g, "_");
+  }, [property?.status]);
 
-    return String(property?.status || "available").toLowerCase();
-  }, [property]);
-
-  const isSold = status === "sold";
-  const isRented = status === "rented";
-  const isDeleteRequested =
-    status === "delete_requested" ||
-    status === "delete requested" ||
-    status === "pending_delete";
+  const isSold = status === "property_sold" || status === "sold";
+  const isRented = status === "property_rented" || status === "rented";
+  const isDeleteRequested = [
+    "property_pending_delete",
+    "pending_delete",
+    "delete_requested",
+    "property_delete_requested",
+  ].includes(status);
 
   const submitStatusChange = async (newStatus: "sold" | "rented") => {
     await API.patch(`/my-properties/${propertyId}/status`, { status: newStatus });
