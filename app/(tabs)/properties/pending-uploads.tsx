@@ -3,8 +3,7 @@ import React, {useCallback,useState} from "react";
 import {ActivityIndicator,Alert,ScrollView,StyleSheet,Text,TouchableOpacity,View} from "react-native";
 import {router,useFocusEffect} from "expo-router";
 import {useAuth} from "@/context/AuthContext";
-import API from "@/src/services/api";
-import {deletePendingPropertyUpload,listPendingPropertyUploads,pendingPropertyToFormData,PendingPropertyUpload} from "@/src/services/propertyUploadQueue";
+import {deletePendingPropertyUpload,listPendingPropertyUploads,PendingPropertyUpload} from "@/src/services/propertyUploadQueue";
 
 export default function PendingUploadsScreen(){
  const {user}=useAuth();
