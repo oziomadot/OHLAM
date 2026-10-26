@@ -187,8 +187,8 @@ export default function Dashboard() {
     ["Verification Demand", "Wishlist and special-search requests by LGA", "chart-bar", "/(tabs)/dashboard/verification/demand"],
     ["Verification Requests", "Review customer property verification requests", "shield-search", "/(tabs)/dashboard/verification"],
     ["Search Property", "Find a property by property or agent number", "home-search", "/(tabs)/management?kind=property"],
-    ["Search Agent", "Find an agent by agent number or Oramex ID", "account-search", "/(tabs)/management?kind=agent"],
-    ["Management Workspace", "Search agents, properties and inspection status", "account-search", "/(tabs)/management"],
+
+    ["Management Workspace", "Find users, properties and inspection status", "account-search", "/(tabs)/management"],
     ["User Support", "Read and reply to user-management conversations", "message-text-lock", "/(tabs)/chat"],
   ];
 

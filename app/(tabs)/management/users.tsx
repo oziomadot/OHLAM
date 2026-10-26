@@ -1,14 +1,21 @@
-import React, { useState } from "react";
+import React, { useEffect, useState } from "react";
 import { ActivityIndicator, ScrollView, StyleSheet, Text, TextInput, TouchableOpacity, View } from "react-native";
-import { Stack } from "expo-router";
+import { Stack, useLocalSearchParams } from "expo-router";
 import { API } from "@/src/services/api";
 
 type UserRow = { id: number; oramex_id: string; name: string; email: string; phone: string | null };
 type PropertyRow = { id: number; address: string; amount: number; status: string | null };
 type BankRow = { id: number; bank_name: string; account_name: string; account_last4: string; is_verified: boolean; payout_ready: boolean };
-type UserDetail = UserRow & { properties: PropertyRow[] | null; bank_accounts: BankRow[] | null };
+type AppointmentRow = { id: number; property_id: number; role: string; date: string; status: string | null };
+type UserDetail = UserRow & {
+  properties: PropertyRow[] | null;
+  bank_accounts: BankRow[] | null;
+  appointments: AppointmentRow[] | null;
+  activity_summary: { properties_count: number | null; appointment_requests_count: number | null; appointments_as_lister_count: number | null };
+};
 
 export default function ManagementUsers() {
+  const { userId } = useLocalSearchParams<{ userId?: string }>();
   const [query, setQuery] = useState("");
   const [records, setRecords] = useState<UserRow[]>([]);
   const [selected, setSelected] = useState<UserDetail | null>(null);
@@ -17,6 +24,21 @@ export default function ManagementUsers() {
   const [searched, setSearched] = useState(false);
   const [page, setPage] = useState(1);
   const [hasMore, setHasMore] = useState(false);
+
+  useEffect(() => {
+    const id = Number(userId);
+    if (!Number.isSafeInteger(id) || id <= 0) return;
+    let active = true;
+    setBusy(true); setError("");
+    API.get(`/management/users/${id}`).then(({ data }) => {
+      if (active) setSelected(data?.data ?? null);
+    }).catch((err: any) => {
+      if (active) setError(err?.response?.status === 403
+        ? "You are not authorized to view this user's details."
+        : err?.response?.data?.message ?? "Unable to load user details.");
+    }).finally(() => { if (active) setBusy(false); });
+    return () => { active = false; };
+  }, [userId]);
 
   const search = async (nextPage = 1) => {
     const term = query.trim();
@@ -64,11 +86,26 @@ export default function ManagementUsers() {
     {error ? <Text accessibilityRole="alert" style={styles.error}>{error}</Text> : null}
     {busy ? <ActivityIndicator /> : null}
     {selected ? <View style={styles.card}>
-      <TouchableOpacity style={styles.secondary} onPress={() => setSelected(null)}><Text>Back to search results</Text></TouchableOpacity>
+      <TouchableOpacity style={styles.secondary} onPress={() => setSelected(null)}><Text>Close user details</Text></TouchableOpacity>
       <Text style={styles.heading}>{selected.name}</Text>
       <Text selectable>Oramex ID: {selected.oramex_id}</Text>
       <Text selectable>Email: {selected.email}</Text>
       <Text selectable>Phone: {selected.phone || "Not provided"}</Text>
+      <Text style={styles.section}>Activity overview</Text>
+      {selected.activity_summary ? <View style={styles.record}>
+        <Text>Properties listed: {selected.activity_summary.properties_count ?? "Restricted"}</Text>
+        <Text>Inspections requested: {selected.activity_summary.appointment_requests_count ?? "Restricted"}</Text>
+        <Text>Appointments as lister: {selected.activity_summary.appointments_as_lister_count ?? "Restricted"}</Text>
+      </View> : null}
+      <Text style={styles.section}>Recent appointments</Text>
+      {selected.appointments === null ? <Text>Appointment history requires permission.</Text>
+        : !selected.appointments?.length ? <Text>No appointment activity.</Text>
+        : selected.appointments.map(a => <View key={a.id} style={styles.record}>
+          <Text selectable>Appointment #{a.id} · Property #{a.property_id}</Text>
+          <Text>Participated as: {a.role}</Text>
+          <Text>Date: {a.date || "Not scheduled"}</Text>
+          <Text>Status: {a.status || "Unknown"}</Text>
+        </View>)}
       <Text style={styles.section}>Properties</Text>
       {selected.properties === null ? <Text>Property details are restricted.</Text>
         : !selected.properties.length ? <Text>No properties uploaded.</Text>

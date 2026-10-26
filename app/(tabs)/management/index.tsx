@@ -4,7 +4,7 @@ import { Stack, useFocusEffect, useRouter, useLocalSearchParams } from "expo-rou
 import { API } from "@/src/services/api";
 
 type Access = { role: string; permissions: string[] };
-type Kind = "agent" | "property" | "appointments";
+type Kind = "user" | "property" | "appointments";
 type Authorization = { code: string; label: string; description: string };
 type StaffRow = {
   id: number; name: string; number: string; role: string;
@@ -17,9 +17,9 @@ type StaffRow = {
 export default function ManagementScreen() {
   const router = useRouter();
   const params = useLocalSearchParams<{ kind?: string }>();
-  useEffect(() => { if (params.kind === "agent" || params.kind === "property") setKind(params.kind); }, [params.kind]);
+  useEffect(() => { if (params.kind === "user" || params.kind === "agent" || params.kind === "property") setKind(params.kind === "agent" ? "user" : params.kind); }, [params.kind]);
   const [access, setAccess] = useState<Access | null>(null);
-  const [kind, setKind] = useState<Kind>("agent");
+  const [kind, setKind] = useState<Kind>("user");
   const [reference, setReference] = useState("");
   const [rows, setRows] = useState<Record<string, unknown>[]>([]);
   const [busy, setBusy] = useState(false);
@@ -129,28 +129,24 @@ export default function ManagementScreen() {
           <Text style={styles.white}>Open user support chats</Text>
         </TouchableOpacity>
         <Text>Use the Support Queue tab in Chats to join and reply to a management conversation.</Text>
-        {can("users.search") ? <TouchableOpacity style={styles.primary}
-          onPress={() => router.push("/(tabs)/management/users" as never)}>
-          <Text style={styles.white}>Search registered users</Text>
-        </TouchableOpacity> : null}
         {can("staff.read") ? <TouchableOpacity style={styles.primary}
           onPress={() => router.push("/(tabs)/management/staff" as never)}>
           <Text style={styles.white}>Admin: Staff directory and authorizations</Text>
         </TouchableOpacity> : null}
-        <Text style={styles.heading}>Find an agent, property or inspection</Text>
+        <Text style={styles.heading}>Find a user, property or inspection</Text>
         <View style={styles.tabs}>
-          {(["agent", "property", "appointments"] as Kind[]).map(value => (
+          {(["user", "property", "appointments"] as Kind[]).map(value => (
             <TouchableOpacity key={value} disabled={busy} style={[styles.tab, value === kind && styles.selected]} onPress={() => { setKind(value); setRows([]); setSearched(false); setNextPage(null); }}>
-              <Text>{value === "appointments" ? "Inspections" : value === "agent" ? "Agent" : "Property"}</Text>
+              <Text>{value === "appointments" ? "Inspections" : value === "user" ? "User" : "Property"}</Text>
             </TouchableOpacity>
           ))}
         </View>
-        <Text>{kind === "agent" ? "Agent number, Oramex ID or numeric user ID" : kind === "property" ? "Property number or agent’s Oramex ID / agent number" : "Property number"}</Text>
-        <TextInput accessibilityLabel="Search reference" style={styles.input} value={reference} onChangeText={setReference} autoCapitalize="characters" placeholder="Enter the exact number" returnKeyType="search" onSubmitEditing={() => { if (reference.trim()) void load(`/management/search?kind=${kind}&reference=${encodeURIComponent(reference.trim())}`, "Search results"); }} />
-        <TouchableOpacity disabled={busy || !reference.trim()} style={[styles.primary, (busy || !reference.trim()) && styles.disabled]} onPress={() => void load(`/management/search?kind=${kind}&reference=${encodeURIComponent(reference.trim())}`, "Search results")}>
+        <Text>{kind === "user" ? "Surname, Oramex ID, email or phone number" : kind === "property" ? "Property number or agent’s Oramex ID / agent number" : "Property number"}</Text>
+        <TextInput accessibilityLabel="Search reference" style={styles.input} value={reference} onChangeText={setReference} autoCapitalize="none" placeholder={kind === "user" ? "Search by surname, Oramex ID, email or phone" : "Enter a property number"} returnKeyType="search" onSubmitEditing={() => { if (reference.trim().length >= (kind === "user" ? 3 : 1)) void load(kind === "user" ? `/management/users?q=${encodeURIComponent(reference.trim())}` : `/management/search?kind=${kind}&reference=${encodeURIComponent(reference.trim())}`, "Search results"); }} />
+        <TouchableOpacity disabled={busy || reference.trim().length < (kind === "user" ? 3 : 1)} style={[styles.primary, (busy || reference.trim().length < (kind === "user" ? 3 : 1)) && styles.disabled]} onPress={() => void load(kind === "user" ? `/management/users?q=${encodeURIComponent(reference.trim())}` : `/management/search?kind=${kind}&reference=${encodeURIComponent(reference.trim())}`, "Search results")}>
           <Text style={styles.white}>Search</Text>
         </TouchableOpacity>
-        {can("staff.read") ? <TouchableOpacity style={styles.tab} disabled={busy} onPress={() => void loadStaffDirectory()}><Text>View staff directory</Text></TouchableOpacity> : null}
+
         {can("audit.read") ? <TouchableOpacity style={styles.tab} disabled={busy} onPress={() => void load("/management/audit", "Management audit log")}><Text>View audit log</Text></TouchableOpacity> : null}
         {can("moderation.history") ? <>
           <Text style={styles.heading}>Admin moderation review</Text>
@@ -197,6 +193,20 @@ export default function ManagementScreen() {
                   <Text style={styles.error}>Revoke: {auth.label}</Text>
                 </TouchableOpacity>)}
               </> : null}
+            </View>;
+          }
+          if (kind === "user" && resultTitle === "Search results") {
+            return <View key={`user-${row.id ?? index}`} style={styles.card}>
+              <Text style={styles.heading}>{String(row.name ?? "User")}</Text>
+              <Text selectable>Oramex ID: {String(row.oramex_id ?? "")}</Text>
+              <Text selectable>Email: {String(row.email ?? "")}</Text>
+              <Text selectable>Phone: {String(row.phone ?? "Not provided")}</Text>
+              <TouchableOpacity style={styles.primary} onPress={() => router.push({
+                pathname: "/(tabs)/management/users",
+                params: { userId: String(row.id) },
+              } as never)}>
+                <Text style={styles.white}>View user details and activity</Text>
+              </TouchableOpacity>
             </View>;
           }
           return <View key={`${row.id ?? index}-${index}`} style={styles.card}>
