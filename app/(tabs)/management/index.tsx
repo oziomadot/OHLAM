@@ -108,7 +108,7 @@ export default function ManagementScreen() {
       setResultTitle("Staff directory");
       setResultKind(null);
       const next = payload?.next_page_url;
-      const match = typeof next === "string" ? next.match(/[?&]page=(\\d+)/) : null;
+      const match = typeof next === "string" ? next.match(/[?&]page=(\d+)/) : null;
       setNextPage(match ? `/management/staff?page=${match[1]}` : null);
     } catch (err: any) {
       setError(err?.response?.data?.message ?? "Unable to load staff directory.");
