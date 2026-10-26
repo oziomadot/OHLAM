@@ -129,6 +129,14 @@ export default function ManagementScreen() {
           <Text style={styles.white}>Open user support chats</Text>
         </TouchableOpacity>
         <Text>Use the Support Queue tab in Chats to join and reply to a management conversation.</Text>
+        {can("users.search") ? <TouchableOpacity style={styles.primary}
+          onPress={() => router.push("/(tabs)/management/users" as never)}>
+          <Text style={styles.white}>Search registered users</Text>
+        </TouchableOpacity> : null}
+        {can("staff.read") ? <TouchableOpacity style={styles.primary}
+          onPress={() => router.push("/(tabs)/management/staff" as never)}>
+          <Text style={styles.white}>Admin: Staff directory and authorizations</Text>
+        </TouchableOpacity> : null}
         <Text style={styles.heading}>Find an agent, property or inspection</Text>
         <View style={styles.tabs}>
           {(["agent", "property", "appointments"] as Kind[]).map(value => (
