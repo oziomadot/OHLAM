@@ -12,7 +12,7 @@ export default {
     name: isTesting ? "OHLAM Test" : "OHLAM",
     slug: "OHLAM",
     scheme: isTesting ? "ohlam-test" : "ohlam",
-    version: "1.1.0",
+    version: "1.0.15",
 
     icon: "./assets/ohlam_adaptive_logo_1.png",
 
@@ -38,7 +38,7 @@ export default {
 
       googleServicesFile,
 
-      versionCode: 4,
+      versionCode: 5,
 
       permissions: [
         "CAMERA",
@@ -59,7 +59,7 @@ export default {
       bundleIdentifier:
         "com.oramexglobal.ohlam",
 
-      buildNumber: "1.0.0",
+      buildNumber: "1.0.1",
 
       supportsTablet: true,
 
