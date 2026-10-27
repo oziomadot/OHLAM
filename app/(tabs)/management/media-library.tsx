@@ -6,9 +6,10 @@ import * as Clipboard from "expo-clipboard";
 import { API } from "@/src/services/api";
 
 type Asset = { uri: string; name: string; mimeType?: string; size?: number };
+type Publication = { platform: string; status: string; external_post_id?: string | null };
 type CampaignPost = {
   id: number; title: string; message: string; campaign: string;
-  media_type: "image" | "video"; public_url: string; status: string;
+  media_type: "image" | "video"; public_url: string; status: string; publications?: Publication[];
 };
 const MAX_BYTES = 50 * 1024 * 1024;
 const sanitizeSlug = (value: string) => value.trim().toLowerCase()
@@ -22,6 +23,8 @@ export default function CampaignMediaLibrary() {
   const [posts, setPosts] = useState<CampaignPost[]>([]);
   const [busy, setBusy] = useState(false);
   const [loading, setLoading] = useState(false);
+  const [isAdmin, setIsAdmin] = useState(false);
+  const [publishingKey, setPublishingKey] = useState<string | null>(null);
   const [error, setError] = useState("");
   const [lastUrl, setLastUrl] = useState("");
 
@@ -36,7 +39,35 @@ export default function CampaignMediaLibrary() {
         : err?.response?.data?.message ?? "Unable to load media library.");
     } finally { setLoading(false); }
   }, []);
-  useFocusEffect(useCallback(() => { void load(); }, [load]));
+  useFocusEffect(useCallback(() => {
+    void load();
+    API.get("/management/access").then(({ data }) => setIsAdmin(data?.role === "admin"))
+      .catch(() => setIsAdmin(false));
+  }, [load]));
+
+  const publish = (post: CampaignPost, platform: "facebook" | "instagram") => {
+    if (!isAdmin || publishingKey) return;
+    Alert.alert("Publish campaign?",
+      `Publish "${post.title}" to ${platform === "facebook" ? "Facebook Page" : "Instagram"}? This makes the campaign public.`,
+      [
+        { text: "Cancel", style: "cancel" },
+        { text: "Publish", onPress: () => { void (async () => {
+          setPublishingKey(`${post.id}:${platform}`);
+          setError("");
+          try {
+            const result = await API.post(`/management/campaign-media/${post.id}/publish`,
+              { platform }, { timeout: 240000 });
+            Alert.alert("Published", `Campaign published to ${platform}. Post ID: ${result.data.external_post_id}`);
+          } catch (e: any) {
+            Alert.alert("Publication not confirmed",
+              e?.response?.data?.message ?? "Review the social account before trying again.");
+          } finally {
+            await load();
+            setPublishingKey(null);
+          }
+        })(); } },
+      ]);
+  };
 
   const chooseMedia = async () => {
     try {
@@ -137,6 +168,20 @@ export default function CampaignMediaLibrary() {
       <Text style={styles.label}>{post.title}</Text>
       <Text>Campaign: {post.campaign}</Text><Text>Media: {post.media_type} · {post.status}</Text>
       <Text selectable>{post.message}</Text><Text selectable style={styles.note}>{post.public_url}</Text>
+      {isAdmin ? <View style={styles.panel}>
+        <Text style={styles.label}>Publish campaign</Text>
+        {(["facebook", "instagram"] as const).map(platform => {
+          const existing = post.publications?.find(entry => entry.platform === platform);
+          const disabled = Boolean(existing || publishingKey);
+          return <TouchableOpacity key={platform} style={[styles.secondary, disabled && styles.disabled]}
+            disabled={disabled} onPress={() => publish(post, platform)}>
+            <Text style={styles.blue}>{existing
+              ? `${platform === "facebook" ? "Facebook" : "Instagram"}: ${existing.status}`
+              : `Publish to ${platform === "facebook" ? "Facebook" : "Instagram"}`}</Text>
+          </TouchableOpacity>;
+        })}
+        <Text style={styles.note}>TikTok is manual sharing only. A platform showing needs_review may already have published; confirm externally before any retry.</Text>
+      </View> : null}
       <TouchableOpacity style={styles.secondary} onPress={() => void Linking.openURL(post.public_url)}>
         <Text style={styles.blue}>Open media</Text>
       </TouchableOpacity>
