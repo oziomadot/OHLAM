@@ -58,7 +58,7 @@ export default function RecruitmentApplicants() {
   try {
    const token=await getItemSafe("auth_token");
    if(!token)throw new Error("Please log in again.");
-   const path=`${BASE_URL.replace(/\\/$/,"")}/management/recruitment/applications/${selected.application.id}/documents/${doc.id}`;
+   const path=`${BASE_URL.replace(/\/$/,"")}/management/recruitment/applications/${selected.application.id}/documents/${doc.id}`;
    const uri=(FileSystem.cacheDirectory||FileSystem.documentDirectory)+`recruitment-${doc.id}-${doc.original_name.replace(/[^A-Za-z0-9._-]/g,"_")}`;
    const file=await FileSystem.downloadAsync(path,uri,{headers:{Authorization:`Bearer ${token}`,Accept:"application/octet-stream"}});
    if(file.status!==200)throw new Error("Document download failed.");
