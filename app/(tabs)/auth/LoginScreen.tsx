@@ -818,7 +818,7 @@ if (redirectTo) {
     try {
       setIsLoading(true);
       const userId = await SecureStore.getItemAsync(BIOMETRIC_USER_ID_KEY);
-      if (!userId || !/^\\d+$/.test(userId)) {
+      if (!userId || !/^\d+$/.test(userId)) {
         throw new Error("BIOMETRIC_REENROLL_REQUIRED");
       }
       const credential = await SecureStore.getItemAsync(BIOMETRIC_TOKEN_KEY, {
