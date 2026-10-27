@@ -11,6 +11,7 @@ import {
   Modal,
 } from "react-native";
 import { Ionicons } from "@expo/vector-icons";
+import { router } from "expo-router";
 import * as DocumentPicker from "expo-document-picker";
 import ScreenWrapper from "components/ScreenWrapper";
 import Navbar from "components/Navbar";
@@ -211,6 +212,10 @@ export default function Vacancies() {
         <Text style={styles.heroSubtitle}>
           Help us build Nigeria's most trusted real estate platform.
         </Text>
+        <TouchableOpacity style={[styles.applyBtn, {marginTop: 14}]} onPress={() => router.push("/(tabs)/my-applications" as never)}>
+          <Ionicons name="file-tray-full-outline" size={18} color="#fff" />
+          <Text style={styles.applyBtnText}>Track my applications</Text>
+        </TouchableOpacity>
       </View>
 
       {loading ? (
