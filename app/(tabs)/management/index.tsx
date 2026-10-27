@@ -129,6 +129,10 @@ export default function ManagementScreen() {
           <Text style={styles.white}>Open user support chats</Text>
         </TouchableOpacity>
         <Text>Use the Support Queue tab in Chats to join and reply to a management conversation.</Text>
+        {can("marketing.campaign.manage") ? <TouchableOpacity style={styles.primary}
+          onPress={() => router.push("/(tabs)/management/media-library" as never)}>
+          <Text style={styles.white}>Marketing Media Library · Post campaign message</Text>
+        </TouchableOpacity> : null}
         {can("staff.read") ? <TouchableOpacity style={styles.primary}
           onPress={() => router.push("/(tabs)/management/staff" as never)}>
           <Text style={styles.white}>Admin: Staff directory and authorizations</Text>
