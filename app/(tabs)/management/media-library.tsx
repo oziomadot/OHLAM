@@ -25,6 +25,7 @@ export default function CampaignMediaLibrary() {
   const [loading, setLoading] = useState(false);
   const [isAdmin, setIsAdmin] = useState(false);
   const [publishingKey, setPublishingKey] = useState<string | null>(null);
+  const [xCaptions, setXCaptions] = useState<Record<number, string>>({});
   const [error, setError] = useState("");
   const [lastUrl, setLastUrl] = useState("");
 
@@ -45,10 +46,15 @@ export default function CampaignMediaLibrary() {
       .catch(() => setIsAdmin(false));
   }, [load]));
 
-  const publish = (post: CampaignPost, platform: "facebook" | "instagram") => {
+  const publish = (post: CampaignPost, platform: "facebook" | "instagram" | "x") => {
     if (!isAdmin || publishingKey) return;
+    const xCaption = (xCaptions[post.id] ?? `${post.title}\n\n${post.message}`).trim();
+    if (platform === "x" && (xCaption.length === 0 || Array.from(xCaption).length > 280)) {
+      Alert.alert("X caption too long", "Enter an X-specific caption of 280 characters or fewer before publishing.");
+      return;
+    }
     Alert.alert("Publish campaign?",
-      `Publish "${post.title}" to ${platform === "facebook" ? "Facebook Page" : "Instagram"}? This makes the campaign public.`,
+      `Publish "${post.title}" to ${platform === "facebook" ? "Facebook Page" : platform === "instagram" ? "Instagram" : "X (@OhlamNg)"}? This makes the campaign public.`,
       [
         { text: "Cancel", style: "cancel" },
         { text: "Publish", onPress: () => { void (async () => {
@@ -56,7 +62,7 @@ export default function CampaignMediaLibrary() {
           setError("");
           try {
             const result = await API.post(`/management/campaign-media/${post.id}/publish`,
-              { platform }, { timeout: 240000 });
+              { platform, ...(platform === "x" ? { x_text: xCaption } : {}) }, { timeout: 240000 });
             Alert.alert("Published", `Campaign published to ${platform}. Post ID: ${result.data.external_post_id}`);
           } catch (e: any) {
             Alert.alert("Publication not confirmed",
@@ -170,14 +176,21 @@ export default function CampaignMediaLibrary() {
       <Text selectable>{post.message}</Text><Text selectable style={styles.note}>{post.public_url}</Text>
       {isAdmin ? <View style={styles.panel}>
         <Text style={styles.label}>Publish campaign</Text>
-        {(["facebook", "instagram"] as const).map(platform => {
+        <Text style={styles.label}>X caption (max 280 characters)</Text>
+        <TextInput style={[styles.input, styles.multiline]}
+          multiline maxLength={280}
+          value={xCaptions[post.id] ?? `${post.title}\n\n${post.message}`}
+          onChangeText={value => setXCaptions(current => ({ ...current, [post.id]: value }))}
+          placeholder="Enter a short caption for X" />
+        <Text style={styles.note}>For longer campaign messages, enter a separate short X caption above. Images on X must be 5 MB or less.</Text>
+        {(["facebook", "instagram", "x"] as const).map(platform => {
           const existing = post.publications?.find(entry => entry.platform === platform);
           const disabled = Boolean(existing || publishingKey);
           return <TouchableOpacity key={platform} style={[styles.secondary, disabled && styles.disabled]}
             disabled={disabled} onPress={() => publish(post, platform)}>
             <Text style={styles.blue}>{existing
-              ? `${platform === "facebook" ? "Facebook" : "Instagram"}: ${existing.status}`
-              : `Publish to ${platform === "facebook" ? "Facebook" : "Instagram"}`}</Text>
+              ? `${platform === "facebook" ? "Facebook" : platform === "instagram" ? "Instagram" : "X"}: ${existing.status}`
+              : `Publish to ${platform === "facebook" ? "Facebook" : platform === "instagram" ? "Instagram" : "X (@OhlamNg)"}`}</Text>
           </TouchableOpacity>;
         })}
         <Text style={styles.note}>TikTok is manual sharing only. A platform showing needs_review may already have published; confirm externally before any retry.</Text>
