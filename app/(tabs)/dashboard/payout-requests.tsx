@@ -66,7 +66,7 @@ export default function PayoutRequests(){
   const cleaned=input.replace(/[₦\s\u00a0]/g,"").trim();
   if(!cleaned)return null;
   const plain=cleaned.replace(/,/g,"");
-  if(!/^(?:\\d+)(?:\\.\\d{1,2})?$/.test(plain))return null;
+  if(!/^(?:\d+)(?:\.\d{1,2})?$/.test(plain))return null;
   const parsed=Number(plain);
   return Number.isFinite(parsed)?parsed:null;
  };
@@ -101,7 +101,7 @@ export default function PayoutRequests(){
     }catch(e:any){
       const errors=e?.response?.data?.errors;
       const details=errors?Object.entries(errors).map(([field,messages])=>
-        `${field}: ${Array.isArray(messages)?messages.join(", "):String(messages)}`).join("\\n"):null;
+        `${field}: ${Array.isArray(messages)?messages.join(", "):String(messages)}`).join("\n"):null;
       Alert.alert("Could not create payout request",details||errorText(e));
     }finally{setBusy(false);}
    }}
