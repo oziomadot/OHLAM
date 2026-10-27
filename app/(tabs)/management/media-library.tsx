@@ -190,7 +190,7 @@ export default function CampaignMediaLibrary() {
             disabled={disabled} onPress={() => publish(post, platform)}>
             <Text style={styles.blue}>{existing
               ? `${platform === "facebook" ? "Facebook" : platform === "instagram" ? "Instagram" : "X"}: ${existing.status}`
-              : `Publish to ${platform === "facebook" ? "Facebook" : "Instagram"}`}</Text>
+              : `Publish to ${platform === "facebook" ? "Facebook" : platform === "instagram" ? "Instagram" : "X (@OhlamNg)"}`}</Text>
           </TouchableOpacity>;
         })}
         <Text style={styles.note}>TikTok is manual sharing only. A platform showing needs_review may already have published; confirm externally before any retry.</Text>
