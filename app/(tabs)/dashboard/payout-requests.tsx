@@ -60,10 +60,31 @@ export default function PayoutRequests(){
   }
   setSelected(old=>[...old,{user_id:user.id,bank_account_id:bank?.id ?? null,name:user.name,bank:bank ? bank.account_name+" ••••"+bank.account_last4 : "OHLAM wallet"}]);
  };
+ // Normalize common Nigerian currency entry formats without silently
+ // changing ambiguous decimal notation. Backend validates the final amount.
+ const parseNaira=(input:string):number|null=>{
+  const cleaned=input.replace(/[₦\s\u00a0]/g,"").trim();
+  if(!cleaned)return null;
+  const plain=cleaned.replace(/,/g,"");
+  if(!/^(?:\\d+)(?:\\.\\d{1,2})?$/.test(plain))return null;
+  const parsed=Number(plain);
+  return Number.isFinite(parsed)?parsed:null;
+ };
  const create=async()=>{
-  const money=Number(amount.replace(/,/g,""));
-  if(selected.length===0||!Number.isFinite(money)||money<100||money>1000000||Math.abs(money*100-Math.round(money*100))>0.000001||description.trim().length<10){
-    Alert.alert("Complete the payment details","Select an eligible beneficiary and enter ₦100–₦1,000,000 per person and a description of at least 10 characters.");return;
+  const money=parseNaira(amount);
+  if(!permissions.includes("payouts.create")){
+    Alert.alert("Payout permission required","Ask an administrator to assign Initiate Payout Requests.");return;
+  }
+  if(selected.length===0){
+    Alert.alert("Select a beneficiary",destination==="external_bank"
+      ?"Search for the user, then tap their verified bank account to add it under Beneficiaries."
+      :"Search for the user, then tap their active OHLAM wallet to add it under Beneficiaries.");return;
+  }
+  if(money===null || money<100 || money>1000000 || Math.abs(money*100-Math.round(money*100))>0.000001){
+    Alert.alert("Check amount","Enter a valid amount per beneficiary between ₦100 and ₦1,000,000. Example: 10000 or 10,000.00.");return;
+  }
+  if(description.trim().length<10){
+    Alert.alert("Check description",`The description must be at least 10 characters (currently ${description.trim().length}). Example: Agent challenge winner payout.`);return;
   }
   const total=money*selected.length;
   Alert.alert("Confirm payout requests",
@@ -77,7 +98,12 @@ export default function PayoutRequests(){
       });
       setSelected([]);setDescription("");setAmount("");setResults([]);setQuery("");
       await load();Alert.alert("Requests created","Another administrator must approve them before any bank transfer.");
-    }catch(e:any){Alert.alert("Could not create payouts",errorText(e));}finally{setBusy(false);}
+    }catch(e:any){
+      const errors=e?.response?.data?.errors;
+      const details=errors?Object.entries(errors).map(([field,messages])=>
+        `${field}: ${Array.isArray(messages)?messages.join(", "):String(messages)}`).join("\\n"):null;
+      Alert.alert("Could not create payout request",details||errorText(e));
+    }finally{setBusy(false);}
    }}
   ]);
  };
@@ -148,19 +174,20 @@ export default function PayoutRequests(){
     </View>)}
    </View>
    <View style={styles.card}>
-    <Text style={styles.heading}>3. Beneficiaries ({selected.length})</Text>
-    {!selected.length?<Text style={styles.hint}>No beneficiaries selected yet.</Text>:selected.map(s=><View style={styles.selected} key={s.user_id}>
+    <Text style={styles.heading}>3. Selected beneficiaries ({selected.length})</Text>
+    {!selected.length?<Text style={styles.warning}>No beneficiary selected. Search above and tap a verified bank account or active wallet before submitting.</Text>:selected.map(s=><View style={styles.selected} key={s.user_id}>
       <View style={{flex:1}}><Text style={styles.name}>{s.name}</Text><Text style={styles.hint}>{s.bank}</Text></View>
       <TouchableOpacity onPress={()=>setSelected(old=>old.filter(x=>x.user_id!==s.user_id))}><Text style={styles.remove}>Remove</Text></TouchableOpacity>
     </View>)}
     <Text style={styles.heading}>4. Payment details</Text>
     <Text style={styles.label}>Purpose</Text>
     <View style={styles.row}>{["agent_challenge","contractor_fee","refund","other"].map(x=><TouchableOpacity key={x} style={[styles.chip,purpose===x&&styles.chipSelected]} onPress={()=>setPurpose(x)}><Text style={styles.text}>{x.replace("_"," ")}</Text></TouchableOpacity>)}</View>
-    <Text style={styles.label}>Amount per beneficiary (NGN)</Text>
-    <TextInput style={styles.input} keyboardType="decimal-pad" value={amount} onChangeText={setAmount} placeholder="e.g. 10000"/>
-    <Text style={styles.label}>Description / payment narration</Text>
-    <TextInput style={[styles.input,{minHeight:72}]} multiline value={description} onChangeText={setDescription} placeholder="Reason for payment (at least 10 characters)"/>
-    <Text style={styles.name}>Total proposed: ₦{((Number(amount.replace(/,/g,""))||0)*selected.length).toLocaleString("en-NG")}</Text>
+    <Text style={styles.label}>Amount per beneficiary (NGN) *</Text>
+    <TextInput style={styles.input} keyboardType="decimal-pad" value={amount} onChangeText={setAmount} placeholder="e.g. 10000 or 10,000.00" testID="payout-amount"/>
+    <Text style={styles.hint}>Enter the amount for each selected beneficiary, not the total.</Text>
+    <Text style={styles.label}>Description / payment narration * ({description.trim().length}/10 minimum)</Text>
+    <TextInput style={[styles.input,{minHeight:72}]} multiline value={description} onChangeText={setDescription} placeholder="Example: Reward for verified agent challenge winner" testID="payout-description"/>
+    <Text style={styles.name}>Total proposed: ₦{(((parseNaira(amount)??0)*selected.length)).toLocaleString("en-NG")}</Text>
     <TouchableOpacity style={styles.button} disabled={busy||!permissions.includes("payouts.create")} onPress={()=>void create()}><Text style={styles.buttonText}>Submit {selected.length} payout request(s) for approval</Text></TouchableOpacity>
    </View>
    </> : null}
