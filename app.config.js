@@ -38,7 +38,7 @@ export default {
 
       googleServicesFile,
 
-      versionCode: 5,
+      versionCode: 23,
 
       permissions: [
         "CAMERA",
