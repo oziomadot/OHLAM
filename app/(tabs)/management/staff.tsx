@@ -16,6 +16,7 @@ const labels: Record<string, string> = {
   "appointments.read": "View appointment summaries", "support.reply": "Reply to support",
   "payouts.create": "Initiate payout requests",
   "marketing.campaign.manage": "Upload and manage campaign media",
+  "recruitment.decide": "Accept shortlisted applicants and start onboarding",
 };
 
 export default function AdminStaffDirectory() {
