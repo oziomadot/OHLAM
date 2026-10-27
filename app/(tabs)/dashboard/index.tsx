@@ -342,6 +342,20 @@ export default function Dashboard() {
             ))}
           </View>
 
+          {permissions.includes("marketing.campaign.manage") && (
+            <>
+              <Text style={styles.sectionTitle}>Marketing</Text>
+              <View style={styles.list}>
+                <Card
+                  title="Marketing Media Library"
+                  subtitle="Create campaign drafts, upload posters or videos and copy public media links"
+                  icon="image-multiple-outline"
+                  route="/(tabs)/management/media-library"
+                />
+              </View>
+            </>
+          )}
+
           {(isStaff || isAdmin) && (
             <>
               <Text style={styles.sectionTitle}>Staff Section</Text>
