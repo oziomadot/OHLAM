@@ -1,5 +1,6 @@
 import {
   useState,
+  useRef,
 } from "react";
 import * as DocumentPicker from "expo-document-picker";
 
@@ -26,6 +27,10 @@ export function usePropertyFiles(
     video,
     setVideo,
   ] = useState<any>(null);
+
+  // Keep the selected asset available synchronously even before a rerender.
+  const videoRef = useRef<any>(null);
+  const getSelectedVideo = () => videoRef.current;
 
   const [
     proofDocument,
@@ -165,6 +170,7 @@ export function usePropertyFiles(
           return;
         }
 
+        videoRef.current = file;
         setVideo(file);
       } catch (error) {
         console.error(
@@ -369,6 +375,7 @@ export function usePropertyFiles(
           null,
       });
 
+      videoRef.current = null;
       setVideo(null);
 
       setProofDocument(
@@ -385,6 +392,7 @@ export function usePropertyFiles(
   return {
     images,
     video,
+    getSelectedVideo,
     proofDocument,
     floorPlan,
     threeSixtyVideo,
