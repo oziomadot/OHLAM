@@ -8,15 +8,17 @@ import API from "@/src/services/api";
 import {BASE_URL} from "@/src/services/api";
 
 type Bank={id:number;bank_code:string;account_name:string;account_last4:string;ready:boolean;is_verified:boolean;is_active:boolean;has_paystack_recipient:boolean};
-type User={id:number;oramex_id:string;name:string;email:string;phone:string;bank_accounts:Bank[]};
-type Choice={user_id:number;bank_account_id:number;name:string;bank:string};
+type User={id:number;oramex_id:string;name:string;email:string;phone:string;wallet_available:boolean;bank_accounts:Bank[]};
+type Choice={user_id:number;bank_account_id:number|null;name:string;bank:string};
 type Item={id:number;reference:string;batch_id?:string;purpose:string;description:string;amount_kobo:number;currency:string;recipient_name:string;status:string;requested_by:number;provider_reference?:string};
 const formatMoney=(kobo:number)=>"₦"+(Number(kobo)/100).toLocaleString("en-NG",{minimumFractionDigits:2});
 const errorText=(e:any)=>e?.response?.data?.message||(!e?.response?"Check your internet connection and try again.":"Please try again or contact management.");
 
 export default function PayoutRequests(){
  const [items,setItems]=useState<Item[]>([]);
+ const [destination,setDestination]=useState<"external_bank"|"ohlam_wallet">("external_bank");
  const [permissions,setPermissions]=useState<string[]>([]);
+ const [role,setRole]=useState<string>("");
  const [loading,setLoading]=useState(true),[busy,setBusy]=useState(false);
  const [query,setQuery]=useState(""),[results,setResults]=useState<User[]>([]);
  const [selected,setSelected]=useState<Choice[]>([]);
@@ -25,6 +27,7 @@ export default function PayoutRequests(){
  const load=useCallback(async()=>{try{
   const [access,list]=await Promise.all([API.get("/management/access"),API.get("/management/payout-requests")]);
   setPermissions(access.data?.permissions??[]);
+  setRole(String(access.data?.role ?? ""));
   setItems(list.data?.data?.data??[]);
  }catch(e:any){Alert.alert("Unable to load payments",errorText(e));}
  finally{setLoading(false);}},[]);
@@ -51,16 +54,16 @@ export default function PayoutRequests(){
    }}
   ]);
  };
- const select=(user:User,bank:Bank)=>{
+ const select=(user:User,bank?:Bank)=>{
   if(selected.some(s=>s.user_id===user.id)){
     Alert.alert("Beneficiary already selected","Each beneficiary can only be added once per batch.");return;
   }
-  setSelected(old=>[...old,{user_id:user.id,bank_account_id:bank.id,name:user.name,bank:bank.account_name+" ••••"+bank.account_last4}]);
+  setSelected(old=>[...old,{user_id:user.id,bank_account_id:bank?.id ?? null,name:user.name,bank:bank ? bank.account_name+" ••••"+bank.account_last4 : "OHLAM wallet"}]);
  };
  const create=async()=>{
   const money=Number(amount.replace(/,/g,""));
-  if(selected.length===0||!Number.isFinite(money)||money<100||description.trim().length<10){
-    Alert.alert("Complete the payment details","Select at least one verified beneficiary, enter a valid amount of ₦100 or more, and a description of at least 10 characters.");return;
+  if(selected.length===0||!Number.isFinite(money)||money<100||money>1000000||Math.round(money*100)!==money*100||description.trim().length<10){
+    Alert.alert("Complete the payment details","Select an eligible beneficiary and enter ₦100–₦1,000,000 per person and a description of at least 10 characters.");return;
   }
   const total=money*selected.length;
   Alert.alert("Confirm payout requests",
@@ -69,8 +72,8 @@ export default function PayoutRequests(){
    {text:"Create requests",onPress:async()=>{
     setBusy(true);try{
       await API.post("/management/payout-requests",{
-        purpose,description:description.trim(),amount:money,
-        recipients:selected.map(({user_id,bank_account_id})=>({user_id,bank_account_id}))
+        purpose,description:description.trim(),amount:money,destination_type:destination,
+        recipients:selected.map(({user_id,bank_account_id})=>({user_id,bank_account_id:destination==="external_bank"?bank_account_id:null}))
       });
       setSelected([]);setDescription("");setAmount("");setResults([]);setQuery("");
       await load();Alert.alert("Requests created","Another administrator must approve them before any bank transfer.");
@@ -114,22 +117,29 @@ export default function PayoutRequests(){
   }catch(e:any){Alert.alert("Receipt unavailable",errorText(e)=== "Please try again or contact management." ? e.message:errorText(e));}finally{setBusy(false);}
  };
  return <ScrollView contentContainerStyle={styles.page}>
-   <Text style={styles.title}>OHLAM Admin Payments</Text>
-   <Text style={styles.note}>Find a registered beneficiary, select a verified bank account and create one or more payouts. Bank transfers require separate approval, sending and Paystack confirmation.</Text>
+   <Text style={styles.title}>{role==="admin"?"OHLAM Payout Administration":"OHLAM Payout Requests"}</Text>
+   <Text style={styles.note}>Staff with payout delegation can prepare requests to verified bank accounts or active OHLAM wallets. Administrators independently approve and release funds.</Text>
+   {!loading && !permissions.includes("payouts.create") && !permissions.includes("payouts.approve") ? <Text style={styles.warning}>Payout initiation is not assigned to your staff account. Ask an administrator to grant Initiate payout requests in Staff Directory.</Text> : null}
+   {permissions.includes("payouts.create") && role==="staff" ? <>
    <View style={styles.card}>
-    <Text style={styles.heading}>1. Find beneficiary</Text>
+    <Text style={styles.heading}>1. Choose destination</Text>
+    <View style={styles.row}>{(["external_bank","ohlam_wallet"] as const).map(value=><TouchableOpacity key={value} style={[styles.chip,destination===value&&styles.chipSelected]} onPress={()=>{setDestination(value);setSelected([]);setResults([]);}}><Text>{value==="external_bank"?"Verified bank account":"OHLAM wallet"}</Text></TouchableOpacity>)}</View>
+    <Text style={styles.heading}>2. Find beneficiary</Text>
     <TextInput style={styles.input} value={query} onChangeText={setQuery} placeholder="OHLAM ID, phone number or email" placeholderTextColor="#64748b" autoCapitalize="none"/>
     <TouchableOpacity style={styles.button} disabled={busy} onPress={()=>void lookup()}><Text style={styles.buttonText}>Search users</Text></TouchableOpacity>
     {results.map(user=><View key={user.id} style={styles.result}>
       <Text style={styles.name}>{user.name} · {user.oramex_id}</Text>
       <Text style={styles.text}>{user.email} · {user.phone}</Text>
-      {!user.bank_accounts.some(bank=>bank.ready)?<View>
+      {destination==="external_bank"&&!user.bank_accounts.some(bank=>bank.ready)?<View>
         <Text style={styles.warning}>This beneficiary has no payout-ready bank account. Existing bank details may need verification or Paystack setup.</Text>
         <TouchableOpacity disabled={busy||!permissions.includes("payouts.create")} style={styles.button} onPress={()=>void notifyUser(user)}>
           <Text style={styles.buttonText}>Notify user to add / verify bank details</Text>
         </TouchableOpacity>
       </View>:null}
-      {user.bank_accounts.map(bank=>
+      {destination==="ohlam_wallet" ? <TouchableOpacity style={[styles.bank,(!user.wallet_available||selected.some(x=>x.user_id===user.id))&&styles.disabled]}
+         disabled={busy||!user.wallet_available||selected.some(x=>x.user_id===user.id)} onPress={()=>select(user)}>
+         <Text style={styles.text}>OHLAM wallet · {user.wallet_available?"Active":"Not available"}</Text>
+        </TouchableOpacity> : user.bank_accounts.map(bank=>
       <TouchableOpacity key={bank.id} disabled={busy||!bank.ready||selected.some(x=>x.user_id===user.id)}
        style={[styles.bank,!bank.ready&&styles.disabled]} onPress={()=>select(user,bank)}>
        <Text style={styles.text}>{bank.account_name} · Bank {bank.bank_code} · ••••{bank.account_last4}</Text>
@@ -138,12 +148,12 @@ export default function PayoutRequests(){
     </View>)}
    </View>
    <View style={styles.card}>
-    <Text style={styles.heading}>2. Beneficiaries ({selected.length})</Text>
+    <Text style={styles.heading}>3. Beneficiaries ({selected.length})</Text>
     {!selected.length?<Text style={styles.hint}>No beneficiaries selected yet.</Text>:selected.map(s=><View style={styles.selected} key={s.user_id}>
       <View style={{flex:1}}><Text style={styles.name}>{s.name}</Text><Text style={styles.hint}>{s.bank}</Text></View>
       <TouchableOpacity onPress={()=>setSelected(old=>old.filter(x=>x.user_id!==s.user_id))}><Text style={styles.remove}>Remove</Text></TouchableOpacity>
     </View>)}
-    <Text style={styles.heading}>3. Payment details</Text>
+    <Text style={styles.heading}>4. Payment details</Text>
     <Text style={styles.label}>Purpose</Text>
     <View style={styles.row}>{["agent_challenge","contractor_fee","refund","other"].map(x=><TouchableOpacity key={x} style={[styles.chip,purpose===x&&styles.chipSelected]} onPress={()=>setPurpose(x)}><Text style={styles.text}>{x.replace("_"," ")}</Text></TouchableOpacity>)}</View>
     <Text style={styles.label}>Amount per beneficiary (NGN)</Text>
@@ -153,6 +163,7 @@ export default function PayoutRequests(){
     <Text style={styles.name}>Total proposed: ₦{((Number(amount.replace(/,/g,""))||0)*selected.length).toLocaleString("en-NG")}</Text>
     <TouchableOpacity style={styles.button} disabled={busy||!permissions.includes("payouts.create")} onPress={()=>void create()}><Text style={styles.buttonText}>Submit {selected.length} payout request(s) for approval</Text></TouchableOpacity>
    </View>
+   </> : null}
    <Text style={styles.heading}>Recent payout requests</Text>
    {loading?<ActivityIndicator/>:items.map(item=><View key={item.id} style={styles.card}>
       <Text style={styles.name}>#{item.id} · {item.status.replace(/_/g," ")}</Text>
