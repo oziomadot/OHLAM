@@ -189,6 +189,7 @@ export default function Dashboard() {
     ["Search Property", "Find a property by property or agent number", "home-search", "/(tabs)/management?kind=property"],
 
     ["Management Workspace", "Find users, properties and inspection status", "account-search", "/(tabs)/management"],
+    ...(permissions.includes("payouts.create") ? [["Initiate Payouts", "Prepare payout requests for independent admin approval", "bank-plus", "/(tabs)/dashboard/payout-requests"]] : []),
     ["User Support", "Read and reply to user-management conversations", "message-text-lock", "/(tabs)/chat"],
   ];
 
