@@ -55,10 +55,12 @@ const QUICK_LOGIN_IDENTIFIER_KEY =
   "ohlam_quick_login_identifier";
 
 const BIOMETRIC_ENABLED_KEY =
-  "ohlam_biometric_enabled_v2";
+  "ohlam_biometric_enabled_v3";
 
 const BIOMETRIC_TOKEN_KEY =
-  "ohlam_biometric_token_protected_v2";
+  "ohlam_biometric_credential_protected_v3";
+
+const BIOMETRIC_USER_ID_KEY = "ohlam_biometric_user_id_v3";
 
 const LoginSchema = Yup.object().shape({
   email: Yup.string()
@@ -491,18 +493,36 @@ if (redirectTo) {
     }
   };
 
-  const enrollBiometrics = async (token: string): Promise<void> => {
+  const enrollBiometrics = async (
+    accessToken: string,
+    password: string,
+    authenticatedUserId: number
+  ): Promise<void> => {
     if (Platform.OS === "web") return;
-    const hardware = await LocalAuthentication.hasHardwareAsync();
+    const details = await getDeviceDetails();
     const enrolled = await LocalAuthentication.isEnrolledAsync();
-    if (!hardware || !enrolled) return;
-    // This uses a new key namespace; legacy unprotected biometric credentials
-    // are never read as login credentials.
+    if (!(await LocalAuthentication.hasHardwareAsync()) || !enrolled) {
+      throw new Error("Biometric authentication is not configured on this phone.");
+    }
+    const response = await API.post("/login/biometric/enroll", {
+      password,
+      installation_id: details.installation_id,
+      platform: details.platform,
+    }, { headers: { Authorization: `Bearer ${accessToken}` } });
+    const credential = response.data?.data?.credential;
+    const serverUserId = response.data?.data?.user_id;
+    if (typeof credential !== "string" || credential.length !== 64 ||
+        String(serverUserId) !== String(authenticatedUserId)) {
+      throw new Error("Biometric enrollment response was incomplete.");
+    }
+    // Biometric-gated SecureStore contains the refresh credential, never the
+    // revoked Sanctum session token.
     await SecureStore.deleteItemAsync(BIOMETRIC_TOKEN_KEY);
-    await SecureStore.setItemAsync(BIOMETRIC_TOKEN_KEY, token, {
+    await SecureStore.setItemAsync(BIOMETRIC_TOKEN_KEY, credential, {
       requireAuthentication: true,
       authenticationPrompt: "Enable fingerprint or Face ID login for OHLAM",
     });
+    await SecureStore.setItemAsync(BIOMETRIC_USER_ID_KEY, String(authenticatedUserId));
     await SecureStore.setItemAsync(BIOMETRIC_ENABLED_KEY, "true");
     setBiometricLoginAvailable(true);
   };
@@ -560,7 +580,7 @@ if (redirectTo) {
         ) {
           if (enableBiometricOnLogin) {
             try {
-              await enrollBiometrics(token);
+              await enrollBiometrics(token, values.password, Number(user.id));
               setEnableBiometricOnLogin(false);
             } catch {
               showAlert("Biometric setup unavailable",
@@ -797,50 +817,47 @@ if (redirectTo) {
     if (isLoading) return;
     try {
       setIsLoading(true);
-      // requireAuthentication asks the operating system to authenticate the
-      // user before SecureStore releases the protected credential.
-      const token = await SecureStore.getItemAsync(BIOMETRIC_TOKEN_KEY, {
+      const userId = await SecureStore.getItemAsync(BIOMETRIC_USER_ID_KEY);
+      if (!userId || !/^\\d+$/.test(userId)) {
+        throw new Error("BIOMETRIC_REENROLL_REQUIRED");
+      }
+      const credential = await SecureStore.getItemAsync(BIOMETRIC_TOKEN_KEY, {
         requireAuthentication: true,
         authenticationPrompt: "Login to OHLAM with fingerprint or Face ID",
       });
-      if (!token) {
-        setBiometricLoginAvailable(false);
-        showAlert("Password login required",
-          "Biometric login is not enabled on this device or its protected credential was invalidated. Sign in with your password.");
-        return;
+      if (!credential) {
+        throw new Error("BIOMETRIC_REENROLL_REQUIRED");
       }
-      // Biometric approval alone is not server authentication. Revalidate the
-      // token with Laravel; never restore privileges from a locally saved user.
-      const response = await API.get("/me", {
-        headers: { Authorization: `Bearer ${token}` },
+      const details = await getDeviceDetails();
+      const response = await API.post("/login/biometric", {
+        user_id: Number(userId),
+        credential,
+        installation_id: details.installation_id,
+        platform: details.platform,
       });
-      const user = response.data?.user;
-      if (!user?.id) throw new Error("OHLAM could not verify your account.");
-      const savedUser = await getItemSafe("user");
-      if (savedUser) {
-        try {
-          const previous = JSON.parse(savedUser);
-          if (previous?.id && String(previous.id) !== String(user.id)) {
-            throw new Error("A different account was previously used on this device. Sign in with your password.");
-          }
-        } catch (error) {
-          if (error instanceof Error && error.message.includes("different account")) throw error;
-        }
+      const data = response.data;
+      if (await handleVerificationResponse(data)) return;
+      const token = getResponseToken(data);
+      const user = getResponseUser(data);
+      if (!token || !user?.id || String(user.id) !== userId) {
+        throw new Error("BIOMETRIC_REENROLL_REQUIRED");
       }
-      await saveAuthenticatedSession(token, user, quickLoginEmail ?? undefined);
+      await saveAuthenticatedSession(token, user, user.email ?? undefined);
     } catch (error: any) {
-      if (error?.response?.status === 401 || error?.response?.status === 403) {
-        // Token revoked/expired or trust revoked. Never bypass backend checks.
+      const status = error?.response?.status;
+      const code = error?.response?.data?.code;
+      if (status === 401 || status === 403 ||
+          code === "BIOMETRIC_REENROLL_REQUIRED" ||
+          error?.message === "BIOMETRIC_REENROLL_REQUIRED") {
         await SecureStore.deleteItemAsync(BIOMETRIC_TOKEN_KEY).catch(() => {});
+        await SecureStore.deleteItemAsync(BIOMETRIC_USER_ID_KEY).catch(() => {});
         await SecureStore.setItemAsync(BIOMETRIC_ENABLED_KEY, "false").catch(() => {});
         setBiometricLoginAvailable(false);
         showAlert("Password login required",
-          "Your saved biometric session is no longer valid. Sign in with your password.");
-      } else if (error?.message?.includes("different account")) {
-        showAlert("Password login required", error.message);
+          "Biometric login needs to be re-enabled with your password on this device.");
       } else {
         showAlert("Biometric login unavailable",
-          "Authentication was cancelled, your device changed its biometric settings, or the server could not be reached. Use your password instead.");
+          "Biometric authentication was cancelled or the server could not be reached. Please try again or use your password.");
       }
     } finally {
       setIsLoading(false);
