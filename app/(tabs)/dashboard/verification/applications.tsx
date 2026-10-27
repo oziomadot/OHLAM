@@ -10,7 +10,8 @@ import { useAuth } from "@/context/AuthContext";
 type Application = { id:number; vacancy_id:number; name:string; email:string; phone:string; status:string; created_at:string; vacancy:string; department?:string; experience?:string };
 type Document = { id:number; kind:string; original_name:string; mime_type:string; size_bytes:number; risk_status:string; risk_signals:string[]|string|null };
 type Review = { id:number; from_status:string; to_status:string; notes:string; created_at:string; reviewer:string };
-type Details = { application:Application; documents:Document[]; reviews:Review[] };
+type Onboarding = { id:number; contract_status:string; training_status:string; verification_authorization_status:string; activated_at:string|null };
+type Details = { application:Application; documents:Document[]; reviews:Review[]; onboarding?: Onboarding|null };
 const actions = ["under_review", "shortlisted", "rejected", "accepted"] as const;
 
 export default function RecruitmentApplicants() {
@@ -111,6 +112,13 @@ export default function RecruitmentApplicants() {
     <Text style={styles.status}>Status: {selected.application.status}</Text>
     {selected.application.experience?<Text>Applicant statement: {selected.application.experience}</Text>:null}
    </View>
+   {selected.onboarding ? <View style={styles.card}>
+    <Text style={styles.name}>Post-acceptance onboarding</Text>
+    <Text>Contract: {selected.onboarding.contract_status.replace(/_/g," ")}</Text>
+    <Text>Required training: {selected.onboarding.training_status.replace(/_/g," ")}</Text>
+    <Text>Verification authorization: {selected.onboarding.verification_authorization_status.replace(/_/g," ")}</Text>
+    <Text style={styles.warning}>Acceptance does not authorize fieldwork. Contract, training and verification function assignment must be completed separately.</Text>
+   </View> : null}
    <Text style={styles.name}>Submitted documents</Text>
    {!selected.documents.length?<Text>No attachments recorded (older application).</Text>:selected.documents.map(doc=><View style={styles.card} key={doc.id}>
     <Text style={styles.name}>{doc.kind.replace("_"," ")}: {doc.original_name}</Text>
