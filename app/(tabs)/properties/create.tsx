@@ -323,6 +323,7 @@ const calculateAgencyFees = (
   const {
     images,
     video,
+    getSelectedVideo,
     proofDocument,
     floorPlan,
     threeSixtyVideo,
@@ -472,6 +473,7 @@ const calculateAgencyFees = (
     selectedListingRoleName,
     images,
     video,
+    getSelectedVideo,
     proofDocument,
     floorPlan,
     threeSixtyVideo,
