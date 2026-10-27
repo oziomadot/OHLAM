@@ -55,10 +55,10 @@ const QUICK_LOGIN_IDENTIFIER_KEY =
   "ohlam_quick_login_identifier";
 
 const BIOMETRIC_ENABLED_KEY =
-  "ohlam_biometric_enabled";
+  "ohlam_biometric_enabled_v2";
 
 const BIOMETRIC_TOKEN_KEY =
-  "ohlam_biometric_token";
+  "ohlam_biometric_token_protected_v2";
 
 const LoginSchema = Yup.object().shape({
   email: Yup.string()
@@ -177,28 +177,15 @@ async function saveQuickLoginIdentifier(
 }
 
 async function isBiometricEnabled(): Promise<boolean> {
-  const [
-    hardwareAvailable,
-    biometricEnrolled,
-    biometricEnabled,
-    storedToken,
-  ] = await Promise.all([
+  if (Platform.OS === "web") return false;
+  // Never read a protected token merely to draw the login button; reading it
+  // would trigger biometric authentication on screen focus.
+  const [hardware, enrolled, enabled] = await Promise.all([
     LocalAuthentication.hasHardwareAsync(),
     LocalAuthentication.isEnrolledAsync(),
-    SecureStore.getItemAsync(
-      BIOMETRIC_ENABLED_KEY
-    ),
-    SecureStore.getItemAsync(
-      BIOMETRIC_TOKEN_KEY
-    ),
+    SecureStore.getItemAsync(BIOMETRIC_ENABLED_KEY),
   ]);
-
-  return (
-    hardwareAvailable &&
-    biometricEnrolled &&
-    biometricEnabled === "true" &&
-    Boolean(storedToken)
-  );
+  return hardware && enrolled && enabled === "true";
 }
 
 export default function LoginScreen() {
@@ -509,8 +496,8 @@ if (redirectTo) {
     const hardware = await LocalAuthentication.hasHardwareAsync();
     const enrolled = await LocalAuthentication.isEnrolledAsync();
     if (!hardware || !enrolled) return;
-    // Delete any legacy unprotected quick-login token before storing the
-    // biometric-gated token. This protects access on subsequent reads.
+    // This uses a new key namespace; legacy unprotected biometric credentials
+    // are never read as login credentials.
     await SecureStore.deleteItemAsync(BIOMETRIC_TOKEN_KEY);
     await SecureStore.setItemAsync(BIOMETRIC_TOKEN_KEY, token, {
       requireAuthentication: true,
