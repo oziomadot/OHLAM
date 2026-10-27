@@ -62,7 +62,7 @@ export default function PayoutRequests(){
  };
  const create=async()=>{
   const money=Number(amount.replace(/,/g,""));
-  if(selected.length===0||!Number.isFinite(money)||money<100||money>1000000||Math.round(money*100)!==money*100||description.trim().length<10){
+  if(selected.length===0||!Number.isFinite(money)||money<100||money>1000000||Math.abs(money*100-Math.round(money*100))>0.000001||description.trim().length<10){
     Alert.alert("Complete the payment details","Select an eligible beneficiary and enter ₦100–₦1,000,000 per person and a description of at least 10 characters.");return;
   }
   const total=money*selected.length;
