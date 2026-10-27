@@ -54,11 +54,35 @@ export default function PayoutRequests(){
    }}
   ]);
  };
- const select=(user:User,bank?:Bank)=>{
+ // An API payout batch has one destination_type. The search always displays
+ // both eligible destination options; switching types requires confirmation
+ // rather than silently dropping previously selected beneficiaries.
+ const select=(user:User,kind:"external_bank"|"ohlam_wallet",bank?:Bank)=>{
   if(selected.some(s=>s.user_id===user.id)){
-    Alert.alert("Beneficiary already selected","Each beneficiary can only be added once per batch.");return;
+    Alert.alert("Beneficiary already selected","Remove this beneficiary from the batch before selecting another destination.");return;
   }
-  setSelected(old=>[...old,{user_id:user.id,bank_account_id:bank?.id ?? null,name:user.name,bank:bank ? bank.account_name+" ••••"+bank.account_last4 : "OHLAM wallet"}]);
+  if(kind==="ohlam_wallet"&&!user.wallet_available){
+    Alert.alert("Wallet unavailable","This beneficiary does not have an active OHLAM wallet.");return;
+  }
+  if(kind==="external_bank"&&(!bank||!bank.ready)){
+    Alert.alert("Bank not ready","Choose a verified bank account with a Paystack recipient.");return;
+  }
+  const add=()=>{
+    setDestination(kind);
+    setSelected(old=>[...old,{user_id:user.id,bank_account_id:kind==="external_bank"?bank!.id:null,
+      name:user.name,bank:kind==="external_bank"?bank!.account_name+" ••••"+bank!.account_last4:"OHLAM wallet"}]);
+  };
+  if(selected.length>0&&destination!==kind){
+    Alert.alert("Change payout destination?",
+      "Each payout batch must use only one destination type. Switching to "+(kind==="ohlam_wallet"?"OHLAM wallets":"bank accounts")+" will clear the "+selected.length+" beneficiary/beneficiaries already selected.",
+      [{text:"Cancel",style:"cancel"},{text:"Clear and switch",style:"destructive",onPress:()=>{
+        setSelected([{user_id:user.id,bank_account_id:kind==="external_bank"?bank!.id:null,
+          name:user.name,bank:kind==="external_bank"?bank!.account_name+" ••••"+bank!.account_last4:"OHLAM wallet"}]);
+        setDestination(kind);
+      }}]);
+    return;
+  }
+  add();
  };
  // Normalize common Nigerian currency entry formats without silently
  // changing ambiguous decimal notation. Backend validates the final amount.
@@ -76,9 +100,7 @@ export default function PayoutRequests(){
     Alert.alert("Payout permission required","Ask an administrator to assign Initiate Payout Requests.");return;
   }
   if(selected.length===0){
-    Alert.alert("Select a beneficiary",destination==="external_bank"
-      ?"Search for the user, then tap their verified bank account to add it under Beneficiaries."
-      :"Search for the user, then tap their active OHLAM wallet to add it under Beneficiaries.");return;
+    Alert.alert("Select a beneficiary","Search for the user, then tap their bank account or active OHLAM wallet shown under the result.");return;
   }
   if(money===null || money<100 || money>1000000 || Math.abs(money*100-Math.round(money*100))>0.000001){
     Alert.alert("Check amount","Enter a valid amount per beneficiary between ₦100 and ₦1,000,000. Example: 10000 or 10,000.00.");return;
@@ -148,38 +170,45 @@ export default function PayoutRequests(){
    {!loading && !permissions.includes("payouts.create") && !permissions.includes("payouts.approve") ? <Text style={styles.warning}>Payout initiation is not assigned to your staff account. Ask an administrator to grant Initiate payout requests in Staff Directory.</Text> : null}
    {permissions.includes("payouts.create") && role==="staff" ? <>
    <View style={styles.card}>
-    <Text style={styles.heading}>1. Choose destination</Text>
-    <View style={styles.row}>{(["external_bank","ohlam_wallet"] as const).map(value=><TouchableOpacity key={value} style={[styles.chip,destination===value&&styles.chipSelected]} onPress={()=>{setDestination(value);setSelected([]);setResults([]);}}><Text>{value==="external_bank"?"Verified bank account":"OHLAM wallet"}</Text></TouchableOpacity>)}</View>
-    <Text style={styles.heading}>2. Find beneficiary</Text>
+    <Text style={styles.heading}>1. Find beneficiary and select payout destination</Text>
+    <Text style={styles.hint}>Every search result shows available bank account(s) and the OHLAM wallet. Tap the destination to select it. A batch can contain only one destination type.</Text>
+    <Text style={styles.statusHint}>Current batch: {destination==="external_bank"?"Bank transfer":"OHLAM wallet"} · {selected.length} selected</Text>
     <TextInput style={styles.input} value={query} onChangeText={setQuery} placeholder="OHLAM ID, phone number or email" placeholderTextColor="#64748b" autoCapitalize="none"/>
     <TouchableOpacity style={styles.button} disabled={busy} onPress={()=>void lookup()}><Text style={styles.buttonText}>Search users</Text></TouchableOpacity>
     {results.map(user=><View key={user.id} style={styles.result}>
       <Text style={styles.name}>{user.name} · {user.oramex_id}</Text>
       <Text style={styles.text}>{user.email} · {user.phone}</Text>
-      {destination==="external_bank"&&!user.bank_accounts.some(bank=>bank.ready)?<View>
-        <Text style={styles.warning}>This beneficiary has no payout-ready bank account. Existing bank details may need verification or Paystack setup.</Text>
+      <Text style={styles.label}>Verified bank account(s)</Text>
+      {!user.bank_accounts.some(bank=>bank.ready)?<View>
+        <Text style={styles.warning}>No payout-ready bank account. Saved accounts may require verification or Paystack setup.</Text>
         <TouchableOpacity disabled={busy||!permissions.includes("payouts.create")} style={styles.button} onPress={()=>void notifyUser(user)}>
           <Text style={styles.buttonText}>Notify user to add / verify bank details</Text>
         </TouchableOpacity>
       </View>:null}
-      {destination==="ohlam_wallet" ? <TouchableOpacity style={[styles.bank,(!user.wallet_available||selected.some(x=>x.user_id===user.id))&&styles.disabled]}
-         disabled={busy||!user.wallet_available||selected.some(x=>x.user_id===user.id)} onPress={()=>select(user)}>
-         <Text style={styles.text}>OHLAM wallet · {user.wallet_available?"Active":"Not available"}</Text>
-        </TouchableOpacity> : user.bank_accounts.map(bank=>
-      <TouchableOpacity key={bank.id} disabled={busy||!bank.ready||selected.some(x=>x.user_id===user.id)}
-       style={[styles.bank,!bank.ready&&styles.disabled]} onPress={()=>select(user,bank)}>
-       <Text style={styles.text}>{bank.account_name} · Bank {bank.bank_code} · ••••{bank.account_last4}</Text>
-       <Text style={styles.hint}>{bank.ready?"Verified · Ready for payout":!bank.is_verified?"Saved · Awaiting verification":!bank.is_active?"Inactive bank account":"Verified · Paystack recipient setup pending"}</Text>
-      </TouchableOpacity>)}
+      {user.bank_accounts.map(bank=>
+        <TouchableOpacity key={bank.id}
+          disabled={busy||!bank.ready||selected.some(x=>x.user_id===user.id)}
+          style={[styles.bank,(!bank.ready||selected.some(x=>x.user_id===user.id))&&styles.disabled]}
+          onPress={()=>select(user,"external_bank",bank)}>
+          <Text style={styles.text}>{bank.account_name} · Bank {bank.bank_code} · ••••{bank.account_last4}</Text>
+          <Text style={styles.hint}>{bank.ready?"Tap to select verified bank account":!bank.is_verified?"Awaiting verification":!bank.is_active?"Inactive account":"Paystack recipient setup pending"}</Text>
+        </TouchableOpacity>)}
+      <Text style={[styles.label,{marginTop:12}]}>OHLAM wallet</Text>
+      <TouchableOpacity style={[styles.bank,(!user.wallet_available||selected.some(x=>x.user_id===user.id))&&styles.disabled]}
+        disabled={busy||!user.wallet_available||selected.some(x=>x.user_id===user.id)}
+        onPress={()=>select(user,"ohlam_wallet")}>
+        <Text style={styles.text}>OHLAM wallet · {user.wallet_available?"Active":"Not available"}</Text>
+        <Text style={styles.hint}>{user.wallet_available?"Tap to select OHLAM wallet payout":"An active OHLAM wallet is required"}</Text>
+      </TouchableOpacity>
     </View>)}
    </View>
    <View style={styles.card}>
-    <Text style={styles.heading}>3. Selected beneficiaries ({selected.length})</Text>
-    {!selected.length?<Text style={styles.warning}>No beneficiary selected. Search above and tap a verified bank account or active wallet before submitting.</Text>:selected.map(s=><View style={styles.selected} key={s.user_id}>
+    <Text style={styles.heading}>2. Selected beneficiaries ({selected.length})</Text>
+    {!selected.length?<Text style={styles.warning}>No beneficiary selected. Tap a verified bank account or active OHLAM wallet above to add a beneficiary.</Text>:selected.map(s=><View style={styles.selected} key={s.user_id}>
       <View style={{flex:1}}><Text style={styles.name}>{s.name}</Text><Text style={styles.hint}>{s.bank}</Text></View>
       <TouchableOpacity onPress={()=>setSelected(old=>old.filter(x=>x.user_id!==s.user_id))}><Text style={styles.remove}>Remove</Text></TouchableOpacity>
     </View>)}
-    <Text style={styles.heading}>4. Payment details</Text>
+    <Text style={styles.heading}>3. Payment details</Text>
     <Text style={styles.label}>Purpose</Text>
     <View style={styles.row}>{["agent_challenge","contractor_fee","refund","other"].map(x=><TouchableOpacity key={x} style={[styles.chip,purpose===x&&styles.chipSelected]} onPress={()=>setPurpose(x)}><Text style={styles.text}>{x.replace("_"," ")}</Text></TouchableOpacity>)}</View>
     <Text style={styles.label}>Amount per beneficiary (NGN) *</Text>
@@ -187,6 +216,7 @@ export default function PayoutRequests(){
     <Text style={styles.hint}>Enter the amount for each selected beneficiary, not the total.</Text>
     <Text style={styles.label}>Description / payment narration * ({description.trim().length}/10 minimum)</Text>
     <TextInput style={[styles.input,{minHeight:72}]} multiline value={description} onChangeText={setDescription} placeholder="Example: Reward for verified agent challenge winner" testID="payout-description"/>
+    <Text style={styles.hint}>Destination: {destination==="external_bank"?"Verified bank account":"OHLAM wallet"}</Text>
     <Text style={styles.name}>Total proposed: ₦{(((parseNaira(amount)??0)*selected.length)).toLocaleString("en-NG")}</Text>
     <TouchableOpacity style={styles.button} disabled={busy||!permissions.includes("payouts.create")} onPress={()=>void create()}><Text style={styles.buttonText}>Submit {selected.length} payout request(s) for approval</Text></TouchableOpacity>
    </View>
@@ -210,7 +240,7 @@ const styles=StyleSheet.create({
  page:{padding:16,paddingBottom:80,backgroundColor:"#f8fafc"},title:{fontSize:23,fontWeight:"900",color:"#0f172a",marginBottom:8},note:{color:"#475569",lineHeight:20,marginBottom:14},
  card:{backgroundColor:"#fff",padding:15,borderRadius:12,marginBottom:14,borderColor:"#e2e8f0",borderWidth:1},
  heading:{fontSize:17,fontWeight:"800",color:"#0f172a",marginVertical:10},name:{fontWeight:"800",color:"#0f172a",marginBottom:6},text:{color:"#334155",marginBottom:4},hint:{fontSize:12,color:"#64748b",marginTop:4},
- warning:{color:"#92400e",marginVertical:6},result:{paddingVertical:12,borderBottomWidth:1,borderColor:"#e2e8f0"},bank:{padding:10,backgroundColor:"#eff6ff",borderRadius:8,marginTop:7},disabled:{opacity:0.5},
+ warning:{color:"#92400e",marginVertical:6},statusHint:{fontWeight:"700",color:"#1d4ed8",marginVertical:8},result:{paddingVertical:12,borderBottomWidth:1,borderColor:"#e2e8f0"},bank:{padding:10,backgroundColor:"#eff6ff",borderRadius:8,marginTop:7},disabled:{opacity:0.5},
  selected:{flexDirection:"row",alignItems:"center",paddingVertical:10,borderBottomWidth:1,borderColor:"#e2e8f0"},remove:{fontWeight:"700",color:"#b91c1c"},
  input:{borderWidth:1,borderColor:"#94a3b8",borderRadius:8,padding:12,backgroundColor:"#fff",color:"#0f172a",marginVertical:9},
  row:{flexDirection:"row",gap:8,flexWrap:"wrap",marginVertical:8},chip:{padding:8,borderColor:"#cbd5e1",borderWidth:1,borderRadius:8},chipSelected:{backgroundColor:"#bfdbfe"},
