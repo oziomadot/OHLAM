@@ -32,7 +32,7 @@ export async function setupNotificationChannels() {
         : "Appointments, property and account updates",
       importance: Notifications.AndroidImportance.MAX,
       vibrationPattern: [0, 300, 200, 300],
-      sound: "default",
+      // Omit sound: use the system default instead of treating "default" as a bundled custom asset.
       enableVibrate: true,
       showBadge: true,
       lockscreenVisibility: Notifications.AndroidNotificationVisibility.PRIVATE,

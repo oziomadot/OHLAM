@@ -11,6 +11,7 @@ import {
   Modal,
 } from "react-native";
 import { Ionicons } from "@expo/vector-icons";
+import { router } from "expo-router";
 import * as DocumentPicker from "expo-document-picker";
 import ScreenWrapper from "components/ScreenWrapper";
 import Navbar from "components/Navbar";
@@ -22,6 +23,11 @@ type Vacancy = {
   jobdesc: string;
   deadline: string;
   created_at: string;
+  source: "legacy" | "recruitment";
+  requirements?: string;
+  department?: string;
+  engagement_type?: string;
+  closes_at?: string | null;
 };
 
 type AppForm = {
@@ -29,7 +35,9 @@ type AppForm = {
   email: string;
   phone: string;
   cover_letter: string;
-  cv: { name: string; uri: string; mimeType: string } | null;
+  cv: { name: string; uri: string; mimeType: string; size?: number } | null;
+  cover_letter_file: { name: string; uri: string; mimeType: string; size?: number } | null;
+  other_documents: { name: string; uri: string; mimeType: string; size?: number }[];
 };
 
 const EMPTY_FORM: AppForm = {
@@ -38,45 +46,88 @@ const EMPTY_FORM: AppForm = {
   phone: "",
   cover_letter: "",
   cv: null,
+  cover_letter_file: null,
+  other_documents: [],
 };
 
 export default function Vacancies() {
   const [vacancies, setVacancies] = useState<Vacancy[]>([]);
   const [loading, setLoading] = useState(true);
-  const [expanded, setExpanded] = useState<number | null>(null);
+  const [expanded, setExpanded] = useState<string | null>(null);
   const [applying, setApplying] = useState<Vacancy | null>(null);
   const [form, setForm] = useState<AppForm>(EMPTY_FORM);
   const [submitting, setSubmitting] = useState(false);
 
-  useEffect(() => {
-    const load = async () => {
-      try {
-        const res = await API.getVacancies();
-        setVacancies(res.data ?? []);
-      } catch (e: any) {
-        Alert.alert("Error", e?.response?.data?.message || "Failed to load vacancies");
-      } finally {
-        setLoading(false);
+  const loadVacancies = async () => {
+    setLoading(true);
+    try {
+      const results = await Promise.allSettled([
+        API.get("/recruitment/vacancies"),
+        API.getVacancies(),
+      ]);
+      if (results.every(r => r.status === "rejected")) {
+        throw (results[0] as PromiseRejectedResult).reason;
       }
-    };
-    load();
-  }, []);
+      const modern = results[0].status === "fulfilled"
+        ? (results[0].value.data?.data ?? [])
+        : [];
+      const legacyResponse = results[1].status === "fulfilled" ? results[1].value : null;
+      const old = legacyResponse ? (legacyResponse.data?.data ?? legacyResponse.data ?? []) : [];
+      const combined: Vacancy[] = [
+        ...(Array.isArray(modern) ? modern : []).map((v: any) => ({
+          ...v,
+          source: "recruitment" as const,
+          jobdesc: v.description ?? "",
+          deadline: v.closes_at ?? "",
+          created_at: v.created_at ?? "",
+        })),
+        ...(Array.isArray(old) ? old : []).map((v: any) => ({
+          ...v,
+          source: "legacy" as const,
+        })),
+      ];
+      setVacancies(combined);
+    } catch (e: any) {
+      Alert.alert("Error", e?.response?.data?.message || "Failed to load vacancies");
+    } finally {
+      setLoading(false);
+    }
+  };
+  useEffect(() => { void loadVacancies(); }, []);
 
-  const pickCV = async () => {
-    const result = await DocumentPicker.getDocumentAsync({
-      type: [
-        "application/pdf",
-        "application/msword",
-        "application/vnd.openxmlformats-officedocument.wordprocessingml.document",
-      ],
-      copyToCacheDirectory: true,
-    });
-    if (result.canceled) return;
-    const asset = result.assets[0];
-    setForm((f) => ({
-      ...f,
-      cv: { name: asset.name, uri: asset.uri, mimeType: asset.mimeType ?? "application/pdf" },
-    }));
+  const pickDocuments = async (kind: "cv" | "cover_letter_file" | "other_documents") => {
+    try {
+      const result = await DocumentPicker.getDocumentAsync({
+        type: kind === "other_documents"
+          ? ["application/pdf", "application/msword",
+             "application/vnd.openxmlformats-officedocument.wordprocessingml.document", "image/jpeg", "image/png"]
+          : ["application/pdf", "application/msword",
+             "application/vnd.openxmlformats-officedocument.wordprocessingml.document"],
+        copyToCacheDirectory: true,
+        multiple: kind === "other_documents",
+      });
+      if (result.canceled) return;
+      const files = result.assets.map(asset => ({
+        name: asset.name, uri: asset.uri,
+        mimeType: asset.mimeType ?? "application/pdf",
+        size: asset.size,
+      }));
+      if (files.some(file => (file.size ?? 0) > 5 * 1024 * 1024)) {
+        Alert.alert("Document too large", "Each document must be 5 MB or less.");
+        return;
+      }
+      if (kind === "cv") setForm(form => ({ ...form, cv: files[0] }));
+      else if (kind === "cover_letter_file") setForm(form => ({ ...form, cover_letter_file: files[0] }));
+      else setForm(form => {
+        if (form.other_documents.length + files.length > 8) {
+          Alert.alert("Attachment limit", "You may attach up to eight additional documents.");
+          return form;
+        }
+        return { ...form, other_documents: [...form.other_documents, ...files] };
+      });
+    } catch {
+      Alert.alert("File picker unavailable", "Please try selecting the documents again.");
+    }
   };
 
   const handleSubmit = async () => {
@@ -89,17 +140,40 @@ export default function Vacancies() {
       Alert.alert("Validation", "Please attach your CV.");
       return;
     }
-    const data = new FormData();
-    data.append("full_name", form.full_name);
-    data.append("email", form.email);
-    data.append("phone", form.phone);
-    if (form.cover_letter.trim()) data.append("cover_letter", form.cover_letter);
-    data.append("cv", { name: form.cv.name, uri: form.cv.uri, type: form.cv.mimeType } as any);
-
+    if (applying.source === "recruitment" && !form.cover_letter_file) {
+      Alert.alert("Validation", "Please attach your cover letter document.");
+      return;
+    }
     setSubmitting(true);
     try {
-      await API.applyVacancy(applying.id, data);
-      Alert.alert("Success", "Your application has been submitted successfully!");
+      if (applying.source === "recruitment") {
+        const data = new FormData();
+        data.append("name", form.full_name.trim());
+        data.append("email", form.email.trim());
+        data.append("phone", form.phone.trim());
+        if (form.cover_letter.trim()) data.append("experience", form.cover_letter.trim());
+        const attach = (field: string, file: NonNullable<AppForm["cv"]>) =>
+          data.append(field, { uri: file.uri, name: file.name, type: file.mimeType } as any);
+        attach("cv", form.cv!);
+        attach("cover_letter_document", form.cover_letter_file!);
+        form.other_documents.forEach(file => attach("other_documents[]", file));
+        const response = await API.post(`/recruitment/vacancies/${applying.id}/apply`, data, {
+          timeout: 120000,
+          headers: { "Content-Type": "multipart/form-data" },
+        });
+        const reference = response.data?.data?.reference;
+        Alert.alert("Application received",
+          `Your application and attachments were submitted securely.${reference ? `\\nReference: ${reference}` : ""}`);
+      } else {
+        const data = new FormData();
+        data.append("full_name", form.full_name);
+        data.append("email", form.email);
+        data.append("phone", form.phone);
+        if (form.cover_letter.trim()) data.append("cover_letter", form.cover_letter);
+        if (form.cv) data.append("cv", { name: form.cv.name, uri: form.cv.uri, type: form.cv.mimeType } as any);
+        await API.applyVacancy(applying.id, data);
+        Alert.alert("Success", "Your application has been submitted successfully!");
+      }
       setApplying(null);
       setForm(EMPTY_FORM);
     } catch (e: any) {
@@ -138,6 +212,10 @@ export default function Vacancies() {
         <Text style={styles.heroSubtitle}>
           Help us build Nigeria's most trusted real estate platform.
         </Text>
+        <TouchableOpacity style={[styles.applyBtn, {marginTop: 14}]} onPress={() => router.push("/(tabs)/my-applications" as never)}>
+          <Ionicons name="file-tray-full-outline" size={18} color="#fff" />
+          <Text style={styles.applyBtnText}>Track my applications</Text>
+        </TouchableOpacity>
       </View>
 
       <TouchableOpacity style={[styles.applyBtn, { marginHorizontal: 16, marginBottom: 12 }]}
@@ -165,12 +243,13 @@ export default function Vacancies() {
           </Text>
 
           {vacancies.map((v) => {
-            const isOpen = expanded === v.id;
+            const cardKey = `${v.source}-${v.id}`;
+            const isOpen = expanded === cardKey;
             return (
-              <View key={v.id} style={styles.card}>
+              <View key={cardKey} style={styles.card}>
                 <TouchableOpacity
                   style={styles.cardHeader}
-                  onPress={() => setExpanded(isOpen ? null : v.id)}
+                  onPress={() => setExpanded(isOpen ? null : cardKey)}
                   activeOpacity={0.75}
                 >
                   <View style={styles.cardIconBox}>
@@ -178,7 +257,7 @@ export default function Vacancies() {
                   </View>
                   <View style={styles.cardMeta}>
                     <Text style={styles.cardTitle}>{v.title}</Text>
-                    <Text style={styles.cardDate}>Posted {formatDate(v.created_at)}</Text>
+                    <Text style={styles.cardDate}>{v.department ? v.department.replace(/_/g, " ") + " · " : ""}{v.created_at ? "Posted " + formatDate(v.created_at) : "Open position"}</Text>
                     <Text style={styles.cardDeadline}>
                       <Ionicons name="time-outline" size={11} /> Deadline: {formatDate(v.deadline)}
                     </Text>
@@ -197,6 +276,7 @@ export default function Vacancies() {
                     <View style={styles.divider} />
                     <Text style={styles.descLabel}>Job Description</Text>
                     <Text style={styles.descText}>{v.jobdesc}</Text>
+                    {!!v.requirements && <><Text style={styles.descLabel}>Requirements</Text><Text style={styles.descText}>{v.requirements}</Text></>}
                     <TouchableOpacity
                       style={styles.applyBtn}
                       onPress={() => { setApplying(v); setForm(EMPTY_FORM); }}
@@ -274,22 +354,30 @@ export default function Vacancies() {
             onChangeText={(v) => setForm((f) => ({ ...f, cover_letter: v }))}
           />
 
-          <Text style={styles.fieldLabel}>CV / Resume * (PDF, DOC, DOCX — max 5MB)</Text>
-          <TouchableOpacity style={styles.cvPicker} onPress={pickCV}>
-            <Ionicons
-              name={form.cv ? "document-text" : "cloud-upload-outline"}
-              size={20}
-              color={form.cv ? "#2563eb" : "#94a3b8"}
-            />
-            <Text style={[styles.cvPickerText, form.cv && styles.cvPickerTextActive]}>
-              {form.cv ? form.cv.name : "Tap to attach your CV"}
-            </Text>
-            {form.cv && (
-              <TouchableOpacity onPress={() => setForm((f) => ({ ...f, cv: null }))}>
-                <Ionicons name="close-circle" size={18} color="#ef4444" />
-              </TouchableOpacity>
-            )}
+          <Text style={styles.fieldLabel}>CV / Resume * (PDF, DOC, DOCX, max 5 MB)</Text>
+          <TouchableOpacity style={styles.cvPicker} onPress={() => void pickDocuments("cv")}>
+            <Ionicons name="document-attach-outline" size={20} color="#2563eb" />
+            <Text style={styles.cvPickerText}>{form.cv?.name ?? "Attach CV"}</Text>
           </TouchableOpacity>
+          {applying?.source === "recruitment" ? <>
+            <Text style={styles.fieldLabel}>Cover Letter Document * (PDF, DOC, DOCX, max 5 MB)</Text>
+            <TouchableOpacity style={styles.cvPicker} onPress={() => void pickDocuments("cover_letter_file")}>
+              <Ionicons name="document-text-outline" size={20} color="#2563eb" />
+              <Text style={styles.cvPickerText}>{form.cover_letter_file?.name ?? "Attach cover letter"}</Text>
+            </TouchableOpacity>
+            <Text style={styles.fieldLabel}>Other Supporting Documents (optional, up to 8)</Text>
+            <TouchableOpacity style={styles.cvPicker} onPress={() => void pickDocuments("other_documents")}>
+              <Ionicons name="documents-outline" size={20} color="#2563eb" />
+              <Text style={styles.cvPickerText}>Add certificates or supporting files</Text>
+            </TouchableOpacity>
+            {form.other_documents.map((file, index) => <View key={index} style={styles.cvPicker}>
+              <Text style={styles.cvPickerText}>{file.name}</Text>
+              <TouchableOpacity onPress={() => setForm(f => ({
+                ...f, other_documents: f.other_documents.filter((_, i) => i !== index),
+              }))}><Ionicons name="close-circle" size={20} color="#b91c1c" /></TouchableOpacity>
+            </View>)}
+            <Text style={styles.fieldLabel}>Documents are submitted privately and reviewed by authorized staff. Automated checks do not establish document authenticity.</Text>
+          </> : null}
 
           <TouchableOpacity
             style={[styles.submitBtn, submitting && styles.submitBtnDisabled]}

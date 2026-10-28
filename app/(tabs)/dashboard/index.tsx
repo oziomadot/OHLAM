@@ -1,4 +1,5 @@
-import React, { useCallback, useMemo, useState } from "react";
+import { retryPendingPropertiesWhileActive } from "@/src/services/propertyUploadRetry";
+import React, { useCallback, useMemo, useState, useEffect } from "react";
 import {
   View,
   Text,
@@ -8,6 +9,7 @@ import {
   Alert,
   ScrollView,
   RefreshControl,
+  AppState,
 } from "react-native";
 import { useRouter, useFocusEffect } from "expo-router";
 import { MaterialCommunityIcons } from "@expo/vector-icons";
@@ -52,6 +54,23 @@ export default function Dashboard() {
   const [role, setRole] = useState("User");
   const isStaff = permissions.includes("support.view");
   const isAdmin = permissions.includes("admin.access");
+
+  // Retry only while the app is active, with a single worker per JS runtime.
+  useEffect(() => {
+    const ownerId = String(user?.id || "");
+    if (!ownerId) return;
+    const run = () => {
+      if (AppState.currentState === "active") {
+        void retryPendingPropertiesWhileActive(ownerId).catch(() => {});
+      }
+    };
+    run();
+    const interval = setInterval(run, 60_000);
+    const subscription = AppState.addEventListener("change", state => {
+      if (state === "active") run();
+    });
+    return () => { clearInterval(interval); subscription.remove(); };
+  }, [user?.id]);
 
   const goTo = (route: string) => router.push(route as any);
 
@@ -121,7 +140,7 @@ export default function Dashboard() {
     [
       "Interested Properties",
       `${summary?.counts?.interested_properties || 0} interested properties`,
-      "heart-home",
+      "heart-outline",
       "/(tabs)/properties/interested",
     ],
     [
@@ -163,13 +182,21 @@ export default function Dashboard() {
   ];
 
   const staffSections = [
+    ["Property Delete Requests", "Review pending requests and reasons", "file-document-remove-outline", "/(tabs)/dashboard/property-delete-requests"],
+    ["Recruitment Applicants", "Review applications across OHLAM", "account-multiple-check-outline", "/(tabs)/dashboard/verification/applications"],
+    ["Verification Demand", "Wishlist and special-search requests by LGA", "chart-bar", "/(tabs)/dashboard/verification/demand"],
+    ["Verification Requests", "Review customer property verification requests", "shield-search", "/(tabs)/dashboard/verification"],
     ["Search Property", "Find a property by property or agent number", "home-search", "/(tabs)/management?kind=property"],
-    ["Search Agent", "Find an agent by agent number or Oramex ID", "account-search", "/(tabs)/management?kind=agent"],
-    ["Management Workspace", "Search agents, properties and inspection status", "account-search", "/(tabs)/management"],
+
+    ["Management Workspace", "Find users, properties and inspection status", "account-search", "/(tabs)/management"],
+    ...(permissions.includes("payouts.create") ? [["Initiate Payouts", "Prepare payout requests for independent admin approval", "bank-plus", "/(tabs)/dashboard/payout-requests"]] : []),
     ["User Support", "Read and reply to user-management conversations", "message-text-lock", "/(tabs)/chat"],
   ];
 
   const adminSections = [
+    ["Admin Payout Requests", "Propose and approve prize or contractor payments", "bank-transfer", "/(tabs)/dashboard/payout-requests"],
+    ["OHLAM Recruitment", "Create vacancies across all departments", "briefcase-outline", "/(tabs)/dashboard/verification/vacancies"],
+    ["Verification Setup", "Draft regional service prices and professional coverage", "cog-outline", "/(tabs)/dashboard/verification/configuration"],
     ["Suspensions & Deletions", "Review status, reasons and the staff member responsible", "shield-search", "/(tabs)/management"],
     ["Manage Policies", "Add and publish OHLAM policies", "file-document-edit", "/(tabs)/management/policies"],
     ["Admin Workspace", "Staff directory and management audit log", "account-tie", "/(tabs)/management"],
@@ -315,6 +342,20 @@ export default function Dashboard() {
               />
             ))}
           </View>
+
+          {permissions.includes("marketing.campaign.manage") && (
+            <>
+              <Text style={styles.sectionTitle}>Marketing</Text>
+              <View style={styles.list}>
+                <Card
+                  title="Marketing Media Library"
+                  subtitle="Create campaign drafts, upload posters or videos and copy public media links"
+                  icon="image-multiple-outline"
+                  route="/(tabs)/management/media-library"
+                />
+              </View>
+            </>
+          )}
 
           {(isStaff || isAdmin) && (
             <>

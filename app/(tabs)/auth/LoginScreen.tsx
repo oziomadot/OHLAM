@@ -9,6 +9,7 @@ import {
   Text,
   StyleSheet,
   TouchableOpacity,
+  Platform,
 } from "react-native";
 
 import {
@@ -54,10 +55,12 @@ const QUICK_LOGIN_IDENTIFIER_KEY =
   "ohlam_quick_login_identifier";
 
 const BIOMETRIC_ENABLED_KEY =
-  "ohlam_biometric_enabled";
+  "ohlam_biometric_enabled_v3";
 
 const BIOMETRIC_TOKEN_KEY =
-  "ohlam_biometric_token";
+  "ohlam_biometric_credential_protected_v3";
+
+const BIOMETRIC_USER_ID_KEY = "ohlam_biometric_user_id_v3";
 
 const LoginSchema = Yup.object().shape({
   email: Yup.string()
@@ -176,28 +179,15 @@ async function saveQuickLoginIdentifier(
 }
 
 async function isBiometricEnabled(): Promise<boolean> {
-  const [
-    hardwareAvailable,
-    biometricEnrolled,
-    biometricEnabled,
-    storedToken,
-  ] = await Promise.all([
+  if (Platform.OS === "web") return false;
+  // Never read a protected token merely to draw the login button; reading it
+  // would trigger biometric authentication on screen focus.
+  const [hardware, enrolled, enabled] = await Promise.all([
     LocalAuthentication.hasHardwareAsync(),
     LocalAuthentication.isEnrolledAsync(),
-    SecureStore.getItemAsync(
-      BIOMETRIC_ENABLED_KEY
-    ),
-    SecureStore.getItemAsync(
-      BIOMETRIC_TOKEN_KEY
-    ),
+    SecureStore.getItemAsync(BIOMETRIC_ENABLED_KEY),
   ]);
-
-  return (
-    hardwareAvailable &&
-    biometricEnrolled &&
-    biometricEnabled === "true" &&
-    Boolean(storedToken)
-  );
+  return hardware && enrolled && enabled === "true";
 }
 
 export default function LoginScreen() {
@@ -209,6 +199,9 @@ export default function LoginScreen() {
   );
 
   const [pin, setPin] = useState("");
+  const [passwordVisible, setPasswordVisible] = useState(false);
+  const [enableBiometricOnLogin, setEnableBiometricOnLogin] = useState(false);
+  const [biometricEnrollmentAvailable, setBiometricEnrollmentAvailable] = useState(false);
 
   const [isLoading, setIsLoading] = useState(false);
 
@@ -278,9 +271,11 @@ const {redirectTo, action, property_id,} = useLocalSearchParams<{ redirectTo?: s
           )
         );
 
-        setBiometricLoginAvailable(
-          biometricAvailable
-        );
+        setBiometricLoginAvailable(biometricAvailable);
+        const canEnroll = Platform.OS !== "web" &&
+          await LocalAuthentication.hasHardwareAsync() &&
+          await LocalAuthentication.isEnrolledAsync();
+        setBiometricEnrollmentAvailable(canEnroll);
 
         setDevice(
           deviceDetails
@@ -295,9 +290,8 @@ const {redirectTo, action, property_id,} = useLocalSearchParams<{ redirectTo?: s
           false
         );
 
-        setBiometricLoginAvailable(
-          false
-        );
+        setBiometricLoginAvailable(false);
+        setBiometricEnrollmentAvailable(false);
       }
     }, []);
 
@@ -499,6 +493,40 @@ if (redirectTo) {
     }
   };
 
+  const enrollBiometrics = async (
+    accessToken: string,
+    password: string,
+    authenticatedUserId: number
+  ): Promise<void> => {
+    if (Platform.OS === "web") return;
+    const details = await getDeviceDetails();
+    const enrolled = await LocalAuthentication.isEnrolledAsync();
+    if (!(await LocalAuthentication.hasHardwareAsync()) || !enrolled) {
+      throw new Error("Biometric authentication is not configured on this phone.");
+    }
+    const response = await API.post("/login/biometric/enroll", {
+      password,
+      installation_id: details.installation_id,
+      platform: details.platform,
+    }, { headers: { Authorization: `Bearer ${accessToken}` } });
+    const credential = response.data?.data?.credential;
+    const serverUserId = response.data?.data?.user_id;
+    if (typeof credential !== "string" || credential.length !== 64 ||
+        String(serverUserId) !== String(authenticatedUserId)) {
+      throw new Error("Biometric enrollment response was incomplete.");
+    }
+    // Biometric-gated SecureStore contains the refresh credential, never the
+    // revoked Sanctum session token.
+    await SecureStore.deleteItemAsync(BIOMETRIC_TOKEN_KEY);
+    await SecureStore.setItemAsync(BIOMETRIC_TOKEN_KEY, credential, {
+      requireAuthentication: true,
+      authenticationPrompt: "Enable fingerprint or Face ID login for OHLAM",
+    });
+    await SecureStore.setItemAsync(BIOMETRIC_USER_ID_KEY, String(authenticatedUserId));
+    await SecureStore.setItemAsync(BIOMETRIC_ENABLED_KEY, "true");
+    setBiometricLoginAvailable(true);
+  };
+
   const handlePasswordLogin =
     async (values: LoginFormValues) => {
       try {
@@ -550,6 +578,15 @@ if (redirectTo) {
           token &&
           user
         ) {
+          if (enableBiometricOnLogin) {
+            try {
+              await enrollBiometrics(token, values.password, Number(user.id));
+              setEnableBiometricOnLogin(false);
+            } catch {
+              showAlert("Biometric setup unavailable",
+                "Your password login is still successful. Check device fingerprint or Face ID enrollment and enable it on your next login.");
+            }
+          }
           await saveAuthenticatedSession(
             token,
             user,
@@ -776,89 +813,56 @@ if (redirectTo) {
       }
     };
 
-  const handleBiometricLogin =
-    async () => {
-      try {
-        setIsLoading(true);
-
-        const result =
-          await LocalAuthentication.authenticateAsync(
-            {
-              promptMessage:
-                "Login to OHLAM",
-              cancelLabel:
-                "Cancel",
-              fallbackLabel:
-                "Use device PIN",
-              disableDeviceFallback:
-                false,
-            }
-          );
-
-        if (!result.success) {
-          return;
-        }
-
-        const token =
-          await SecureStore.getItemAsync(
-            BIOMETRIC_TOKEN_KEY
-          );
-
-        const savedUser =
-          await getItemSafe(
-            "user"
-          );
-
-        if (
-          !token ||
-          !savedUser
-        ) {
-          setBiometricLoginAvailable(
-            false
-          );
-
-          showAlert(
-            "Password Required",
-            "Your saved login session is unavailable. Login with your password again."
-          );
-
-          return;
-        }
-
-        let parsedUser: any;
-
-        try {
-          parsedUser =
-            JSON.parse(
-              savedUser
-            );
-        } catch {
-          showAlert(
-            "Login Error",
-            "The saved user information is invalid. Login with your password again."
-          );
-
-          return;
-        }
-
-        await saveAuthenticatedSession(
-          token,
-          parsedUser,
-          quickLoginEmail ??
-            undefined
-        );
-      } catch (error: any) {
-        showAlert(
-          "Biometric Login Failed",
-          getApiErrorMessage(
-            error,
-            "Unable to authenticate with biometrics."
-          )
-        );
-      } finally {
-        setIsLoading(false);
+  const handleBiometricLogin = async () => {
+    if (isLoading) return;
+    try {
+      setIsLoading(true);
+      const userId = await SecureStore.getItemAsync(BIOMETRIC_USER_ID_KEY);
+      if (!userId || !/^\d+$/.test(userId)) {
+        throw new Error("BIOMETRIC_REENROLL_REQUIRED");
       }
-    };
+      const credential = await SecureStore.getItemAsync(BIOMETRIC_TOKEN_KEY, {
+        requireAuthentication: true,
+        authenticationPrompt: "Login to OHLAM with fingerprint or Face ID",
+      });
+      if (!credential) {
+        throw new Error("BIOMETRIC_REENROLL_REQUIRED");
+      }
+      const details = await getDeviceDetails();
+      const response = await API.post("/login/biometric", {
+        user_id: Number(userId),
+        credential,
+        installation_id: details.installation_id,
+        platform: details.platform,
+      });
+      const data = response.data;
+      if (await handleVerificationResponse(data)) return;
+      const token = getResponseToken(data);
+      const user = getResponseUser(data);
+      if (!token || !user?.id || String(user.id) !== userId) {
+        throw new Error("BIOMETRIC_REENROLL_REQUIRED");
+      }
+      await saveAuthenticatedSession(token, user, user.email ?? undefined);
+    } catch (error: any) {
+      const status = error?.response?.status;
+      const code = error?.response?.data?.code;
+      if (status === 401 || status === 403 ||
+          code === "BIOMETRIC_REENROLL_REQUIRED" ||
+          error?.message === "BIOMETRIC_REENROLL_REQUIRED") {
+        await SecureStore.deleteItemAsync(BIOMETRIC_TOKEN_KEY).catch(() => {});
+        await SecureStore.deleteItemAsync(BIOMETRIC_USER_ID_KEY).catch(() => {});
+        await SecureStore.setItemAsync(BIOMETRIC_ENABLED_KEY, "false").catch(() => {});
+        setBiometricLoginAvailable(false);
+        showAlert("Password login required",
+          "Biometric login needs to be re-enabled with your password on this device.");
+      } else {
+        showAlert("Biometric login unavailable",
+          "Biometric authentication was cancelled or the server could not be reached. Please try again or use your password.");
+      }
+    } finally {
+      setIsLoading(false);
+    }
+  };
 
   const handleGoogleLogin =
     async () => {
@@ -962,7 +966,13 @@ if (redirectTo) {
                   style={
                     styles.input
                   }
-                  secureTextEntry
+                  secureTextEntry={!passwordVisible}
+                  right={<TextInput.Icon
+                    icon={passwordVisible ? "eye-off" : "eye"}
+                    onPress={() => setPasswordVisible(v => !v)}
+                    accessibilityLabel={passwordVisible ? "Hide password" : "Show password"}
+                    disabled={isLoading}
+                  />}
                   value={
                     values.password
                   }
@@ -995,6 +1005,23 @@ if (redirectTo) {
                       }
                     </Text>
                   )}
+
+                {biometricEnrollmentAvailable && !biometricLoginAvailable && (
+                  <TouchableOpacity
+                    accessibilityRole="checkbox"
+                    accessibilityState={{ checked: enableBiometricOnLogin }}
+                    onPress={() => setEnableBiometricOnLogin(current => !current)}
+                    disabled={isLoading}
+                    style={{ flexDirection: "row", alignItems: "center", paddingVertical: 12 }}
+                  >
+                    <Text style={{ fontSize: 19, marginRight: 10 }}>
+                      {enableBiometricOnLogin ? "☑" : "☐"}
+                    </Text>
+                    <Text style={{ flex: 1, color: "#334155" }}>
+                      Enable fingerprint / Face ID login on this device after signing in
+                    </Text>
+                  </TouchableOpacity>
+                )}
 
                 <Button
                   mode="contained"

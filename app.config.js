@@ -1,9 +1,18 @@
+// Keep preview/development installs separate from the published Play Store package.
+// The test Firebase app must be registered for com.oramexglobals.ohlam.test.
+const appEnvironment = process.env.EXPO_PUBLIC_APP_ENV || "production";
+const isTesting = appEnvironment === "development" || appEnvironment === "preview";
+const androidPackage = isTesting ? "com.oramexglobals.ohlam.test" : "com.oramexglobals.ohlam";
+const googleServicesFile = isTesting
+  ? (process.env.GOOGLE_SERVICES_FILE_TEST || "./google-services.test.json")
+  : "./google-services.json";
+
 export default {
   expo: {
-    name: "OHLAM",
+    name: isTesting ? "OHLAM Test" : "OHLAM",
     slug: "OHLAM",
-    scheme: "ohlam",
-    version: "1.0.14",
+    scheme: isTesting ? "ohlam-test" : "ohlam",
+    version: "1.0.15",
 
     icon: "./assets/ohlam_adaptive_logo_1.png",
 
@@ -19,8 +28,7 @@ export default {
     },
 
     android: {
-      package:
-        "com.oramexglobals.ohlam",
+      package: androidPackage,
 
       adaptiveIcon: {
         foregroundImage:
@@ -28,10 +36,9 @@ export default {
         backgroundColor: "#FFFFFF",
       },
 
-      googleServicesFile:
-        "./google-services.json",
+      googleServicesFile,
 
-      versionCode: 4,
+      versionCode: 23,
 
       permissions: [
         "CAMERA",
@@ -52,7 +59,7 @@ export default {
       bundleIdentifier:
         "com.oramexglobal.ohlam",
 
-      buildNumber: "1.0.0",
+      buildNumber: "1.0.1",
 
       supportsTablet: true,
 

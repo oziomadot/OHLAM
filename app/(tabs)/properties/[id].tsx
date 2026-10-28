@@ -1134,7 +1134,7 @@ export default function PropertyDetailsScreen() {
     </>
   )}
 
-  {(media.video_url || media.video) && (
+  {Boolean(media.video_url || media.video) && (
     <TouchableOpacity
       style={styles.linkBtn}
       onPress={() =>
