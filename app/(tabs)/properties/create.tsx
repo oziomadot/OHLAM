@@ -225,7 +225,8 @@ const CreateProperty = () => {
       if (draftTimer.current) clearTimeout(draftTimer.current);
       draftTimer.current = setTimeout(() => {
         void AsyncStorage.setItem(key, JSON.stringify({
-          values: { ...values, user_id: user.id },
+          // Do not persist private addresses, coordinates, or identity information in plaintext storage.
+          values: Object.fromEntries(Object.entries(values).filter(([key]) => !["address", "meeting_place", "latitude", "longitude", "user_id"].includes(key))),
           fees: additionalFeeItems,
           expenses: additionalExpenses,
           saved_at: new Date().toISOString(),
@@ -529,6 +530,7 @@ const calculateAgencyFees = (
     resetFiles,
     showAlert,
     setLoading,
+    onSuccess: () => setDraftReady(false),
   });
 
   
