@@ -32,7 +32,7 @@ export default function RecruitmentContracts() {
         API.get("/management/recruitment/contract-templates"),
       ]);
       setAccess(a.data);
-      setApplications(b.data?.data ?? []);
+      setApplications(Array.isArray(b.data?.data) ? b.data.data : b.data?.data?.data ?? []);
       setTemplates(c.data?.data ?? []);
     } catch (e: any) {
       setError(e?.response?.status === 403 ? "You are not authorized to manage contracts." : message(e));
