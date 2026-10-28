@@ -2,6 +2,7 @@ import React, { useCallback, useState } from "react";
 import { ActivityIndicator, Alert, ScrollView, StyleSheet, Text, TextInput, TouchableOpacity, View } from "react-native";
 import { Stack, useFocusEffect } from "expo-router";
 import API from "@/src/services/api";
+import { shareRecruitmentContractPdf } from "@/src/services/recruitmentContractPdf";
 
 type Application = { id: number; name: string; vacancy: string; status: string };
 type Contract = { id: number; title: string; version: number; status: string; prepared_by: number };
@@ -94,6 +95,7 @@ export default function RecruitmentContracts() {
       {contracts.map(c => <View key={c.id} style={styles.card}>
         <Text style={styles.bold}>{c.title} · v{c.version}</Text>
         <Text>Status: {c.status.replace(/_/g, " ")}</Text>
+        {["issued", "acknowledged", "declined"].includes(c.status) && <TouchableOpacity style={styles.button} disabled={busy} onPress={() => void shareRecruitmentContractPdf(c.id).catch((e: any) => Alert.alert("Unable to access PDF", e?.message ?? "Document unavailable."))}><Text style={styles.buttonText}>Open / export contract PDF</Text></TouchableOpacity>}
         {c.status === "draft" && can("recruitment.contracts.approve") &&
           <TouchableOpacity style={styles.button} disabled={busy} onPress={() => void action(`/management/recruitment/contracts/${c.id}/approve`, "Contract approved.")}><Text style={styles.buttonText}>Approve (different preparer required)</Text></TouchableOpacity>}
         {c.status === "approved" && can("recruitment.contracts.issue") &&
