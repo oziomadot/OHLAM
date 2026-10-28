@@ -2,6 +2,7 @@ import { submitQueuedProperty } from "@/src/services/submitQueuedProperty";
 import { listPendingPropertyUploads } from "@/src/services/propertyUploadQueue";
 import { savePendingPropertyUpload, deletePendingPropertyUpload } from "@/src/services/propertyUploadQueue";
 import * as Crypto from "expo-crypto";
+import AsyncStorage from "@react-native-async-storage/async-storage";
 import API from "@/src/services/api";
 import { router } from "expo-router";
 
@@ -606,6 +607,8 @@ const validateMedia = (): boolean => {
       const res = await submitQueuedProperty(queued);
       if (savedLocally) await deletePendingPropertyUpload(submissionId, String(formData.user_id || "")).catch(()=>{});
 
+      // Remove the pre-submission draft only after confirmed server success.
+      await AsyncStorage.removeItem(`ohlam:property-form-draft:v1:${String(formData.user_id || "")}`).catch(() => {});
       reset();
       resetFiles();
 
