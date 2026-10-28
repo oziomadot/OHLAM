@@ -81,6 +81,10 @@ export default function ManagementScreen() {
         <TouchableOpacity disabled={busy || !reference.trim()} style={[styles.primary, (busy || !reference.trim()) && styles.disabled]} onPress={() => void load(`/management/search?kind=${kind}&reference=${encodeURIComponent(reference.trim())}`, "Search results")}>
           <Text style={styles.white}>Search</Text>
         </TouchableOpacity>
+        {can("recruitment.contracts.prepare") ? <TouchableOpacity style={styles.primary}
+          onPress={() => router.push("/(tabs)/management/recruitment-contracts" as never)}>
+          <Text style={styles.white}>Personnel contracts and approvals</Text>
+        </TouchableOpacity> : null}
         {can("staff.read") ? <TouchableOpacity style={styles.tab} disabled={busy} onPress={() => void load("/management/staff", "Staff directory")}><Text>View staff directory</Text></TouchableOpacity> : null}
         {can("audit.read") ? <TouchableOpacity style={styles.tab} disabled={busy} onPress={() => void load("/management/audit", "Management audit log")}><Text>View audit log</Text></TouchableOpacity> : null}
         {can("moderation.history") ? <>
