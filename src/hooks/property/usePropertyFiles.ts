@@ -3,6 +3,9 @@ import {
   useRef,
 } from "react";
 import * as DocumentPicker from "expo-document-picker";
+import * as FileSystem from "expo-file-system/legacy";
+import { Platform } from "react-native";
+import * as Device from "expo-device";
 
 type ShowAlert = (
   title: string,
@@ -31,6 +34,10 @@ export function usePropertyFiles(
   // Keep the selected asset available synchronously even before a rerender.
   const videoRef = useRef<any>(null);
   const getSelectedVideo = () => videoRef.current;
+  const pickerActive = useRef(false);
+  const logPicker = (stage: string, field: string) => {
+    if (__DEV__) console.info("[PROPERTY_PICKER]", { stage, field, platform: Platform.OS, androidVersion: Platform.Version, brand: Device.brand, model: Device.modelName });
+  };
 
   const [
     proofDocument,
@@ -73,6 +80,9 @@ export function usePropertyFiles(
     async (
       field: string
     ) => {
+      if (pickerActive.current) return;
+      pickerActive.current = true;
+      logPicker("opened", field);
       try {
         const result =
           await DocumentPicker
@@ -110,6 +120,9 @@ export function usePropertyFiles(
           return;
         }
 
+        const accessible = await FileSystem.getInfoAsync(file.uri);
+        if (!accessible.exists) throw new Error("Selected image is not accessible.");
+        logPicker("selected", field);
         setImages(
           (prev: any) => ({
             ...prev,
@@ -120,19 +133,22 @@ export function usePropertyFiles(
         );
       } catch (error) {
         console.error(
-          "Image picker error:",
-          error
+          "[PROPERTY_PICKER] image picker error",
+          { kind: error instanceof Error ? error.name : "unknown" }
         );
 
         showAlert?.(
           "Image Error",
           "Could not select this image. Please try a smaller image."
         );
-      }
+      } finally { pickerActive.current = false; }
     };
 
   const pickVideo =
     async () => {
+      if (pickerActive.current) return;
+      pickerActive.current = true;
+      logPicker("opened", "video");
       try {
         const result =
           await DocumentPicker
@@ -170,19 +186,22 @@ export function usePropertyFiles(
           return;
         }
 
+        const accessible = await FileSystem.getInfoAsync(file.uri);
+        if (!accessible.exists) throw new Error("Selected video is not accessible.");
+        logPicker("selected", "video");
         videoRef.current = file;
         setVideo(file);
       } catch (error) {
         console.error(
-          "Video picker error:",
-          error
+          "[PROPERTY_PICKER] video picker error",
+          { kind: error instanceof Error ? error.name : "unknown" }
         );
 
         showAlert?.(
           "Video Error",
           "Could not select this video. Please try a smaller file."
         );
-      }
+      } finally { pickerActive.current = false; }
     };
 
   const pickProofDocument =
