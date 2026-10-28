@@ -19,6 +19,7 @@ type Args = {
   resetFiles: () => void;
   showAlert: (title: string, message: string) => void;
   setLoading: (value: boolean) => void;
+  onSuccess?: () => void;
 };
 
 type AdditionalFeeItem = {
@@ -43,6 +44,7 @@ export function usePropertySubmit({
   resetFiles,
   showAlert,
   setLoading,
+  onSuccess,
 }: Args) {
   const hasFile = (file: any) => {
     if (!file) return false;
@@ -607,6 +609,7 @@ const validateMedia = (): boolean => {
       const res = await submitQueuedProperty(queued);
       if (savedLocally) await deletePendingPropertyUpload(submissionId, String(formData.user_id || "")).catch(()=>{});
 
+      onSuccess?.();
       // Remove the pre-submission draft only after confirmed server success.
       await AsyncStorage.removeItem(`ohlam:property-form-draft:v1:${String(formData.user_id || "")}`).catch(() => {});
       reset();
