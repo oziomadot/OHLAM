@@ -1,4 +1,4 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef } from "react";
 import {
   View,
   Text,
@@ -50,6 +50,8 @@ const CreateProperty = () => {
 
   const [checkingAccess, setCheckingAccess] = useState(true);
   const [loading, setLoading] = useState(false);
+  const [draftReady, setDraftReady] = useState(false);
+  const draftTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   const [alertVisible, setAlertVisible] = useState(false);
   const [alertTitle, setAlertTitle] = useState("");
@@ -189,6 +191,53 @@ const CreateProperty = () => {
   
 },
   });
+
+  // Recover form values if Android destroys the activity while the picker is open.
+  // Drafts are scoped per account and never include identity documents or media bytes.
+  useEffect(() => {
+    if (authLoading || !isAuthenticated || !user?.id) return;
+    let cancelled = false;
+    const key = `ohlam:property-form-draft:v1:${user.id}`;
+    void AsyncStorage.getItem(key).then(raw => {
+      if (cancelled) return;
+      if (raw) {
+        try {
+          const saved = JSON.parse(raw);
+          if (saved && saved.values && typeof saved.values === "object") {
+            reset({ ...saved.values, user_id: user.id });
+            if (Array.isArray(saved.fees)) setAdditionalFeeItems(saved.fees);
+            if (Array.isArray(saved.expenses)) setAdditionalExpenses(saved.expenses);
+            showAlert("Draft recovered", "Your previously entered property details have been restored. Please reselect any media files before submitting.");
+          }
+        } catch (error) {
+          console.warn("[PROPERTY_DRAFT] invalid saved form", { reason: "parse_error" });
+        }
+      }
+      setDraftReady(true);
+    }).catch(() => { if (!cancelled) setDraftReady(true); });
+    return () => { cancelled = true; };
+  }, [authLoading, isAuthenticated, user?.id, reset]);
+
+  useEffect(() => {
+    if (!draftReady || !user?.id) return;
+    const key = `ohlam:property-form-draft:v1:${user.id}`;
+    const subscription = watch(values => {
+      if (draftTimer.current) clearTimeout(draftTimer.current);
+      draftTimer.current = setTimeout(() => {
+        void AsyncStorage.setItem(key, JSON.stringify({
+          // Do not persist private addresses, coordinates, or identity information in plaintext storage.
+          values: Object.fromEntries(Object.entries(values).filter(([key]) => !["address", "meeting_place", "latitude", "longitude", "user_id"].includes(key))),
+          fees: additionalFeeItems,
+          expenses: additionalExpenses,
+          saved_at: new Date().toISOString(),
+        })).catch(() => console.warn("[PROPERTY_DRAFT] save failed"));
+      }, 600);
+    });
+    return () => {
+      subscription.unsubscribe();
+      if (draftTimer.current) clearTimeout(draftTimer.current);
+    };
+  }, [watch, draftReady, user?.id, additionalFeeItems, additionalExpenses]);
 
   const selectedPropertyType = parseInt(watch("propertyTypes"), 10);
   const selectedListingRoleId = watch("listing_role_id");
@@ -481,6 +530,7 @@ const calculateAgencyFees = (
     resetFiles,
     showAlert,
     setLoading,
+    onSuccess: () => setDraftReady(false),
   });
 
   
