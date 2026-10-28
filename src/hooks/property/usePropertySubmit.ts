@@ -1,3 +1,7 @@
+import { submitQueuedProperty } from "@/src/services/submitQueuedProperty";
+import { listPendingPropertyUploads } from "@/src/services/propertyUploadQueue";
+import { savePendingPropertyUpload, deletePendingPropertyUpload } from "@/src/services/propertyUploadQueue";
+import * as Crypto from "expo-crypto";
 import API from "@/src/services/api";
 import { router } from "expo-router";
 
@@ -376,6 +380,29 @@ const validateMedia = (): boolean => {
     }
 
     setLoading(true);
+    const submissionId = Crypto.randomUUID();
+    let savedLocally = false;
+    const pendingFiles: Record<string, any> = {...(images || {})};
+    if (video?.uri) pendingFiles.video = video;
+    if (proofDocument?.uri) pendingFiles.proof_document = proofDocument;
+    if (floorPlan?.uri) pendingFiles.floor_plan = floorPlan;
+    if (threeSixtyVideo?.uri) pendingFiles.three_sixty_video = threeSixtyVideo;
+
+    try {
+      await savePendingPropertyUpload(
+        String(formData.user_id || ""),
+        {...formData, propertyTypes: selectedPropertyType},
+        pendingFiles,
+        "pending",
+        submissionId
+      );
+      savedLocally = true;
+    } catch (error) {
+      console.error("Could not save pending property securely:", error);
+      showAlert("Unable to save draft", "Could not preserve property files on this device. Free storage and try again.");
+      setLoading(false);
+      return;
+    }
 
     try {
       const data =
@@ -572,10 +599,12 @@ const validateMedia = (): boolean => {
         );
       }
 
-      const res =
-        await API.createProperty(
-          data
-        );
+      data.set("client_submission_id", submissionId);
+      const queued = (await listPendingPropertyUploads(String(formData.user_id || "")))
+        .find(entry => entry.id === submissionId);
+      if (!queued) throw new Error("Saved property submission is missing.");
+      const res = await submitQueuedProperty(queued);
+      if (savedLocally) await deletePendingPropertyUpload(submissionId, String(formData.user_id || "")).catch(()=>{});
 
       reset();
       resetFiles();
@@ -611,6 +640,11 @@ const validateMedia = (): boolean => {
     ) {
       const responseData =
         err.response?.data;
+
+      if (!err.response || err.code === "ERR_NETWORK" || err.code === "ECONNABORTED") {
+        showAlert("Upload saved", "Connection interrupted. Your property and files are saved under Pending Uploads. You can retry safely with the same submission ID.");
+        return;
+      }
 
       console.error(
         "Upload error:",

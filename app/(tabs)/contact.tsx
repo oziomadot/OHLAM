@@ -57,8 +57,8 @@ const SOCIALS = [
   },
   {
     label: "WhatsApp",
-    handle: "+2347052578055",
-    url: `https://wa.me/2347052578055`,
+    handle: "+2349123032754",
+    url: `https://wa.me/2349123032754`,
     icon: "whatsapp" as const,
     color: "#25d366",
     bg: "#e6f9ee",
