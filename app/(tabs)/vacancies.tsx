@@ -218,6 +218,11 @@ export default function Vacancies() {
         </TouchableOpacity>
       </View>
 
+      <TouchableOpacity style={[styles.applyBtn, { marginHorizontal: 16, marginBottom: 12 }]}
+        onPress={() => router.push("/(tabs)/my-contracts" as never)}>
+        <Text style={styles.applyBtnText}>View my issued contracts</Text>
+      </TouchableOpacity>
+
       {loading ? (
         <View style={styles.center}>
           <ActivityIndicator size="large" color="#2563eb" />

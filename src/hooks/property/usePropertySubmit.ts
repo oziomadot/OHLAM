@@ -10,6 +10,7 @@ type Args = {
   selectedListingRoleName: string;
   images: any;
   video: any;
+  getSelectedVideo?: () => any;
   proofDocument: any;
   floorPlan: any;
   threeSixtyVideo: any;
@@ -33,6 +34,7 @@ export function usePropertySubmit({
   selectedListingRoleName,
   images,
   video,
+  getSelectedVideo,
   proofDocument,
   floorPlan,
   threeSixtyVideo,
@@ -179,8 +181,7 @@ export function usePropertySubmit({
 const validateMedia = (): boolean => {
   const hasVideo =
     Boolean(
-      video?.uri ||
-      video?.name
+      selectedVideo?.uri
     );
 
   if (selectedPropertyType === 3) {
@@ -334,6 +335,7 @@ const validateMedia = (): boolean => {
   const onSubmit = async (
     formData: any
   ) => {
+    const selectedVideo = getSelectedVideo?.() ?? video;
     if (
       !validateMedia()
     ) {
