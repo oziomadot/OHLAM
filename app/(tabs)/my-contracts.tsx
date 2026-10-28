@@ -2,6 +2,7 @@ import React, { useCallback, useState } from "react";
 import { ActivityIndicator, Alert, ScrollView, StyleSheet, Text, TouchableOpacity, View } from "react-native";
 import { Stack, useFocusEffect } from "expo-router";
 import API from "@/src/services/api";
+import { shareRecruitmentContractPdf } from "@/src/services/recruitmentContractPdf";
 type Contract = { id: number; title: string; version: number; status: string; terms?: string; issued_at?: string };
 export default function MyContracts() {
  const [items,setItems]=useState<Contract[]>([]);
@@ -34,7 +35,7 @@ export default function MyContracts() {
  return <ScrollView style={styles.page} contentContainerStyle={styles.content}>
   <Stack.Screen options={{title:"My contracts",headerShown:true}}/>
   <Text style={styles.title}>My contracts</Text>
-  <Text style={styles.note}>Review issued contract terms. Acknowledging receipt does not sign your contract or authorize you to begin work. The official PDF is available from OHLAM management through authenticated access.</Text>
+  <Text style={styles.note}>Review issued contract terms. Acknowledging receipt does not sign your contract or authorize you to begin work. You can open or export the official PDF after authenticating.</Text>
   {busy&&<ActivityIndicator/>}
   {!!error&&<Text style={styles.error}>{error}</Text>}
   {items.length===0&&!busy&&<Text>No issued contracts yet.</Text>}
@@ -44,6 +45,8 @@ export default function MyContracts() {
   {selected&&<View style={styles.card}>
     <Text style={styles.bold}>{selected.title}</Text>
     <Text selectable style={styles.terms}>{selected.terms}</Text>
+    <TouchableOpacity style={styles.button} disabled={busy} onPress={() => void (async () => { try { setBusy(true); await shareRecruitmentContractPdf(selected.id); } catch (e: any) { Alert.alert("Unable to open PDF", e?.message ?? "PDF unavailable."); } finally { setBusy(false); } })()}><Text style={styles.white}>Open or export official contract PDF</Text></TouchableOpacity>
+    <Text style={styles.note}>The document may contain personal data. Only share it with trusted recipients.</Text>
     {selected.status==="issued"&&<>
       <TouchableOpacity style={styles.button} disabled={busy} onPress={()=>Alert.alert("Acknowledge receipt?","This records that you received the terms; it is NOT an electronic signature.",[{text:"Cancel"},{text:"Acknowledge",onPress:()=>void respond("acknowledge")}])}><Text style={styles.white}>Acknowledge receipt only</Text></TouchableOpacity>
       <TouchableOpacity style={styles.button} disabled={busy} onPress={()=>Alert.alert("Decline contract?","You can ask management for revised terms.",[{text:"Cancel"},{text:"Decline",style:"destructive",onPress:()=>void respond("decline")}])}><Text style={styles.white}>Decline terms</Text></TouchableOpacity>
