@@ -2,6 +2,7 @@ import { submitQueuedProperty } from "@/src/services/submitQueuedProperty";
 import { listPendingPropertyUploads } from "@/src/services/propertyUploadQueue";
 import { savePendingPropertyUpload, deletePendingPropertyUpload } from "@/src/services/propertyUploadQueue";
 import * as Crypto from "expo-crypto";
+import AsyncStorage from "@react-native-async-storage/async-storage";
 import API from "@/src/services/api";
 import { router } from "expo-router";
 
@@ -18,6 +19,7 @@ type Args = {
   resetFiles: () => void;
   showAlert: (title: string, message: string) => void;
   setLoading: (value: boolean) => void;
+  onSuccess?: () => void;
 };
 
 type AdditionalFeeItem = {
@@ -42,6 +44,7 @@ export function usePropertySubmit({
   resetFiles,
   showAlert,
   setLoading,
+  onSuccess,
 }: Args) {
   const hasFile = (file: any) => {
     if (!file) return false;
@@ -178,7 +181,7 @@ export function usePropertySubmit({
   };
 
   
-const validateMedia = (): boolean => {
+const validateMedia = (selectedVideo: any): boolean => {
   const hasVideo =
     Boolean(
       selectedVideo?.uri
@@ -337,7 +340,7 @@ const validateMedia = (): boolean => {
   ) => {
     const selectedVideo = getSelectedVideo?.() ?? video;
     if (
-      !validateMedia()
+      !validateMedia(selectedVideo)
     ) {
       return;
     }
@@ -383,7 +386,7 @@ const validateMedia = (): boolean => {
     const submissionId = Crypto.randomUUID();
     let savedLocally = false;
     const pendingFiles: Record<string, any> = {...(images || {})};
-    if (video?.uri) pendingFiles.video = video;
+    if (selectedVideo?.uri) pendingFiles.video = selectedVideo;
     if (proofDocument?.uri) pendingFiles.proof_document = proofDocument;
     if (floorPlan?.uri) pendingFiles.floor_plan = floorPlan;
     if (threeSixtyVideo?.uri) pendingFiles.three_sixty_video = threeSixtyVideo;
@@ -606,6 +609,9 @@ const validateMedia = (): boolean => {
       const res = await submitQueuedProperty(queued);
       if (savedLocally) await deletePendingPropertyUpload(submissionId, String(formData.user_id || "")).catch(()=>{});
 
+      onSuccess?.();
+      // Remove the pre-submission draft only after confirmed server success.
+      await AsyncStorage.removeItem(`ohlam:property-form-draft:v1:${String(formData.user_id || "")}`).catch(() => {});
       reset();
       resetFiles();
 
