@@ -181,7 +181,7 @@ export function usePropertySubmit({
   };
 
   
-const validateMedia = (): boolean => {
+const validateMedia = (selectedVideo: any): boolean => {
   const hasVideo =
     Boolean(
       selectedVideo?.uri
@@ -340,7 +340,7 @@ const validateMedia = (): boolean => {
   ) => {
     const selectedVideo = getSelectedVideo?.() ?? video;
     if (
-      !validateMedia()
+      !validateMedia(selectedVideo)
     ) {
       return;
     }
@@ -386,7 +386,7 @@ const validateMedia = (): boolean => {
     const submissionId = Crypto.randomUUID();
     let savedLocally = false;
     const pendingFiles: Record<string, any> = {...(images || {})};
-    if (video?.uri) pendingFiles.video = video;
+    if (selectedVideo?.uri) pendingFiles.video = selectedVideo;
     if (proofDocument?.uri) pendingFiles.proof_document = proofDocument;
     if (floorPlan?.uri) pendingFiles.floor_plan = floorPlan;
     if (threeSixtyVideo?.uri) pendingFiles.three_sixty_video = threeSixtyVideo;
