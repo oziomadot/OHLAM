@@ -34,10 +34,6 @@ export function usePropertyFiles(
   // Keep the selected asset available synchronously even before a rerender.
   const videoRef = useRef<any>(null);
   const getSelectedVideo = () => videoRef.current;
-  const pickerActive = useRef(false);
-  const logPicker = (stage: string, field: string) => {
-    if (__DEV__) console.info("[PROPERTY_PICKER]", { stage, field, platform: Platform.OS, androidVersion: Platform.Version, brand: Device.brand, model: Device.modelName });
-  };
 
   const [
     proofDocument,
@@ -186,9 +182,6 @@ export function usePropertyFiles(
           return;
         }
 
-        const accessible = await FileSystem.getInfoAsync(file.uri);
-        if (!accessible.exists) throw new Error("Selected video is not accessible.");
-        logPicker("selected", "video");
         videoRef.current = file;
         setVideo(file);
       } catch (error) {
