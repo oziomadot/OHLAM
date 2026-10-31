@@ -9,11 +9,13 @@ import {
   Platform,
   ImageBackground,
   Linking,
+  AppState,
 } from "react-native";
 import { BlurView } from "expo-blur";
 import { useForm, Controller } from "react-hook-form";
 import AsyncStorage from "@react-native-async-storage/async-storage";
-import { useRouter } from "expo-router";
+import { useRouter, useFocusEffect } from "expo-router";
+import { useCallback } from "react";
 import Navbar from "components/Navbar";
 import CustomAlert from "components/CustomAlert";
 import { useAuth } from "@/context/AuthContext";
@@ -52,6 +54,8 @@ const CreateProperty = () => {
   const [loading, setLoading] = useState(false);
   const [draftReady, setDraftReady] = useState(false);
   const draftTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const latestDraft = useRef<any>(null);
+  const uploadSucceeded = useRef(false);
 
   const [alertVisible, setAlertVisible] = useState(false);
   const [alertTitle, setAlertTitle] = useState("");
@@ -218,23 +222,53 @@ const CreateProperty = () => {
     return () => { cancelled = true; };
   }, [authLoading, isAuthenticated, user?.id, reset]);
 
+  // Mark this screen as resumable only while it is actually focused.
+  // A cold launch can return to this form after Android kills the process.
+  useFocusEffect(useCallback(() => {
+    if (!isAuthenticated || !user?.id) return;
+    void AsyncStorage.setItem("ohlam:resume-property-create:v1", String(user.id));
+    return () => {
+      void AsyncStorage.removeItem("ohlam:resume-property-create:v1");
+    };
+  }, [isAuthenticated, user?.id]));
+
   useEffect(() => {
     if (!draftReady || !user?.id) return;
     const key = `ohlam:property-form-draft:v1:${user.id}`;
+    const save = () => {
+      if (uploadSucceeded.current) return Promise.resolve();
+      const values = latestDraft.current ?? watch();
+      // Preserve non-sensitive form fields only. Private addresses/GPS must not
+      // be written to AsyncStorage. Media remain in their existing secure flow.
+      const safeValues = Object.fromEntries(
+        Object.entries(values).filter(([field]) =>
+          !["address", "meeting_place", "latitude", "longitude", "user_id"].includes(field)
+        )
+      );
+      return AsyncStorage.setItem(key, JSON.stringify({
+        values: safeValues,
+        fees: additionalFeeItems,
+        expenses: additionalExpenses,
+        saved_at: new Date().toISOString(),
+      })).catch(() => console.warn("[PROPERTY_DRAFT] save failed"));
+    };
+    latestDraft.current = watch();
     const subscription = watch(values => {
+      latestDraft.current = values;
       if (draftTimer.current) clearTimeout(draftTimer.current);
-      draftTimer.current = setTimeout(() => {
-        void AsyncStorage.setItem(key, JSON.stringify({
-          // Do not persist private addresses, coordinates, or identity information in plaintext storage.
-          values: Object.fromEntries(Object.entries(values).filter(([key]) => !["address", "meeting_place", "latitude", "longitude", "user_id"].includes(key))),
-          fees: additionalFeeItems,
-          expenses: additionalExpenses,
-          saved_at: new Date().toISOString(),
-        })).catch(() => console.warn("[PROPERTY_DRAFT] save failed"));
-      }, 600);
+      draftTimer.current = setTimeout(() => { void save(); }, 600);
+    });
+    // Save when backgrounded, not just after a debounce. Android may kill
+    // the process before the delayed save runs.
+    const foreground = AppState.addEventListener("change", state => {
+      if (state === "background" || state === "inactive") {
+        if (draftTimer.current) clearTimeout(draftTimer.current);
+        void save();
+      }
     });
     return () => {
       subscription.unsubscribe();
+      foreground.remove();
       if (draftTimer.current) clearTimeout(draftTimer.current);
     };
   }, [watch, draftReady, user?.id, additionalFeeItems, additionalExpenses]);
@@ -530,7 +564,11 @@ const calculateAgencyFees = (
     resetFiles,
     showAlert,
     setLoading,
-    onSuccess: () => setDraftReady(false),
+    onSuccess: () => {
+      uploadSucceeded.current = true;
+      setDraftReady(false);
+      void AsyncStorage.removeItem("ohlam:resume-property-create:v1");
+    },
   });
 
   
