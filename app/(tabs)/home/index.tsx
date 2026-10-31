@@ -22,11 +22,6 @@ import {
 
 import { MaterialCommunityIcons, } from "@expo/vector-icons";
 
-import {
-  useVideoPlayer,
-  VideoView,
-} from "expo-video";
-
 import API, {
   BASE_URL,
 } from "@/src/services/api";
@@ -155,49 +150,23 @@ const getVideoUrl = (
 |--------------------------------------------------------------------------
 */
 
-function PropertyVideo({
-  url,
-}: {
-  url: string;
-}) {
-  const player =
-    useVideoPlayer(
-      {
-        uri: url,
-      },
-      (player) => {
-        player.loop = true;
-        player.muted = true;
-      }
-    );
-
+// Do not create expo-video native players for every marketplace card.
+// A ScrollView mounts off-screen cards; multiple video decoders exhaust
+// the Android heap. Playback belongs on the individual property detail screen.
+function PropertyVideoPlaceholder({ imageUrl }: { imageUrl: string | null }) {
   return (
-    <View
-      style={
-        styles.propertyVideoBox
-      }
-    >
-      <VideoView
-        style={styles.propertyVideo}
-        player={player as any}
-        nativeControls
-        contentFit="cover"
-      />
-
-      <View
-        style={styles.videoLabel}
-      >
-        <MaterialCommunityIcons
-          name="video"
-          size={16}
-          color="#ffffff"
-        />
-
-        <Text
-          style={styles.videoLabelText}
-        >
-          Property Video
-        </Text>
+    <View style={styles.propertyVideoBox}>
+      {imageUrl ? (
+        <Image source={{ uri: imageUrl }} style={styles.image} resizeMode="cover" />
+      ) : (
+        <View style={styles.noImage}>
+          <MaterialCommunityIcons name="play-circle-outline" size={38} color="#94a3b8" />
+          <Text style={styles.noImageText}>Video available</Text>
+        </View>
+      )}
+      <View style={styles.videoLabel}>
+        <MaterialCommunityIcons name="video" size={16} color="#ffffff" />
+        <Text style={styles.videoLabelText}>View video in property details</Text>
       </View>
     </View>
   );
@@ -222,11 +191,7 @@ function PropertyMediaPreview({
     videoUrl
   ) {
     return (
-      <PropertyVideo
-        url={
-          videoUrl
-        }
-      />
+      <PropertyVideoPlaceholder imageUrl={imageUrl} />
     );
   }
 
@@ -387,10 +352,7 @@ const loadUnreadNotificationCount =
           const res =
             await API.getProperties();
 
-          console.log(
-            "list of uploads:",
-            res.data
-          );
+          console.log("Property catalogue loaded", { count: res.data?.count?.total ?? 0 });
 
           setProperties(
             res.data
