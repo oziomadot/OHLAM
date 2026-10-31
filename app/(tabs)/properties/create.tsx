@@ -55,6 +55,7 @@ const CreateProperty = () => {
   const [draftReady, setDraftReady] = useState(false);
   const draftTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
   const latestDraft = useRef<any>(null);
+  const uploadSucceeded = useRef(false);
 
   const [alertVisible, setAlertVisible] = useState(false);
   const [alertTitle, setAlertTitle] = useState("");
@@ -235,6 +236,7 @@ const CreateProperty = () => {
     if (!draftReady || !user?.id) return;
     const key = `ohlam:property-form-draft:v1:${user.id}`;
     const save = () => {
+      if (uploadSucceeded.current) return Promise.resolve();
       const values = latestDraft.current ?? watch();
       // Preserve non-sensitive form fields only. Private addresses/GPS must not
       // be written to AsyncStorage. Media remain in their existing secure flow.
@@ -268,7 +270,6 @@ const CreateProperty = () => {
       subscription.unsubscribe();
       foreground.remove();
       if (draftTimer.current) clearTimeout(draftTimer.current);
-      void save();
     };
   }, [watch, draftReady, user?.id, additionalFeeItems, additionalExpenses]);
 
@@ -563,7 +564,11 @@ const calculateAgencyFees = (
     resetFiles,
     showAlert,
     setLoading,
-    onSuccess: () => setDraftReady(false),
+    onSuccess: () => {
+      uploadSucceeded.current = true;
+      setDraftReady(false);
+      void AsyncStorage.removeItem("ohlam:resume-property-create:v1");
+    },
   });
 
   
