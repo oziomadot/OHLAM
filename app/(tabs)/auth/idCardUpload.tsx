@@ -151,10 +151,7 @@ const IdCardUpload = () => {
         const response =
           await API.getIdCardTypes();
 
-        console.log(
-          "[ID KYC] ID card type response:",
-          response
-        );
+
 
         /*
          * Supports both:
@@ -387,8 +384,7 @@ const IdCardUpload = () => {
         await ImagePicker.launchImageLibraryAsync({
           mediaTypes:
             ImagePicker.MediaTypeOptions.Images,
-          allowsEditing: true,
-          aspect: [3, 2],
+          allowsEditing: false,
           quality: 0.8,
         });
 
@@ -442,8 +438,7 @@ const IdCardUpload = () => {
         await ImagePicker.launchCameraAsync({
           mediaTypes:
             ImagePicker.MediaTypeOptions.Images,
-          allowsEditing: true,
-          aspect: [3, 2],
+          allowsEditing: false,
           quality: 0.8,
         });
 
@@ -484,17 +479,7 @@ const IdCardUpload = () => {
 
     const userId = user?.id;
 
-    console.log(
-      "[ID KYC] Submission started:",
-      {
-        userId,
-        idType,
-        frontImage,
-        backImage,
-        requiresBack,
-      }
-    );
-
+    // Never log KYC image URIs, filenames, account identifiers or document content.
     if (idType === "") {
       Alert.alert(
         "ID type required",
@@ -588,10 +573,7 @@ const IdCardUpload = () => {
           formData
         )) as VerifyIdCardResponse;
 
-      console.log(
-        "[ID KYC] Verification response:",
-        response
-      );
+
 
       const token = response?.token ?? response?.access_token;
 
