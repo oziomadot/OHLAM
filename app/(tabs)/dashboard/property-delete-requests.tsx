@@ -70,3 +70,7 @@ const styles=StyleSheet.create({
  buttons:{flexDirection:"row",gap:8,flexWrap:"wrap"},approve:{backgroundColor:"#166534",padding:12,borderRadius:8},reject:{backgroundColor:"#991b1b",padding:12,borderRadius:8},
  btnText:{color:"#fff",fontWeight:"700"}
 });
+
+
+
+
