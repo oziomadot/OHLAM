@@ -1,7 +1,7 @@
 import React, { useCallback, useEffect, useState } from "react";
 import {
   ActivityIndicator, Alert, ScrollView, StyleSheet, Text,
-  TextInput, TouchableOpacity, View,
+  TextInput, TouchableOpacity, View, useColorScheme,
 } from "react-native";
 import { Picker } from "@react-native-picker/picker";
 import { useFocusEffect } from "expo-router";
@@ -34,6 +34,8 @@ const amenities = [
 ] as const;
 
 function RequestPropertyContent() {
+  const dark = useColorScheme() === "dark";
+  const pickerTextColor = dark ? "#ffffff" : "#182c49";
   const [category, setCategory] = useState<Category>("rent");
   const [states, setStates] = useState<Option[]>([]);
   const [areas, setAreas] = useState<Option[]>([]);
@@ -154,24 +156,24 @@ function RequestPropertyContent() {
         <View style={styles.card}>
           <Text style={styles.label}>Property category</Text>
           <View style={styles.picker}>
-            <Picker selectedValue={category} onValueChange={(value: Category) => {
-              setCategory(value); setBedrooms(""); setPreferences({});
+            <Picker mode="dialog" selectedValue={category} onValueChange={value => {
+              setCategory(value as Category); setBedrooms(""); setPreferences({});
             }}>
-              {categories.map(c => <Picker.Item key={c.value} label={c.label} value={c.value} />)}
+              {categories.map(c => <Picker.Item key={c.value} label={c.label} value={c.value} color={pickerTextColor} />)}
             </Picker>
           </View>
           <Text style={styles.label}>State *</Text>
           <View style={styles.picker}>
-            <Picker selectedValue={stateId} onValueChange={(value: number | null) => setStateId(value)}>
-              <Picker.Item label="Select a state" value={null} />
-              {states.map(s => <Picker.Item key={s.id} label={s.name} value={s.id} />)}
+            <Picker mode="dialog" selectedValue={stateId ?? ""} onValueChange={value => setStateId(value === "" ? null : Number(value))}>
+              <Picker.Item label="Select a state" value="" color={pickerTextColor} />
+              {states.map(s => <Picker.Item key={s.id} label={s.name} value={s.id} color={pickerTextColor} />)}
             </Picker>
           </View>
           <Text style={styles.label}>LGA (optional)</Text>
           <View style={styles.picker}>
-            <Picker selectedValue={areaId} onValueChange={(value: number | null) => setAreaId(value)} enabled={!!stateId}>
-              <Picker.Item label="Anywhere in the selected state" value={null} />
-              {areas.map(a => <Picker.Item key={a.id} label={a.name} value={a.id} />)}
+            <Picker mode="dialog" selectedValue={areaId ?? ""} onValueChange={value => setAreaId(value === "" ? null : Number(value))} enabled={!!stateId}>
+              <Picker.Item label="Anywhere in the selected state" value="" color={pickerTextColor} />
+              {areas.map(a => <Picker.Item key={a.id} label={a.name} value={a.id} color={pickerTextColor} />)}
             </Picker>
           </View>
           <Text style={styles.label}>Maximum budget (₦, optional)</Text>
