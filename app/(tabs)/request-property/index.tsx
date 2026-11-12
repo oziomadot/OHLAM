@@ -44,12 +44,26 @@ function RequestPropertyContent() {
   const [note, setNote] = useState("");
   const [preferences, setPreferences] = useState<Record<string, boolean>>({});
   const [requests, setRequests] = useState<PropertyRequest[]>([]);
+  const [opportunities, setOpportunities] = useState<(PropertyRequest & { state?: Option; area?: Option })[]>([]);
+  const [canViewOpportunities, setCanViewOpportunities] = useState(false);
   const [loading, setLoading] = useState(true);
   const [busy, setBusy] = useState(false);
 
   const loadRequests = useCallback(async () => {
     const response = await API.get("/property-requests");
     setRequests(response.data.data ?? []);
+    try {
+      const market = await API.get("/property-requests/opportunities");
+      setCanViewOpportunities(true);
+      setOpportunities(market.data?.data ?? []);
+    } catch (error: any) {
+      if (error?.response?.status === 403) {
+        setCanViewOpportunities(false);
+        setOpportunities([]);
+      } else {
+        console.warn("Unable to retrieve available property requests.");
+      }
+    }
   }, []);
 
   useEffect(() => {
@@ -201,6 +215,33 @@ function RequestPropertyContent() {
             </View>
           </View>;
         })}
+        {canViewOpportunities && <>
+          <Text style={styles.section}>Customer Property Requests</Text>
+          <Text style={styles.caption}>
+            Anonymous requests from customers looking for property. Only active requests
+            are shown. Customer contact details are kept private.
+          </Text>
+          {opportunities.length === 0 ? <Text style={styles.caption}>No active customer requests at the moment.</Text> :
+            opportunities.map(opportunity => (
+              <View key={opportunity.id} style={styles.card}>
+                <Text style={styles.listTitle}>
+                  {categories.find(c => c.value === opportunity.category)?.label ?? opportunity.category}
+                </Text>
+                <Text style={styles.caption}>
+                  {opportunity.area?.name ? opportunity.area.name + ", " : ""}
+                  {opportunity.state?.name ?? "Nigeria"}
+                </Text>
+                <Text style={styles.caption}>
+                  Budget: {opportunity.max_budget
+                    ? `₦${Number(opportunity.max_budget).toLocaleString("en-NG")}`
+                    : "Flexible"}
+                </Text>
+                <Text style={styles.caption}>
+                  Valid until {new Date(opportunity.expires_at).toLocaleDateString()}
+                </Text>
+              </View>
+            ))}
+        </>}
       </ScrollView>
     </View>
   );
