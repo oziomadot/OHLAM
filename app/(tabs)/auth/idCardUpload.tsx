@@ -8,6 +8,7 @@ import {
   Text,
   TouchableOpacity,
   View,
+  useColorScheme,
 } from "react-native";
 import { useRouter } from "expo-router";
 import * as ImagePicker from "expo-image-picker";
@@ -62,6 +63,8 @@ type VerifyIdCardResponse = {
 
 const IdCardUpload = () => {
   const router = useRouter();
+  const colorScheme = useColorScheme();
+  const optionTextColor = colorScheme === "dark" ? "#FFFFFF" : "#111827";
 
   const [frontImage, setFrontImage] =
     useState<SelectedImage | null>(null);
@@ -884,7 +887,7 @@ await removeItemSafe("pre_auth_token");
   enabled={!uploading}
   style={styles.picker}
   dropdownIconColor="#000000"
-  mode="dropdown"
+  mode="dialog"
   onValueChange={(value) => {
     if (value === "" || value === null) {
       setIdType("");
@@ -897,7 +900,7 @@ await removeItemSafe("pre_auth_token");
                 <Picker.Item
                   label="Select ID type"
                   value=""
-                  
+                  color={optionTextColor}
                 />
 
                 {idCardTypes.map(
@@ -908,7 +911,7 @@ await removeItemSafe("pre_auth_token");
                       )}
                       label={item.name}
                       value={item.id}   
-                      color="#160e0e5b"                 
+                      color={optionTextColor}                 
                     />
                   )
                 )}
