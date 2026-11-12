@@ -147,7 +147,6 @@ const EmailVerificationScreen = () => {
   const [showUpdateEmail, setShowUpdateEmail] = useState(false);
 const [newEmail, setNewEmail] = useState("");
 const [updatingEmail, setUpdatingEmail] = useState(false);
- console.log("user", userId);
 
 
 
