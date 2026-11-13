@@ -1,12 +1,12 @@
 import React, { useCallback, useEffect, useState } from "react";
 import {
   ActivityIndicator, Alert, ScrollView, StyleSheet, Text,
-  TextInput, TouchableOpacity, View, useColorScheme,
+  TextInput, TouchableOpacity, View,
 } from "react-native";
 import { Picker } from "@react-native-picker/picker";
 import { useFocusEffect } from "expo-router";
-import Navbar from "@/components/Navbar";
-import Protected from "@/components/Protected";
+import Navbar from "components/Navbar";
+import Protected from "components/Protected";
 import { API } from "@/src/services/api";
 
 type Option = { id: number; name: string };
@@ -34,12 +34,35 @@ const amenities = [
   ["compound_cleaner", "Compound cleaner"],
 ] as const;
 
+// The pickers have a white background on both system themes.
+const PICKER_TEXT_COLOR = "#182c49";
+const PICKER_PLACEHOLDER_COLOR = "#64748b";
+
+function extractOptions(response: any, key: "states" | "areas"): Option[] {
+  // Both existing Laravel endpoint payloads and the shared API wrapper are
+  // supported; ignore malformed data rather than crashing a protected screen.
+  const payload = response?.data ?? response;
+  const nested = payload?.data ?? payload;
+  const value = Array.isArray(nested) ? nested : nested?.[key];
+  if (!Array.isArray(value)) return [];
+  return value
+    .filter((item: any) =>
+      item && item.id !== undefined && item.id !== null &&
+      (item.name || item.area_name || item.display_name))
+    .map((item: any) => ({
+      id: Number(item.id),
+      name: String(item.name ?? item.area_name ?? item.display_name),
+    }))
+    .filter((item: Option) => Number.isInteger(item.id) && item.id > 0);
+}
+
 function RequestPropertyContent() {
-  const dark = useColorScheme() === "dark";
-  const pickerTextColor = dark ? "#ffffff" : "#182c49";
   const [category, setCategory] = useState<Category>("rent");
   const [states, setStates] = useState<Option[]>([]);
   const [areas, setAreas] = useState<Option[]>([]);
+  const [statesLoading, setStatesLoading] = useState(true);
+  const [areasLoading, setAreasLoading] = useState(false);
+  const [areaError, setAreaError] = useState<string | null>(null);
   const [stateId, setStateId] = useState<number | null>(null);
   const [areaId, setAreaId] = useState<number | null>(null);
   const [budget, setBudget] = useState("");
@@ -71,22 +94,53 @@ function RequestPropertyContent() {
 
   useEffect(() => {
     let mounted = true;
-    void API.get("/property/dropdowns").then(response => {
-      if (mounted) setStates(response.data?.data?.states ?? []);
-    }).catch(() => Alert.alert("Error", "Unable to load states. Please retry."));
+    setStatesLoading(true);
+    void API.get("/property/dropdowns")
+      .then(response => {
+        if (mounted) setStates(extractOptions(response, "states"));
+      })
+      .catch((error: any) => {
+        if (!mounted) return;
+        console.warn("Unable to load request property states", error?.response?.status ?? error?.message);
+        Alert.alert("Error", "Unable to load states. Please retry.");
+      })
+      .finally(() => { if (mounted) setStatesLoading(false); });
     return () => { mounted = false; };
   }, []);
 
   useEffect(() => {
+    let mounted = true;
     setAreaId(null);
     setAreas([]);
-    if (!stateId) return;
-    let mounted = true;
+    setAreaError(null);
+    if (!stateId) {
+      setAreasLoading(false);
+      return;
+    }
+
+    setAreasLoading(true);
+    // Use the same endpoint and state_id parameter as property upload.
     void API.get("/property/areas", { params: { state_id: stateId } })
       .then(response => {
-        if (mounted) setAreas(response.data?.data?.areas ?? []);
+        if (!mounted) return;
+        const nextAreas = extractOptions(response, "areas");
+        setAreas(nextAreas);
+        if (!nextAreas.length) {
+          setAreaError("No LGAs were returned for this state. You can still request anywhere in the state.");
+        }
       })
-      .catch(() => Alert.alert("Error", "Unable to load LGAs."));
+      .catch((error: any) => {
+        if (!mounted) return;
+        console.warn("Request property LGA loading failed", {
+          stateId,
+          status: error?.response?.status,
+          message: error?.response?.data?.message ?? error?.message,
+        });
+        setAreaError("Could not load LGAs. Check your connection or retry by selecting the state again.");
+      })
+      .finally(() => { if (mounted) setAreasLoading(false); });
+
+    // Prevent an older state request from replacing the newer LGA options.
     return () => { mounted = false; };
   }, [stateId]);
 
@@ -157,26 +211,54 @@ function RequestPropertyContent() {
         <View style={styles.card}>
           <Text style={styles.label}>Property category</Text>
           <View style={styles.picker}>
-            <Picker mode="dialog" selectedValue={category} onValueChange={value => {
-              setCategory(value as Category); setBedrooms(""); setPreferences({});
-            }}>
-              {categories.map(c => <Picker.Item key={c.value} label={c.label} value={c.value} color={pickerTextColor} />)}
+            <Picker
+              mode="dialog"
+              style={styles.pickerControl}
+              dropdownIconColor={PICKER_TEXT_COLOR}
+              selectedValue={category}
+              onValueChange={value => {
+                setCategory(value as Category);
+                setBedrooms("");
+                setPreferences({});
+              }}
+            >
+              {categories.map(c => <Picker.Item key={c.value} label={c.label} value={c.value} color={PICKER_TEXT_COLOR} />)}
             </Picker>
           </View>
           <Text style={styles.label}>State *</Text>
           <View style={styles.picker}>
-            <Picker mode="dialog" selectedValue={stateId ?? ""} onValueChange={value => setStateId(value === "" ? null : Number(value))}>
-              <Picker.Item label="Select a state" value="" color={pickerTextColor} />
-              {states.map(s => <Picker.Item key={s.id} label={s.name} value={s.id} color={pickerTextColor} />)}
+            <Picker
+              mode="dialog"
+              style={styles.pickerControl}
+              dropdownIconColor={PICKER_TEXT_COLOR}
+              enabled={!statesLoading}
+              selectedValue={stateId ?? ""}
+              onValueChange={value => setStateId(value === "" ? null : Number(value))}
+            >
+              <Picker.Item label={statesLoading ? "Loading states..." : "Select a state"} value="" color={PICKER_PLACEHOLDER_COLOR} />
+              {states.map(state => <Picker.Item key={state.id} label={state.name} value={state.id} color={PICKER_TEXT_COLOR} />)}
             </Picker>
           </View>
           <Text style={styles.label}>LGA (optional)</Text>
           <View style={styles.picker}>
-            <Picker mode="dialog" selectedValue={areaId ?? ""} onValueChange={value => setAreaId(value === "" ? null : Number(value))} enabled={!!stateId}>
-              <Picker.Item label="Anywhere in the selected state" value="" color={pickerTextColor} />
-              {areas.map(a => <Picker.Item key={a.id} label={a.name} value={a.id} color={pickerTextColor} />)}
+            <Picker
+              mode="dialog"
+              style={styles.pickerControl}
+              dropdownIconColor={PICKER_TEXT_COLOR}
+              selectedValue={areaId ?? ""}
+              onValueChange={value => setAreaId(value === "" ? null : Number(value))}
+              enabled={!!stateId && !areasLoading}
+            >
+              <Picker.Item
+                label={!stateId ? "Select a state first" : areasLoading ? "Loading LGAs..." : "Anywhere in the selected state"}
+                value=""
+                color={PICKER_PLACEHOLDER_COLOR}
+              />
+              {areas.map(area => <Picker.Item key={area.id} label={area.name} value={area.id} color={PICKER_TEXT_COLOR} />)}
             </Picker>
           </View>
+          {areasLoading && <Text style={styles.caption}>Loading LGAs for your selected state...</Text>}
+          {areaError && <Text style={styles.areaError}>{areaError}</Text>}
           <Text style={styles.label}>Maximum budget (₦, optional)</Text>
           <TextInput style={styles.input} keyboardType="numeric" value={budget}
             placeholder="e.g. 850000" onChangeText={setBudget} />
@@ -274,6 +356,8 @@ const styles = StyleSheet.create({
   card: { backgroundColor: "#fff", padding: 16, borderRadius: 16, marginBottom: 18, elevation: 2 },
   label: { color: "#0f2747", fontWeight: "700", marginBottom: 6, marginTop: 12 },
   picker: { borderWidth: 1, borderColor: "#d3dce9", borderRadius: 10, overflow: "hidden", backgroundColor: "#fff" },
+  pickerControl: { backgroundColor: "#fff", color: PICKER_TEXT_COLOR },
+  areaError: { color: "#8a4600", marginTop: 4, marginBottom: 10, fontSize: 13 },
   input: { borderWidth: 1, borderColor: "#d3dce9", borderRadius: 10, padding: 12, color: "#0f2747", fontSize: 16 },
   note: { minHeight: 85, textAlignVertical: "top" },
   feature: { paddingVertical: 5 },
