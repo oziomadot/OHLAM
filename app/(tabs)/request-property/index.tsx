@@ -5,8 +5,8 @@ import {
 } from "react-native";
 import { Picker } from "@react-native-picker/picker";
 import { useFocusEffect } from "expo-router";
-import Navbar from "@/components/Navbar";
-import Protected from "@/components/Protected";
+import Navbar from "components/Navbar";
+import Protected from "components/Protected";
 import { API } from "@/src/services/api";
 
 type Option = { id: number; name: string };
