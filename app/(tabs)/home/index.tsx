@@ -26,6 +26,7 @@ import API, {
   BASE_URL,
 } from "@/src/services/api";
 
+import { useAuth } from "@/context/AuthContext";
 import Navbar from "components/Navbar";
 import ScreenWrapper from "components/ScreenWrapper";
 
@@ -242,6 +243,7 @@ function PropertyMediaPreview({
 */
 
 const IndexScreen = () => {
+    const { isAuthenticated, loading: authLoading } = useAuth();
     const [properties, setProperties] = useState<any>({});
 
     const [filters, setFilters] = useState({
@@ -1496,15 +1498,10 @@ const loadUnreadNotificationCount =
               accessibilityRole="button"
               accessibilityLabel="Request property: Can't find your property choice?"
               activeOpacity={0.85}
-              onPress={async () => {
-                const { getItemSafe } = await import("@/utils/storage");
-                const [token, preAuth, registrationStep] = await Promise.all([
-                  getItemSafe("auth_token"), getItemSafe("pre_auth_token"),
-                  getItemSafe("registration_step"),
-                ]);
-                const step = registrationStep?.trim().toLowerCase();
+              disabled={authLoading}
+              onPress={() => {
                 router.push(
-                  token?.trim() && !preAuth?.trim() && (!step || step === "completed")
+                  isAuthenticated
                     ? "/(tabs)/request-property"
                     : "/auth/LoginScreen"
                 );
