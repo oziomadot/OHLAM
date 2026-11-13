@@ -34,6 +34,21 @@ export function usePropertyFiles(
   // Keep the selected asset available synchronously even before a rerender.
   const videoRef = useRef<any>(null);
   const getSelectedVideo = () => videoRef.current;
+  // Prevent launching two Android document pickers at once.
+  const pickerActive = useRef(false);
+  const logPicker = (stage: string, field: string) => {
+    if (__DEV__) {
+      console.info("[PROPERTY_PICKER]", {
+        stage,
+        field,
+        platform: Platform.OS,
+        androidVersion: Platform.Version,
+        brand: Device.brand,
+        model: Device.modelName,
+      });
+    }
+  };
+
 
   const [
     proofDocument,

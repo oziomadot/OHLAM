@@ -8,6 +8,7 @@ import {
   Text,
   TouchableOpacity,
   View,
+  useColorScheme,
 } from "react-native";
 import { useRouter } from "expo-router";
 import * as ImagePicker from "expo-image-picker";
@@ -62,6 +63,8 @@ type VerifyIdCardResponse = {
 
 const IdCardUpload = () => {
   const router = useRouter();
+  const colorScheme = useColorScheme();
+  const optionTextColor = colorScheme === "dark" ? "#FFFFFF" : "#111827";
 
   const [frontImage, setFrontImage] =
     useState<SelectedImage | null>(null);
@@ -151,10 +154,7 @@ const IdCardUpload = () => {
         const response =
           await API.getIdCardTypes();
 
-        console.log(
-          "[ID KYC] ID card type response:",
-          response
-        );
+
 
         /*
          * Supports both:
@@ -387,8 +387,7 @@ const IdCardUpload = () => {
         await ImagePicker.launchImageLibraryAsync({
           mediaTypes:
             ImagePicker.MediaTypeOptions.Images,
-          allowsEditing: true,
-          aspect: [3, 2],
+          allowsEditing: false,
           quality: 0.8,
         });
 
@@ -442,8 +441,7 @@ const IdCardUpload = () => {
         await ImagePicker.launchCameraAsync({
           mediaTypes:
             ImagePicker.MediaTypeOptions.Images,
-          allowsEditing: true,
-          aspect: [3, 2],
+          allowsEditing: false,
           quality: 0.8,
         });
 
@@ -484,17 +482,7 @@ const IdCardUpload = () => {
 
     const userId = user?.id;
 
-    console.log(
-      "[ID KYC] Submission started:",
-      {
-        userId,
-        idType,
-        frontImage,
-        backImage,
-        requiresBack,
-      }
-    );
-
+    // Never log KYC image URIs, filenames, account identifiers or document content.
     if (idType === "") {
       Alert.alert(
         "ID type required",
@@ -588,10 +576,7 @@ const IdCardUpload = () => {
           formData
         )) as VerifyIdCardResponse;
 
-      console.log(
-        "[ID KYC] Verification response:",
-        response
-      );
+
 
       const token = response?.token ?? response?.access_token;
 
@@ -902,7 +887,7 @@ await removeItemSafe("pre_auth_token");
   enabled={!uploading}
   style={styles.picker}
   dropdownIconColor="#000000"
-  mode="dropdown"
+  mode="dialog"
   onValueChange={(value) => {
     if (value === "" || value === null) {
       setIdType("");
@@ -915,7 +900,7 @@ await removeItemSafe("pre_auth_token");
                 <Picker.Item
                   label="Select ID type"
                   value=""
-                  
+                  color={optionTextColor}
                 />
 
                 {idCardTypes.map(
@@ -926,7 +911,7 @@ await removeItemSafe("pre_auth_token");
                       )}
                       label={item.name}
                       value={item.id}   
-                      color="#160e0e5b"                 
+                      color={optionTextColor}                 
                     />
                   )
                 )}

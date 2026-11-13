@@ -123,6 +123,11 @@ export default function ManagementScreen() {
       {error ? <Text accessibilityRole="alert" style={styles.error}>{error}</Text> : null}
       {!access && !error ? <ActivityIndicator /> : null}
       {access && !can("support.view") ? <Text>This area is restricted to authorized staff and administrators.</Text> : null}
+      {can("social.posts.read") ? (
+        <TouchableOpacity style={styles.primary} onPress={() => router.push("/(tabs)/management/social-posts" as never)}>
+          <Text style={styles.white}>Social publishing status</Text>
+        </TouchableOpacity>
+      ) : null}
       {can("support.view") ? <>
         <Text>Access: {access?.role}. Searches and support actions are recorded.</Text>
         <TouchableOpacity style={styles.primary} onPress={() => router.push("/(tabs)/chat" as never)}>
