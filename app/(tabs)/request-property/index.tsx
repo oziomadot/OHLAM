@@ -15,6 +15,7 @@ type PropertyRequest = {
   id: number; category: Category; status: string; expires_at: string;
   state_id: number; area_id: number | null; max_budget: string | null;
   min_bedrooms: number | null; requirements_note: string | null;
+  preferences?: Record<string, boolean> | null;
 };
 
 const categories: { label: string; value: Category }[] = [
@@ -238,6 +239,15 @@ function RequestPropertyContent() {
                     ? `₦${Number(opportunity.max_budget).toLocaleString("en-NG")}`
                     : "Flexible"}
                 </Text>
+                {opportunity.min_bedrooms !== null && opportunity.min_bedrooms !== undefined &&
+                  <Text style={styles.caption}>Minimum rooms: {opportunity.min_bedrooms}</Text>}
+                {Object.entries(opportunity.preferences ?? {}).some(([, selected]) => selected) &&
+                  <Text style={styles.caption}>
+                    Preferences: {Object.entries(opportunity.preferences ?? {})
+                      .filter(([, selected]) => selected)
+                      .map(([key]) => key.replace(/_/g, " "))
+                      .join(", ")}
+                  </Text>}
                 <Text style={styles.caption}>
                   Valid until {new Date(opportunity.expires_at).toLocaleDateString()}
                 </Text>
