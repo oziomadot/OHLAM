@@ -3,7 +3,7 @@ import {
   ActivityIndicator, Alert, ScrollView, StyleSheet, Text,
   TextInput, TouchableOpacity, View,
 } from "react-native";
-import { Picker } from "@react-native-picker/picker";
+import AppSelect from "components/AppSelect";
 import { useFocusEffect } from "expo-router";
 import Navbar from "components/Navbar";
 import Protected from "components/Protected";
@@ -33,10 +33,6 @@ const amenities = [
   ["wardrope_cabinet", "Wardrobe cabinet"],
   ["compound_cleaner", "Compound cleaner"],
 ] as const;
-
-// The pickers have a white background on both system themes.
-const PICKER_TEXT_COLOR = "#182c49";
-const PICKER_PLACEHOLDER_COLOR = "#64748b";
 
 function extractOptions(response: any, key: "states" | "areas"): Option[] {
   // Both existing Laravel endpoint payloads and the shared API wrapper are
@@ -209,54 +205,43 @@ function RequestPropertyContent() {
           Your request is free and remains active for three months.
         </Text>
         <View style={styles.card}>
-          <Text style={styles.label}>Property category</Text>
-          <View style={styles.picker}>
-            <Picker
-              mode="dialog"
-              style={styles.pickerControl}
-              dropdownIconColor={PICKER_TEXT_COLOR}
-              selectedValue={category}
-              onValueChange={value => {
-                setCategory(value as Category);
-                setBedrooms("");
-                setPreferences({});
-              }}
-            >
-              {categories.map(c => <Picker.Item key={c.value} label={c.label} value={c.value} color={PICKER_TEXT_COLOR} />)}
-            </Picker>
-          </View>
-          <Text style={styles.label}>State *</Text>
-          <View style={styles.picker}>
-            <Picker
-              mode="dialog"
-              style={styles.pickerControl}
-              dropdownIconColor={PICKER_TEXT_COLOR}
-              enabled={!statesLoading}
-              selectedValue={stateId ?? ""}
-              onValueChange={value => setStateId(value === "" ? null : Number(value))}
-            >
-              <Picker.Item label={statesLoading ? "Loading states..." : "Select a state"} value="" color={PICKER_PLACEHOLDER_COLOR} />
-              {states.map(state => <Picker.Item key={state.id} label={state.name} value={state.id} color={PICKER_TEXT_COLOR} />)}
-            </Picker>
-          </View>
-          <Text style={styles.label}>LGA (optional)</Text>
-          <View style={styles.picker}>
-            <Picker
-              mode="dialog"
-              style={styles.pickerControl}
-              dropdownIconColor={PICKER_TEXT_COLOR}
-              selectedValue={areaId ?? ""}
-              onValueChange={value => setAreaId(value === "" ? null : Number(value))}
-              enabled={!!stateId && !areasLoading}
-            >
-              <Picker.Item
-                label={!stateId ? "Select a state first" : areasLoading ? "Loading LGAs..." : "Anywhere in the selected state"}
-                value=""
-                color={PICKER_PLACEHOLDER_COLOR}
-              />
-              {areas.map(area => <Picker.Item key={area.id} label={area.name} value={area.id} color={PICKER_TEXT_COLOR} />)}
-            </Picker>
-          </View>
+          <AppSelect
+            testID="request-property-category"
+            label="Property category"
+            value={category}
+            options={categories}
+            onChange={value => {
+              if (!value) return;
+              setCategory(value);
+              setBedrooms("");
+              setPreferences({});
+            }}
+          />
+          <AppSelect
+            testID="request-property-state"
+            label="State *"
+            placeholder={statesLoading ? "Loading states..." : "Select a state"}
+            value={stateId}
+            options={states.map(state => ({ value: state.id, label: state.name }))}
+            onChange={value => setStateId(value)}
+            disabled={statesLoading}
+            searchable
+          />
+          <AppSelect
+            testID="request-property-area"
+            label="LGA (optional)"
+            placeholder={
+              !stateId ? "Select a state first" :
+              areasLoading ? "Loading LGAs..." : "Anywhere in the selected state"
+            }
+            value={areaId}
+            options={areas.map(area => ({ value: area.id, label: area.name }))}
+            onChange={value => setAreaId(value)}
+            disabled={!stateId || areasLoading}
+            allowClear
+            clearLabel="Anywhere in the selected state"
+            searchable
+          />
           {areasLoading && <Text style={styles.caption}>Loading LGAs for your selected state...</Text>}
           {areaError && <Text style={styles.areaError}>{areaError}</Text>}
           <Text style={styles.label}>Maximum budget (₦, optional)</Text>
@@ -355,8 +340,6 @@ const styles = StyleSheet.create({
   caption: { fontSize: 14, color: "#52647d", lineHeight: 21, marginBottom: 12 },
   card: { backgroundColor: "#fff", padding: 16, borderRadius: 16, marginBottom: 18, elevation: 2 },
   label: { color: "#0f2747", fontWeight: "700", marginBottom: 6, marginTop: 12 },
-  picker: { borderWidth: 1, borderColor: "#d3dce9", borderRadius: 10, overflow: "hidden", backgroundColor: "#fff" },
-  pickerControl: { backgroundColor: "#fff", color: PICKER_TEXT_COLOR },
   areaError: { color: "#8a4600", marginTop: 4, marginBottom: 10, fontSize: 13 },
   input: { borderWidth: 1, borderColor: "#d3dce9", borderRadius: 10, padding: 12, color: "#0f2747", fontSize: 16 },
   note: { minHeight: 85, textAlignVertical: "top" },
