@@ -1492,6 +1492,45 @@ const loadUnreadNotificationCount =
               </View>
             </View>
 
+            <TouchableOpacity
+              accessibilityRole="button"
+              accessibilityLabel="Request property: Can't find your property choice?"
+              activeOpacity={0.85}
+              onPress={async () => {
+                const { getItemSafe } = await import("@/utils/storage");
+                const [token, preAuth, registrationStep] = await Promise.all([
+                  getItemSafe("auth_token"), getItemSafe("pre_auth_token"),
+                  getItemSafe("registration_step"),
+                ]);
+                const step = registrationStep?.trim().toLowerCase();
+                router.push(
+                  token?.trim() && !preAuth?.trim() && (!step || step === "completed")
+                    ? "/(tabs)/request-property"
+                    : "/auth/LoginScreen"
+                );
+              }}
+              style={{
+                marginHorizontal: 16,
+                marginTop: 16,
+                marginBottom: 12,
+                backgroundColor: "#e8f2ff",
+                borderColor: "#84b6ed",
+                borderWidth: 1,
+                padding: 18,
+                borderRadius: 16,
+              }}
+            >
+              <Text style={{ color: "#123a70", fontSize: 18, fontWeight: "800", marginBottom: 5 }}>
+                Can't find your property choice?
+              </Text>
+              <Text style={{ color: "#1e4e83", fontSize: 14, lineHeight: 21 }}>
+                Click here to Request Property, or go to Menu and choose Request Property.
+              </Text>
+              <Text style={{ color: "#1d59aa", fontWeight: "800", marginTop: 9 }}>
+                Request Property →
+              </Text>
+            </TouchableOpacity>
+
             <View
               style={
                 styles.trustBanner
