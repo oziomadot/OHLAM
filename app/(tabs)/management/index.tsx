@@ -130,6 +130,15 @@ export default function ManagementScreen() {
       ) : null}
       {can("support.view") ? <>
         <Text>Access: {access?.role}. Searches and support actions are recorded.</Text>
+        {can("property_requests.view") && (
+          <TouchableOpacity
+            accessibilityRole="button"
+            style={styles.primary}
+            onPress={() => router.push("/(tabs)/management/property-requests" as never)}
+          >
+            <Text style={styles.white}>Property Requests · Review and forward</Text>
+          </TouchableOpacity>
+        )}
         <TouchableOpacity style={styles.primary} onPress={() => router.push("/(tabs)/chat" as never)}>
           <Text style={styles.white}>Open user support chats</Text>
         </TouchableOpacity>
