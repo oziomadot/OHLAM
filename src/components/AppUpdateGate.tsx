@@ -5,6 +5,7 @@ import {
 } from "react-native";
 import * as Application from "expo-application";
 import { API } from "@/src/services/api";
+import { ENV } from "@/src/config/env";
 
 type ReleaseStatus = {
   update_available: boolean;
@@ -26,7 +27,7 @@ export function AppUpdateGate() {
   const running = useRef(false);
 
   const check = useCallback(async () => {
-    if (Platform.OS !== "android" || __DEV__ || running.current) return;
+    if (Platform.OS !== "android" || ENV.APP_ENV !== "production" || __DEV__ || running.current) return;
     // Native build number is authoritative; EAS OTA JS version is not.
     const build = Number(Application.nativeBuildVersion);
     if (!Number.isSafeInteger(build) || build < 1) return;
@@ -80,7 +81,7 @@ export function AppUpdateGate() {
     }
   };
 
-  if (Platform.OS !== "android") return null;
+  if (Platform.OS !== "android" || ENV.APP_ENV !== "production") return null;
 
   return (
     <Modal
