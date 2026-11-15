@@ -19,6 +19,7 @@ import { setupNotificationChannels } from "@/src/services/notifications";
 import API from "@/src/services/api";
 import { getItemSafe } from "@/utils/storage";
 import { notificationRoute } from "@/src/services/notificationRoute";
+import { AppUpdateGate } from "@/src/components/AppUpdateGate";
 
 /*
  * Controls notifications received while OHLAM is open.
@@ -236,6 +237,7 @@ export default function RootLayout() {
       <AuthProvider>
         <SafeAreaView style={{ flex: 1 }}>
           <OramexBanner />
+          <AppUpdateGate />
 
           <Stack
             screenOptions={{
